@@ -155,7 +155,7 @@
     var d = c.d, ss = d.session;
     document.getElementById('hdr-session').textContent = ss.name + (ss.running ? ' - remaining' : ss.finished ? ' - finished' : ' - starts in') + ' | ' + (cfg.rules.organiser || '').split(' (')[0].split(' - ')[0];
     var dur = ss.isRace && d.plan ? d.plan.raceEndTs - ss.startTs : ss.durationMs;
-    document.getElementById('hdr-elapsed').textContent = 'elapsed ' + U.dur(ss.started ? ss.elapsedMs : 0);
+    document.getElementById('hdr-elapsed').textContent = U.dur(ss.started ? ss.elapsedMs : 0);
     document.getElementById('hdr-remaining').textContent = ss.started ? U.dur(Math.max(0, dur - ss.elapsedMs - ss.pausedMs)) : (ss.plannedStart ? U.dur(Math.max(0, ss.plannedStart - c.now)) : U.dur(dur));
     document.getElementById('hdr-local').textContent = U.clock(c.now, true);
     document.getElementById('hdr-lap').textContent = ss.running ? (d.lastLap ? d.lastLap.n + 1 : 1) : '-';
