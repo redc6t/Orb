@@ -13,7 +13,9 @@
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.4; }
+html, body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 16px; line-height: 1.4; }
+/* 2.2.2: content runs at 16px; the status bar and footer stay at the old 14px base */
+#top, #brandfoot { font-size: 14px; }
 body { min-height: 100vh; display: flex; flex-direction: column; padding-bottom: env(safe-area-inset-bottom, 0); }
 button, input, select, textarea { font: inherit; color: inherit; }
 .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
@@ -84,7 +86,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 /* ---------------- layout */
 #view { padding: 10px 16px 40px; }
-#brandfoot { margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--line); color: var(--sub); font-size: .78em; letter-spacing: .02em; text-align: center; }
+#brandfoot { margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--line); color: var(--sub); letter-spacing: .02em; text-align: center; }
+#brandfoot > * { font-size: .78em; }
 #brandfoot { flex-wrap: wrap; }
 #brandfoot #brandprod { color: var(--text2); }
 #brandfoot .sep-dot { color: var(--dim); }
@@ -197,11 +200,12 @@ tr.stoprow.past td { color: var(--sub); }
 details > summary { cursor: pointer; color: var(--sub); font-size: .85em; padding: 4px 0; }
 
 /* ---------------- gantt */
-.grow { display: grid; grid-template-columns: 140px 1fr; align-items: center; gap: 8px; height: 24px; }
-.gtrack { position: relative; height: 16px; background: var(--well); border-radius: 4px; overflow: hidden; }
+.grow { display: grid; grid-template-columns: 140px 1fr; align-items: center; gap: 8px; height: 42px; }
+.gtrack { position: relative; height: 34px; background: var(--well); border-radius: 4px; overflow: hidden; }
 .gblk { position: absolute; top: 2px; bottom: 2px; border-radius: 3px; }
-.g-duty { background: rgba(140,146,156,.35); } .g-resting { background: rgba(167,139,250,.5); } .g-offline { background: #2a2c30; } .g-flag { background: rgba(253,98,32,.6); }
-.g-unavailable { background: rgba(224,48,48,.5); } .g-drive { background: var(--cyan); top: 5px; bottom: 5px; }
+/* contrasting status colours: green duty, amber resting, blue sleeping, orange flag, red unavailable, white driving */
+.g-duty { background: rgba(0,200,70,.55); } .g-resting { background: #FFB020; } .g-sleeping { background: #2F6BFF; } .g-offline { background: #3a3d43; } .g-flag { background: #FD6220; }
+.g-unavailable { background: #E03030; } .g-drive { background: #F4F4F4; top: 10px; bottom: 10px; }
 .g-now { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; }
 
 /* ---------------- garage display (big type for the crew screen) */
@@ -346,7 +350,6 @@ label.f[data-tip] { text-decoration: underline dotted #4a4d53; text-underline-of
 /* garage display: big white titles */
 .g-label { font-size: 1.35em; color: #ffffff; font-weight: 700; letter-spacing: .06em; margin-bottom: 8px; }
 .g-card .btn { font-size: .6em; vertical-align: middle; }
-.g-sleeping { background: rgba(109,91,208,.65); }
 
 /* ---------------- 2.2: stop handshake (GEO = geofence, ENG = engineer) */
 .toppanel { margin-bottom: 12px; }

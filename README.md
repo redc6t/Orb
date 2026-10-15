@@ -2,7 +2,7 @@
 
 Offline, self-hosted pit wall strategist for endurance racing. Your PC runs the server. The browser on the PC is the engineer screen; any phone, tablet or laptop on the same network opens the same screens view-only.
 
-Version 2.2.1. The version lives in `package.json` only; the server console and the footer of every page read it from there. Version 2 is a UI overhaul of the 1.x classic layout with the same features, server, engine and data format, and reads the same `data` folder.
+Version 2.2.2. The version lives in `package.json` only; the server console and the footer of every page read it from there. Version 2 is a UI overhaul of the 1.x classic layout with the same features, server, engine and data format, and reads the same `data` folder.
 
 ## What changed in 2.0 and why
 
@@ -117,6 +117,11 @@ PLTD v0.17 has no impact output. Sending `{"t":"impact",...}` from a future firm
 - **MESSAGE** (driver only, no effect on the plan): the pit board. BOX BOX does not create a stop; the stop starts when the car crosses the pit-entry geofence.
 
 The feed and log tag every item accordingly.
+
+## Changes in 2.2.2
+
+- **Bigger text:** the base font goes from 14 px to 16 px across every tab, card, form, modal and toast. The status bar (team, car, race clock, lap, car state) and the page footer keep their old size.
+- **Shifts & sleep (Team tab):** bars are about twice as tall, and the colours now contrast clearly: green duty, amber resting, blue sleeping, orange flag duty, red unavailable, dark grey offline, white driving (faded = planned). The legend uses the same colours as the bars and now lists unavailable.
 
 ## Changes in 2.2.1
 
