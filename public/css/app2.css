@@ -341,3 +341,68 @@ label.f[data-tip] { text-decoration: underline dotted #4a4d53; text-underline-of
 .g-label { font-size: 1.35em; color: #ffffff; font-weight: 700; letter-spacing: .06em; margin-bottom: 8px; }
 .g-card .btn { font-size: .6em; vertical-align: middle; }
 .g-sleeping { background: rgba(109,91,208,.65); }
+
+/* ---------------- 2.2: stop handshake (GEO = geofence, ENG = engineer) */
+.toppanel { margin-bottom: 12px; }
+.hsrows { margin-top: 8px; background: var(--well); border-radius: 8px; padding: 4px 10px; }
+.hsrow { display: grid; grid-template-columns: 118px auto minmax(120px, 1fr) auto; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.hsrow:last-child { border-bottom: none; }
+.hsrow .hs-n { color: var(--sub); font-size: .8em; text-transform: uppercase; letter-spacing: .05em; }
+.hsrow .hs-st { font-size: .8em; font-weight: 600; }
+.hsrow .hs-ctl { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.hsrow.cur .hs-n { color: var(--amber); }
+.hsrow.m-geo { box-shadow: inset 3px 0 0 var(--amber); padding-left: 6px; }
+.hsrow.m-skip { opacity: .5; }
+.hs-marks { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.hs { font-family: var(--mono); font-size: .72em; font-weight: 700; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--line2); color: var(--dim); white-space: nowrap; }
+.hs.on { border-color: #1d5c33; color: var(--green); background: #0f2e1b; }
+.hs.wait { border-style: dashed; color: var(--sub); }
+.hs.off { color: var(--dim); text-decoration: line-through; }
+.hs.auto { color: var(--text2); border-color: #4a4d53; }
+.hs.na { color: var(--dim); border-color: var(--line); }
+.hs.pre { color: var(--sub); border-style: dashed; }
+@media (max-width: 760px) { .hsrow { grid-template-columns: 1fr auto; } .hsrow .hs-st { grid-column: 1 / -1; } .hsrow .hs-ctl { grid-column: 1 / -1; justify-content: flex-start; } }
+
+/* ---------------- 2.2: Fuel Plan - horizontal fuel-stop timeline */
+.fptl { position: relative; height: 140px; margin-top: 4px; }
+.fp-track { position: absolute; left: 0; right: 0; top: 96px; height: 10px; background: var(--well); border: 1px solid var(--line); border-radius: 5px; }
+.fp-past { position: absolute; left: 0; top: 97px; height: 8px; background: #26282c; border-radius: 5px 0 0 5px; }
+.fp-win { position: absolute; top: 96px; height: 10px; background: rgba(206, 147, 216, .35); }
+.fp-now { position: absolute; top: 86px; height: 30px; width: 2px; margin-left: -1px; background: #fff; }
+.fp-mk { position: absolute; top: 90px; width: 8px; height: 22px; margin-left: -4px; border-radius: 3px; border: none; background: var(--fuel); cursor: pointer; padding: 0; }
+.fp-mk.done { background: #6a6f78; } .fp-mk.live { background: var(--amber); } .fp-mk.sel { box-shadow: 0 0 0 2px var(--cyan); }
+.fp-lead { position: absolute; width: 1px; background: var(--line2); }
+.fp-lead.plan { background: rgba(206, 147, 216, .45); }
+.fp-lbl { position: absolute; transform: translateX(-50%); white-space: nowrap; background: var(--panel); border: 1px solid var(--line2); border-radius: 6px; padding: 1px 6px; font-size: .7em; line-height: 1.25; text-align: left; cursor: pointer; color: var(--text2); display: flex; flex-direction: column; }
+.fp-lbl b { font-family: var(--mono); color: var(--text); }
+.fp-lbl span { color: var(--sub); }
+.fp-lbl.al { transform: none; } .fp-lbl.ar { transform: translateX(-100%); }
+.fp-lbl.plan { border-color: #5b3f66; } .fp-lbl.plan b { color: var(--fuel); }
+.fp-lbl.done { opacity: .6; } .fp-lbl.live { border-color: var(--amber); } .fp-lbl.live b { color: var(--amber); }
+.fp-lbl.set { border-style: dashed; border-color: var(--fuel); }
+.fp-lbl.sel { border-color: var(--cyan); box-shadow: 0 0 0 1px var(--cyan); }
+.fp-lbl:hover, .fp-mk:hover { border-color: var(--cyan); }
+.fp-ghost { position: absolute; top: 108px; width: 0; height: 12px; margin-left: -1px; border-left: 2px dashed var(--fuel); }
+.fp-tick { position: absolute; top: 122px; transform: translateX(-50%); font-size: .68em; color: var(--sub); font-family: var(--mono); }
+.lg { display: inline-block; width: 12px; height: 8px; border-radius: 2px; vertical-align: middle; }
+.fp-l-done { background: #6a6f78; } .fp-l-plan { background: var(--fuel); } .fp-l-live { background: var(--amber); }
+.fp-l-set { border: 1px dashed var(--fuel); } .fp-l-win { background: rgba(206, 147, 216, .35); } .fp-l-ghost { border-left: 2px dashed var(--fuel); width: 2px; }
+.fp-who { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: .88em; margin: 6px 0 4px; }
+.fp-who .r { color: var(--sub); }
+
+/* ---------------- 2.2: Fuel Plan - vertical step timeline */
+.vt { position: relative; margin-left: 58px; }
+.vt-row { position: relative; padding: 2px 0 12px 16px; border-left: 2px solid var(--line2); }
+.vt-row:last-child { border-left-color: transparent; }
+.vt-row::before { content: ''; position: absolute; left: -6px; top: 4px; width: 10px; height: 10px; border-radius: 50%; background: var(--panel); border: 2px solid var(--line2); }
+.vt-row.gate::before { border-color: var(--fuel); }
+.vt-row.m-hs::before, .vt-row.m-ok::before { background: var(--green); border-color: var(--green); }
+.vt-row.m-geo::before { background: var(--amber); border-color: var(--amber); }
+.vt-row.m-eng::before { background: var(--cyan); border-color: var(--cyan); }
+.vt-row.m-auto::before { background: #6a6f78; border-color: #6a6f78; }
+.vt-row.cur .vt-title { color: var(--amber); }
+.vt-t { position: absolute; left: -62px; width: 50px; text-align: right; top: 1px; font-size: .82em; color: var(--sub); }
+.vt-title { font-weight: 700; }
+.vt-who { font-size: .86em; margin-top: 2px; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.vt-what { margin-top: 2px; }
+.vt-hs { margin-top: 4px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: .9em; }

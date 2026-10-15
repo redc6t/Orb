@@ -5,7 +5,7 @@
   var MIN = 60000;
   var App = window.PWApp = {
     role: 'viewer', meta: null, config0: null, events: [], state: null, live: {}, devices: {}, offset: 0,
-    tab: (function () { var t = localStorage.getItem('pw2.tab'); return ['race', 'plan', 'plans', 'team', 'car', 'garage', 'log', 'setup'].indexOf(t) >= 0 ? t : 'race'; })(), whatIf: null, replay: null, logFilter: { type: 'nolaps' }, dirty: {}, formSeq: {}, ws: null, layoutKey: null
+    tab: (function () { var t = localStorage.getItem('pw2.tab'); return ['race', 'plan', 'fuel', 'plans', 'team', 'car', 'garage', 'log', 'setup'].indexOf(t) >= 0 ? t : 'race'; })(), whatIf: null, replay: null, logFilter: { type: 'nolaps' }, dirty: {}, formSeq: {}, ws: null, layoutKey: null
   };
   var viewEl = document.getElementById('view');
 
@@ -16,6 +16,8 @@
     if (!App.ws || App.ws.readyState !== 1) { U.toast('Not connected', 'crit'); return; }
     App.ws.send(JSON.stringify({ t: 'action', type: type, payload: payload || {} }));
   };
+  // the fuel stop selected on the Fuel Plan tab (by time, so it survives re-numbering as stops are completed)
+  App.fuelSelTs = function () { var c = App.lastCtx, f = c && c.fp ? V.fuelSelected(c) : null; return f ? f.ts : null; };
   App.goTab = function (t) { App.tab = t; try { localStorage.setItem('pw2.tab', t); } catch (e) { /* private mode */ } App.layoutKey = null; renderAll(true); };
 
   /* ------------------------------------------------------------ connection */
@@ -75,11 +77,51 @@
       App.dropCache = { at: now, seq: s.seq, wi: JSON.stringify(App.whatIf), val: found || { none: true } };
     }
     var base = App.whatIf && App.tab === 'strategy' ? E.derive(s, now, null) : null;
-    return { s: s, d: d, base: base, eng: App.role === 'engineer' && !App.replay, live: App.replay ? {} : App.live, devices: App.devices, now: now,
+    var fp = App.tab === 'fuel' && d.plan ? E.fuelPlan(s, d) : null;
+    return { s: s, d: d, base: base, fp: fp, fuelSel: App.fuelSel, fuelEdit: App.fuelEdit || null, fpPreview: fp && !App.replay ? fuelPreview(s, now, d) : null, eng: App.role === 'engineer' && !App.replay, live: App.replay ? {} : App.live, devices: App.devices, now: now,
       whatIf: App.whatIf, whatIfOn: !!App.whatIf, replay: App.replay, events: App.replay ? App.events.filter(function (e) { return e.ts <= App.replay.t; }) : App.events,
       scen: App.tab === 'plans' ? scenarios(s, now) : null, planEdit: App.planEdit || null, svcFix: App.svcFix || null,
       drop: App.tab === 'plan' && App.dropCache ? App.dropCache.val : null, allEvents: App.events, logFilter: App.logFilter, meta: App.meta, map: App.map, posHist: App.posHist };
   }
+
+  /* ------------------------------------------------------------ fuel plan: litres per stop, re-planned through the running scenario */
+  // pin stops 1..k at their times; stop k gets `litres` (null = back to the planner's litres); litres set earlier stay set
+  function litresPins(stops, k, litres) {
+    var now = App.now();
+    return stops.filter(function (x) { return x.k <= k && !x.event && x.ts > now - 60000; }).map(function (x) {
+      var a = x.k === k ? litres : x.litresSet;
+      var p = { ts: x.ts, fuel: x.k === k ? (litres == null ? true : litres > 0) : x.add > 0, driverIn: x.change ? x.driverIn : null };
+      if (a > 0) p.add = a;
+      return p;
+    });
+  }
+  function fuelPreview(s, now, d) {
+    var e = App.fuelEdit; if (!e || !d.plan) return null;
+    var st = d.plan.stops.filter(function (x) { return Math.abs(x.ts - e.ts) < 60000; })[0];
+    if (!st) return null;
+    var key = s.seq + ':' + e.ts + ':' + e.litres + ':' + Math.floor(now / 5000);
+    if (!App.fpCache || App.fpCache.key !== key) {
+      var dd = E.derive(s, now, { pins: litresPins(d.plan.stops, st.k, e.litres) });
+      App.fpCache = { key: key, val: { litres: e.litres, fromTs: st.ts, plan: dd.plan } };
+    }
+    return App.fpCache.val;
+  }
+  // the running strategy is the active scenario; if scenarios were never created, create them first (A = clean race)
+  function setRunningPins(pins) {
+    var s = App.state, sc = s.scenarios || {};
+    if (!sc.order || !sc.order.length) {
+      var tpl = E.scenarioTemplates(s, App.now());
+      App.send('scenario.init', { plans: tpl });
+      var defA = R.clone(tpl.filter(function (p) { return p.id === 'A'; })[0].def); defA.pins = pins;
+      App.send('scenario.set', { id: 'A', def: defA });
+      return 'A';
+    }
+    var id = sc.active && sc.plans[sc.active] ? sc.active : sc.order[0];
+    var def = R.clone(sc.plans[id].cur); def.pins = pins;
+    App.send('scenario.set', { id: id, def: def });
+    return id;
+  }
+  function fuelStopAt(ts) { var d = E.derive(App.state, App.now(), App.whatIf); return d.plan ? { d: d, st: d.plan.stops.filter(function (x) { return Math.abs(x.ts - ts) < 60000; })[0] } : null; }
 
   function scenarios(s, now) {
     if (!s.scenarios || !s.scenarios.order.length) return null;
@@ -179,14 +221,15 @@
     document.getElementById('timeline-wrap').hidden = App.tab === 'garage';
     var c = ctx(); App.lastCtx = c;
     renderHeader(c); renderTimeline(c);
-    var v = V[App.tab](c);
-    var key = App.tab + ':' + v.cols.map(function (col) { return col.map(function (p) { return p.id; }).join(','); }).join('|');
+    var v = V[App.tab](c), top = v.top || [];
+    var key = App.tab + ':' + top.map(function (p) { return p.id; }).join(',') + '/' + v.cols.map(function (col) { return col.map(function (p) { return p.id; }).join(','); }).join('|');
     if (force || key !== App.layoutKey) {
       App.layoutKey = key; App.dirty = {};
-      viewEl.innerHTML = '<div class="' + v.layout + '">' + v.cols.map(function (col) { return '<div class="col">' + col.map(function (p) { return '<div data-panel="' + p.id + '"></div>'; }).join('') + '</div>'; }).join('') + '</div>';
+      viewEl.innerHTML = top.map(function (p) { return '<div class="toppanel" data-panel="' + p.id + '"></div>'; }).join('') +
+        '<div class="' + v.layout + '">' + v.cols.map(function (col) { return '<div class="col">' + col.map(function (p) { return '<div data-panel="' + p.id + '"></div>'; }).join('') + '</div>'; }).join('') + '</div>';
     }
     App.formSeq.changed = false;
-    v.cols.forEach(function (col) {
+    [top].concat(v.cols).forEach(function (col) {
       col.forEach(function (p) {
         var el = viewEl.querySelector('[data-panel="' + p.id + '"]');
         if (!el) return;
@@ -297,6 +340,26 @@
       App.send('gate.cmd', { gate: 'fuel', stopId: b.getAttribute('data-stop'), service: { fuelAdded: fuel || 0, cans: noFuel ? 0 : cans, brimmed: !noFuel && checked('ps-brim'), capacityL: P.capacity,
         fuelBeforeL: numv('ps-before'), tyreOn: tyreOn, tyreOffDepths: tyreOn && depths.some(function (x) { return x != null; }) ? depths : null, issuesFixed: fixes, penalty: val('ps-pen') || null } });
       App.dirty.gatefuel = false; App.svcFix = null;
+    },
+    fpsel: function (b) { App.fuelSel = +b.getAttribute('data-ts'); App.fuelEdit = null; App.dirty.fpstop = 0; renderAll(false); },
+    fpstep: function (b) {
+      var i = document.getElementById('fp-l'); if (!i) return;
+      var v = Math.max(0, Math.min(+i.max || 999, (+i.value || 0) + +b.getAttribute('data-d')));
+      App.fuelEdit = { ts: App.fuelSelTs(), litres: v }; App.dirty.fpstop = 0; renderAll(false);
+    },
+    fpbrim: function (b) { App.fuelEdit = { ts: App.fuelSelTs(), litres: +b.getAttribute('data-l') }; App.dirty.fpstop = 0; renderAll(false); },
+    fpcancel: function () { App.fuelEdit = null; App.dirty.fpstop = 0; renderAll(false); },
+    fpapply: function (b) {
+      var ts = +b.getAttribute('data-ts'), x = fuelStopAt(ts); if (!x || !x.st) return U.toast('That stop is no longer in the plan', 'warn', null, false);
+      var l = App.fuelEdit && App.fuelEdit.ts === ts ? App.fuelEdit.litres : numv('fp-l');
+      if (l == null || isNaN(l)) return U.toast('Enter the litres first', 'warn', null, false);
+      var id = setRunningPins(litresPins(x.d.plan.stops, x.st.k, l));
+      U.toast('Scenario ' + id + ': fuel stop at ' + U.clock(ts) + ' set to ' + l + ' L - later stops re-planned', 'info', null, false);
+      App.fuelEdit = null; App.dirty.fpstop = 0;
+    },
+    fpauto: function (b) {
+      var ts = +b.getAttribute('data-ts'), x = fuelStopAt(ts); if (!x || !x.st) return;
+      setRunningPins(litresPins(x.d.plan.stops, x.st.k, null)); App.fuelEdit = null; App.dirty.fpstop = 0;
     },
     svcfix: function (b) { App.svcFix = b.getAttribute('data-stop'); App.layoutKey = null; renderAll(true); },
     plansinit: function () { App.send('scenario.init', { plans: E.scenarioTemplates(App.state, App.now()) }); },
@@ -488,14 +551,18 @@
   function fuelMoveDef(id, fromK, toK, stops) {
     stops = stops || planStops(id); var now = App.now(), last = Math.max(fromK, toK);
     var pins = stops.filter(function (x) { return x.k <= last && !x.event && x.ts > now - 60000; }).map(function (x) {
-      return { ts: x.ts, fuel: x.k === fromK ? false : x.k === toK ? true : x.add > 0, driverIn: x.change ? x.driverIn : null };
+      var p = { ts: x.ts, fuel: x.k === fromK ? false : x.k === toK ? true : x.add > 0, driverIn: x.change ? x.driverIn : null };
+      if (x.litresSet && x.k !== fromK && x.k !== toK) p.add = x.litresSet;
+      return p;
     });
     var def = R.clone(App.state.scenarios.plans[id].cur); def.pins = pins; return def;
   }
   function pinDef(id, k, newTs, fuelK, stops) {
     stops = stops || planStops(id); var now = App.now();
     var pins = stops.filter(function (x) { return x.k <= k && !x.event && x.ts > now - 60000; }).map(function (x) {
-      return { ts: x.k === k && newTs ? newTs : x.ts, fuel: x.k === k && fuelK != null ? fuelK : x.add > 0, driverIn: x.change ? x.driverIn : null };
+      var p = { ts: x.k === k && newTs ? newTs : x.ts, fuel: x.k === k && fuelK != null ? fuelK : x.add > 0, driverIn: x.change ? x.driverIn : null };
+      if (x.litresSet && !(x.k === k && fuelK === false)) p.add = x.litresSet;
+      return p;
     });
     var def = R.clone(App.state.scenarios.plans[id].cur); def.pins = pins; return def;
   }
@@ -609,6 +676,7 @@
     var p = e.target.closest('[data-panel]'); if (p) App.dirty[p.getAttribute('data-panel')] = Date.now();
     if (App.tab === 'setup') App.dirty.setup = Date.now();
     if (e.target.getAttribute('data-act-input') === 'scrub') { replayAt(+e.target.value); App.formSeq.changed = true; }
+    if (e.target.id === 'fp-l' && e.target.value !== '') { App.fuelEdit = { ts: App.fuelSelTs(), litres: Math.max(0, +e.target.value) }; scheduleRender(); }
   });
   viewEl.addEventListener('change', function (e) {
     if (App.tab === 'setup' && SU.onChange(e, viewEl)) return;

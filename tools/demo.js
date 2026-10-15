@@ -1,6 +1,6 @@
 'use strict';
 // Builds a demo weekend so every panel has data:
-//   BEERS 36h at Collie, Lancer, 6 drivers + 4 crew, practice done, race running for 6 h.
+//   BEERS 36h at Collie, team Mitsukitty, Lancer, 6 drivers + 2 engineers, practice done, race running for 6 h.
 //   node tools/demo.js [--hours 6]   then   npm start   and   npm run sim
 // Devices point at the local simulator (PLTD 127.0.0.1:8081, BTTM 127.0.0.1:8082).
 const path = require('path');
@@ -16,23 +16,24 @@ const HOURS = +arg('hours', 6);
 const DATA = process.env.PITWALL_DATA || path.join(__dirname, '..', 'data');
 const store = new Store(DATA);
 
+// Team Mitsukitty. Fuel operator = fire attendant + jerry can holder (refueller) + refueller assistant.
+// Radio duty = Raceceiver relay, lap time duty = timing.
+const FUEL = ['refueller', 'assistant', 'fire'];
 const members = [
-  { id: 'd1', name: 'Pete', driver: true, roles: ['driver', 'engineer'] },
-  { id: 'd2', name: 'Alex', driver: true, roles: ['driver', 'fire'] },
-  { id: 'd3', name: 'Sam', driver: true, roles: ['driver', 'refueller'] },
-  { id: 'd4', name: 'Jordan', driver: true, roles: ['driver', 'fire'] },
-  { id: 'd5', name: 'Chris', driver: true, roles: ['driver', 'fire'] },
-  { id: 'd6', name: 'Robin', driver: true, roles: ['driver', 'fire', 'refueller'] },
-  { id: 'c1', name: 'Kim', driver: false, roles: ['mechanic', 'refueller'] },
-  { id: 'c2', name: 'Lee', driver: false, roles: ['mechanic', 'assistant', 'cutoff', 'pump', 'refueller'] },
-  { id: 'c3', name: 'Max', driver: false, roles: ['fire', 'raceceiver'] },
-  { id: 'c4', name: 'Jess', driver: false, roles: ['raceceiver', 'timing', 'assistant'] }
+  { id: 'd1', name: 'Mal', driver: true, roles: ['driver', 'mechanic', 'refueller', 'assistant', 'cutoff', 'pump', 'fire', 'raceceiver', 'engineer', 'timing'] },   // owner: every role
+  { id: 'd2', name: 'Tanna', driver: true, roles: ['driver', 'mechanic'].concat(FUEL, ['raceceiver', 'timing']) },
+  { id: 'd3', name: 'Pat', driver: true, roles: ['driver', 'mechanic'].concat(FUEL, ['raceceiver', 'timing']) },
+  { id: 'd4', name: 'Jared', driver: true, roles: ['driver', 'mechanic'].concat(FUEL, ['raceceiver', 'timing']) },
+  { id: 'd5', name: 'Driver4', driver: true, roles: ['driver'].concat(FUEL) },
+  { id: 'd6', name: 'Driver5', driver: true, roles: ['driver'].concat(FUEL) },
+  { id: 'e1', name: 'Pietro', driver: false, roles: ['mechanic', 'timing', 'raceceiver', 'engineer'] },
+  { id: 'e2', name: 'Rhys', driver: false, roles: ['mechanic', 'timing', 'raceceiver', 'engineer'] }
 ];
 const now = Date.now();
 const raceStart = now - HOURS * 3600e3;
 const pracStart = raceStart - 3 * 3600e3;
 const cfg = D.makeConfig({ id: 'demo-collie-36h', name: 'DEMO - BEERS 36h Collie', rulesId: 'beers-v4-2025-02', formatId: '36h', trackId: 'collie-motorplex',
-  members, teamName: 'Demo Racing', carNumber: '36', raceStart: new Date(raceStart).toISOString(), expectedLapS: 92 });
+  members, teamName: 'Mitsukitty', raceStart: new Date(raceStart).toISOString(), expectedLapS: 92 });
 cfg.car.tanks.confirmed = true;
 cfg.sessions[0].plannedStart = new Date(pracStart).toISOString();
 cfg.sessions[1].plannedStart = new Date(pracStart + 90 * 60e3).toISOString();
@@ -62,10 +63,10 @@ const at = h => raceStart + h * 3600e3;
 const extra = [
   [at(0.6), 'pitmsg.send', { text: 'PUSH', pri: 1, delivered: true }],
   [at(1.4), 'issue.add', { cat: 'brakes', sev: 'warn', text: 'Driver reports long brake pedal into T1', nextStop: true, src: 'manual' }],
-  [at(2.2), 'crew.status', { memberId: 'c4', status: 'flag', reason: 'Marshal post 3 until 14:00' }],
+  [at(2.2), 'crew.status', { memberId: 'e2', status: 'resting', reason: 'Rhys off the wall for a 2 h break' }],
   [at(2.9), 'issue.add', { cat: 'body', sev: 'info', text: 'Rear bumper tape lifting', nextStop: false, src: 'manual' }],
   [at(3.3), 'penalty.add', { kind: 'Black flag warning', minutes: 0, driverId: s.drivers.stints.length > 2 ? s.drivers.stints[2].driverId : 'd3', reason: 'Two wheels off at T4', blackFlag: true }],
-  [at(4.2), 'crew.status', { memberId: 'c4', status: 'auto', reason: '' }],
+  [at(4.2), 'crew.status', { memberId: 'e2', status: 'auto', reason: '' }],
   [at(4.8), 'issue.add', { cat: 'engine', sev: 'warn', text: 'Check oil level at next fuel stop', nextStop: true, src: 'manual' }]
 ];
 extra.forEach(x => { if (x[0] < now) push(x[0], x[1], x[2]); });
@@ -80,7 +81,14 @@ members.filter(m => m.driver).forEach(m => {
   const st = s2.drivers.stints.filter(x => x.driverId === m.id && x.sessionId === 'race').map(x => [x.startTs, x.endTs || now])
     .concat(d.plan.stints.filter(x => x.driverId === m.id).map(x => [x.fromTs, x.endTs])).sort((a, b) => a[0] - b[0]);
   const bl = []; let cur = raceStart - HOUR;
-  st.forEach(x => { const f = x[0] - 45 * 60e3; if (f - cur >= 3 * HOUR) bl.push({ startTs: cur + 30 * 60e3, endTs: f - 15 * 60e3, kind: f - cur >= 5 * HOUR ? 'sleeping' : 'resting', note: f - cur >= 5 * HOUR ? 'sleep' : 'rest' }); bl.push({ startTs: Math.max(cur, f), endTs: x[1] + 30 * 60e3, kind: 'duty', note: 'stint + debrief' }); cur = x[1] + 30 * 60e3; });
+  // Mitsukitty's drivers are also its fuel crew: between stints they are on duty in the garage / fuel bay,
+  // with one sleep block (max 4 h) in a long gap or a short rest in a medium one
+  st.forEach(x => {
+    const f = x[0] - 45 * 60e3, gap = f - cur;
+    if (gap >= 6 * HOUR) bl.push({ startTs: cur + HOUR, endTs: cur + HOUR + Math.min(4 * HOUR, gap - 3 * HOUR), kind: 'sleeping', note: 'sleep' });
+    else if (gap >= 3 * HOUR) bl.push({ startTs: cur + 30 * 60e3, endTs: cur + 2 * HOUR, kind: 'resting', note: 'rest' });
+    bl.push({ startTs: Math.max(cur, f), endTs: x[1] + 30 * 60e3, kind: 'duty', note: 'stint + debrief' }); cur = x[1] + 30 * 60e3;
+  });
   shifts[m.id] = bl;
 });
 members.filter(m => !m.driver).forEach((m, i) => {

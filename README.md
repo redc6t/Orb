@@ -2,7 +2,7 @@
 
 Offline, self-hosted pit wall strategist for endurance racing. Your PC runs the server. The browser on the PC is the engineer screen; any phone, tablet or laptop on the same network opens the same screens view-only.
 
-Version 2.1.4 (Pro2): a UI overhaul of Pro1 with the same features, server, engine and data format. Pro1 stays available as the full classic layout. Both read the same `data` folder, so you can switch between them on the same weekend (run one at a time).
+Version 2.2.0 (Pro2): a UI overhaul of Pro1 with the same features, server, engine and data format. Pro1 stays available as the full classic layout. Both read the same `data` folder, so you can switch between them on the same weekend (run one at a time).
 
 ## What changed in Pro2 and why
 
@@ -26,7 +26,7 @@ The layout follows patterns that recur in established tools:
   - **Feed:**
     - **Attention:** unacknowledged alerts with an Ack button, plus jobs for the next stop with a Fixed button.
     - **Race story:** flags, stops, pit board, issues, crew changes. Alerts move here only once acknowledged.
-- **Plan:** one stint table (done, now and plan with stops inline), plus the fuel trace, fuel model, what-if and regulations. "Drop one fuel stop" now re-runs the real planner at reduced burn until a fuel stop actually disappears. Pro1's litres-only estimate could show "<0.01 L/lap" where the true figure was 8%.
+- **Race Plan** (was Plan): one stint table (done, now and plan with stops inline), plus the fuel trace, fuel model, what-if and regulations. "Drop one fuel stop" now re-runs the real planner at reduced burn until a fuel stop actually disappears. Pro1's litres-only estimate could show "<0.01 L/lap" where the true figure was 8%.
 - **Team:** one roster table (rotation order, presence, status control, duty hours, drive stats) and the shift plan.
 - **Car:** issues, tyres with life bars, full BTTM detail with alarms, penalties.
 - **Garage display:** big type for a crew TV or tablet:
@@ -117,6 +117,42 @@ PLTD v0.17 has no impact output. Sending `{"t":"impact",...}` from a future firm
 - **MESSAGE** (driver only, no effect on the plan): the pit board. BOX BOX does not create a stop; the stop starts when the car crosses the pit-entry geofence.
 
 The feed and log tag every item accordingly.
+
+## Changes in 2.2.0
+
+- **Tabs:** Plan is now **Race Plan**, and the new **Fuel Plan** sits between it and Scenarios.
+- **Fuel Plan:**
+  - One timeline with only the fuel stops of the plan being run (done, in progress, planned). Each stop has a short label: time, litres, cans and the driver coming in.
+  - Click a stop for its detail:
+    - litres on arrival, litres to add, and litres on leaving
+    - jerry cans to bring, for example 4 x 20 L = 3 full + 1 with 4.5 L
+    - the refuel crew by role, and the driver change
+    - who else attends: pit wall engineer, radio, timing, mechanic
+  - A step-by-step procedure for that stop, from the refuel crew going to the bay through to pit out, with times, names and each step's GEO / ENG handshake.
+  - **Change the litres of a stop:** a preview shows where every later fuel stop moves, the fuel stop count and the finish fuel. Less fuel brings the next fuel stop closer; more pushes it later. Apply it and the running scenario re-plans. Reset on Scenarios undoes it.
+  - Crew for later stops is forecast from the shift plan. The next stop uses whoever is available now.
+- **Stop handshake** (replaces the four-step gate strip): every step has two signals. **GEO** means the PLTD geofence saw it; **ENG** means you confirmed it. Both together = HANDSHAKE.
+
+| Step | GEO | ENG |
+|---|---|---|
+| Pit in | pit-entry geofence | PIT IN: the car is in the pit lane |
+| Driver change | none | DRIVER CHANGE DONE |
+| Fuelling started | car in the fuel zone | FUEL ON: the crew is pouring (starts the fuelling clock if the geofence missed it) |
+| Fuel completed | car left the fuel zone | FUEL STOP COMPLETED: litres and cans recorded |
+| Pit out | pit-exit geofence | PIT OUT: the car is leaving the pit lane |
+
+- **Reading the handshake:**
+  - Amber "geofence seen - confirm it": the car did it and you have not confirmed yet.
+  - "Waiting for the geofence": you confirmed and the car has not got there yet.
+  - A step nobody confirms is still applied from the plan (AUTO) once the car has moved past it.
+  - FUEL ON now works with the PLTD connected too.
+- **Icons:** the driving icon is a steering wheel again.
+- **Demo / simulator team:** Mitsukitty, Lancer.
+  - Mal: owner, every role.
+  - Tanna, Pat, Jared: drivers, mechanics, full fuel crew, radio, timing.
+  - Driver4, Driver5: drivers, full fuel crew.
+  - Pietro, Rhys: engineers (mechanic, timing, radio, race engineering); no driving, no fuel.
+  - Drivers stay on fuel duty between stints, with one sleep block each. The simulated crew starts pouring on FUEL ON.
 
 ## Changes in 2.1.4
 

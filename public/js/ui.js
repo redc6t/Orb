@@ -35,7 +35,8 @@
   var disc = function (c, g) { return '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="' + c + '"/>' + g + '</svg>'; };
   var P = {
     available: disc('#00C846', '<path d="M7 12.5l3.2 3.2L17 8.8" stroke="#0e0e0e" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'),
-    driving: disc('#00BCD4', '<path d="M5 15.5v-2.2l1.8-3.8c.3-.6.8-.9 1.5-.9h7.4c.7 0 1.2.3 1.5.9l1.8 3.8v2.2c0 .5-.4.9-.9.9h-.9a2 2 0 0 1-3.9 0H10.7a2 2 0 0 1-3.9 0h-.9c-.5 0-.9-.4-.9-.9zM7.6 12.6h8.8l-1.2-2.6H8.8z" fill="#0e0e0e"/>'),
+    // steering wheel: rim, hub and three spokes (left, right, bottom) - strokes only, so it stays crisp at icon size
+    driving: disc('#00BCD4', '<circle cx="12" cy="12" r="6.6" fill="none" stroke="#0e0e0e" stroke-width="2.2"/><circle cx="12" cy="12" r="2" fill="#0e0e0e"/><path d="M5.6 11.4h4.6M13.8 11.4h4.6M12 14v4.4" stroke="#0e0e0e" stroke-width="2" stroke-linecap="round"/>'),
     sleeping: disc('#6D5BD0', '<path d="M4.5 16.5v-6M4.5 14h15v2.5M19.5 16.5v-1.6" stroke="#0e0e0e" stroke-width="1.7" fill="none" stroke-linecap="round"/><rect x="5.5" y="10.6" width="3.6" height="3" rx="1.2" fill="#0e0e0e"/><path d="M10 13.6h7.6c1 0 1.9.8 1.9 1.8V14H10z" fill="#0e0e0e"/><path d="M13.2 6.2h3l-3 3h3" stroke="#0e0e0e" stroke-width="1.2" fill="none"/>'),
     resting: disc('#8B5CF6', '<path d="M14.6 5.6a6.6 6.6 0 1 0 3.8 11.3 7.6 7.6 0 0 1-3.8-11.3z" fill="#0e0e0e"/>'),
     mechanic: disc('#9aa0aa', '<path d="M15.8 4.8a4 4 0 0 0-3.9 5.3l-6.6 6.6a1.4 1.4 0 0 0 2 2l6.6-6.6a4 4 0 0 0 5.3-3.9l-2.3 2.3-2.4-.6-.6-2.4z" fill="#0e0e0e"/>'),

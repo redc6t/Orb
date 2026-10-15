@@ -143,8 +143,28 @@
     return { id: 'pittimers', html: card('Pit lane', h, U.clock(t.inTs, true)) };
   }
 
-  /* ---- stop gates: the engineer moves the stop forward; the geofences override only a step the car has already passed */
-  var STEP_NAME = { pitin: 'Pit in', driver: 'Driver change', fuel: 'Fuel stop', pitout: 'Pit out' };
+  /* ---- stop gates: each step is a handshake between the PLTD geofence (GEO) and the engineer (ENG);
+     a step the engineer has not confirmed is applied from the plan (AUTO) only once the car has moved past it */
+  var STEP_NAME = { pitin: 'Pit in', driver: 'Driver change', fuelon: 'Fuelling started', fuel: 'Fuel completed', pitout: 'Pit out' };
+  var STEP_GEO = { pitin: 'pit-entry geofence (car in the pit lane)', fuelon: 'fuel-zone geofence (car in the fuel bay)', fuel: 'car left the fuel bay', pitout: 'pit-exit geofence (car leaving the pit lane)' };
+  var STEP_ENG = { pitin: 'PIT IN', driver: 'DRIVER CHANGE DONE', fuelon: 'FUEL ON', fuel: 'FUEL STOP COMPLETED', pitout: 'PIT OUT' };
+  V.STEP_GEO = STEP_GEO; V.STEP_ENG = STEP_ENG;
+  // the two signals of one step, as chips
+  function hsMarks(x, pltdOn) {
+    var geo = !x.hasGeo ? '<span class="hs na" title="No geofence for this step - the engineer confirms it">GEO n/a</span>'
+      : x.geoTs ? '<span class="hs on" title="' + esc('Geofence: ' + STEP_GEO[x.id]) + '">GEO ' + U.clock(x.geoTs, true) + '</span>'
+        : '<span class="hs ' + (pltdOn ? 'wait' : 'off') + '" title="' + esc('Geofence: ' + STEP_GEO[x.id]) + '">GEO ' + (pltdOn ? '...' : 'offline') + '</span>';
+    var eng = x.engTs ? '<span class="hs on" title="Confirmed by the engineer">ENG ' + U.clock(x.engTs, true) + '</span>'
+      : x.by === 'auto' ? '<span class="hs auto" title="Applied from the plan because the car moved past this step">AUTO ' + U.clock(x.ackTs, true) + '</span>'
+        : '<span class="hs wait" title="' + esc('Engineer: ' + STEP_ENG[x.id]) + '">ENG ...</span>';
+    return '<span class="hs-marks">' + geo + eng + '</span>';
+  }
+  function hsStatus(x, pltdOn) {
+    if (x.mode === 'eng' && !pltdOn) return '<span class="ok-t">CONFIRMED (PLTD offline)</span>';
+    return { hs: '<span class="ok-t">HANDSHAKE</span>', ok: '<span class="ok-t">CONFIRMED</span>', eng: '<span class="info-t">waiting for the geofence</span>',
+      geo: '<span class="warn-t">geofence seen - confirm it</span>', auto: '<span class="muted">AUTO from the plan</span>', skip: '<span class="muted">not needed - no fuel</span>', none: '' }[x.mode] || '';
+  }
+  V.hsMarks = hsMarks; V.hsStatus = hsStatus;
   function stopDue(d) { return d.session.running && d.nextStop && ['box', 'boxin', 'notify', 'opp'].indexOf(d.call.code) >= 0; }
   function panelGate(ctx) {
     var d = ctx.d, g = d.gates, s = ctx.s, P = d.P, pltdOn = ctx.devices.pltd && ctx.devices.pltd.status === 'connected';
@@ -156,36 +176,37 @@
       return { id: 'gate', html: card('Stop gates', h0, 'engineer controls each step'), form: true };
     }
     var st = g.stop, pl = g.planned || {};
-    var strip = '<div class="gstrip">' + g.list.map(function (x) {
-      var cls = x.state === 'done' ? (x.by === 'auto' ? 'auto' : 'ok') : (g.current && g.current.id === x.id ? 'now' : '');
-      var mark = x.state === 'done' ? (x.by === 'auto' ? 'AUTO' : 'OK') : x.state === 'due' ? 'AUTO...' : '-';
-      return '<div class="gstep ' + cls + '" title="' + esc(STEP_NAME[x.id] + (x.by === 'auto' ? ': applied from the plan because the geofence showed the car had moved on' : x.by === 'human' ? ': confirmed by the engineer' : '')) + '"><span class="gs-n">' + STEP_NAME[x.id] + '</span><span class="gs-m">' + mark + '</span></div>';
-    }).join('') + '</div>';
-    var h = strip, step = function (id) { return g.list.filter(function (x) { return x.id === id; })[0]; };
-    var pi = step('pitin'), dr = step('driver'), fu = step('fuel'), po = step('pitout');
-    var drivers = (s.config.members || []).filter(function (m) { return m.driver; });
-    h += '<div class="gcard">';
-    if (pi.state !== 'done') {
-      h += '<div class="small">Stop ' + st.id + ' opened by the ' + (st.src === 'manual' ? 'engineer' : 'pit-entry geofence') + ' at ' + U.clock(st.inTs, true) + '. Planned: ' + stopType(pl.type || 'stop') + (pl.add ? ', ' + (pl.brim ? 'brim ' : '') + pl.add + ' L' : '') + (pl.change ? ', ' + esc(name(ctx, pl.driverIn)) + ' in' : '') + '.</div>';
-      if (ctx.eng) h += '<div class="row" style="margin-top:8px"><button class="btn primary" data-act="gatecmd" data-gate="pitin">PIT IN</button><button class="btn danger sm" data-act="stopvoid" data-stop="' + st.id + '">Not a stop (false trigger)</button></div>';
-    } else {
-      // driver step
-      var defIn = pl.change ? pl.driverIn : s.drivers.activeId;
-      h += '<div class="gline"><span class="gl-n">Driver change</span>';
-      if (dr.state === 'done') h += '<span class="' + (dr.by === 'auto' ? 'muted' : 'ok-t') + '">' + (g.driverAck && g.driverAck.driverIn ? esc(name(ctx, g.driverAck.driverIn)) + ' in' : 'no change') + (dr.by === 'auto' ? ' (AUTO)' : ' (OK)') + '</span>';
-      else if (ctx.eng) h += '<select id="gt-driver">' + drivers.map(function (m) { return '<option value="' + m.id + '"' + (m.id === defIn ? ' selected' : '') + '>' + esc(m.name) + (m.id === s.drivers.activeId ? ' (stays)' : '') + '</option>'; }).join('') + '</select><button class="btn sm primary" data-act="gatedriver" data-stop="' + st.id + '">DRIVER CHANGE DONE</button>';
-      else h += '<span class="muted">' + (pl.change ? esc(name(ctx, pl.driverIn)) + ' planned' : 'no change planned') + '</span>';
-      h += '</div>';
-      // fuel step summary (the form is the card below)
-      h += '<div class="gline"><span class="gl-n">Fuel stop</span>' + (fu.state === 'done' ? '<span class="' + (fu.by === 'auto' ? 'muted' : 'ok-t') + '">' + (st.service && st.service.fuelAdded ? st.service.fuelAdded + ' L' + (st.service.brimmed ? ' brim' : '') : 'no fuel') + (fu.by === 'auto' ? ' (AUTO, from the plan)' : ' (OK)') + '</span>' + (ctx.eng && fu.by === 'auto' && ctx.svcFix !== st.id ? ' <button class="btn sm" data-act="svcfix" data-stop="' + st.id + '">Correct it</button>' : '') : '<span class="muted">' + (st.fuelInTs ? 'fuelling since ' + U.clock(st.fuelInTs, true) : 'not started') + ' - complete it in the card below</span>') + '</div>';
-      // pit out
-      h += '<div class="gline"><span class="gl-n">Pit out</span>' + (po.state === 'done' ? '<span class="' + (po.by === 'auto' ? 'muted' : 'ok-t') + '">' + (st.outTs ? 'out ' + U.clock(st.outTs, true) : 'confirmed, waiting for the exit geofence') + (po.by === 'auto' ? ' (AUTO)' : ' (OK)') + '</span>' : (ctx.eng ? '<button class="btn sm primary" data-act="gatecmd" data-gate="pitout" data-stop="' + st.id + '">PIT OUT</button>' : '<span class="muted">-</span>')) + '</div>';
-      if (g.done) h += '<div class="small ok-t" style="margin-top:6px">Stop ' + st.id + ' complete - the car has left the pit lane.</div>';
-      else if (g.allSteps) h += '<div class="small warn-t" style="margin-top:6px">All steps confirmed - waiting for the pit-exit geofence.</div>';
-      if (g.stuckInFuel) h += '<div class="note warn" style="margin-top:6px">No fuel was recorded, but the PLTD still shows the car in the fuel bay. The stop closes when the car crosses the pit exit; if it has already left and the geofence missed it, use <b>Override car state</b> in the Pit lane card.</div>';
-    }
-    h += '</div><div class="tiny muted" style="margin-top:6px">You control each step. If the car moves past a step you have not confirmed (leaves the fuel bay or the pit lane), it is applied from the plan and marked AUTO.</div>';
-    return { id: 'gate', html: card('Stop ' + st.id + ' gates', h, 'OK = engineer, AUTO = geofence'), form: true };
+    var h = '<div class="small">Stop ' + st.id + ' opened by the ' + (st.src === 'manual' ? 'engineer' : 'pit-entry geofence') + ' at ' + U.clock(st.inTs, true) + '. Planned: ' + stopType(pl.type || 'stop') + (pl.add ? ', ' + (pl.brim ? 'brim ' : '') + pl.add + ' L (' + (pl.cans || '-') + ' cans)' : ', no fuel') + (pl.change ? ', ' + esc(name(ctx, pl.driverIn)) + ' in' : '') + '.</div>';
+    h += '<div class="hsrows">' + g.list.map(function (x) { return gateRow(ctx, g, x, pltdOn); }).join('') + '</div>';
+    if (g.done) h += '<div class="small ok-t" style="margin-top:6px">Stop ' + st.id + ' complete - the car has left the pit lane.</div>';
+    else if (g.allSteps) h += '<div class="small warn-t" style="margin-top:6px">All steps confirmed - waiting for the pit-exit geofence.</div>';
+    if (g.stuckInFuel) h += '<div class="note warn" style="margin-top:6px">No fuel was recorded, but the PLTD still shows the car in the fuel bay. The stop closes when the car crosses the pit exit; if it has already left and the geofence missed it, use <b>Override car state</b> in the Pit lane card.</div>';
+    if (ctx.eng && g.list[0].state !== 'done') h += '<div class="row" style="margin-top:8px"><button class="btn danger sm" data-act="stopvoid" data-stop="' + st.id + '">Not a stop (false trigger)</button></div>';
+    h += '<div class="tiny muted" style="margin-top:6px">Each step has two signals: <b>GEO</b> = the PLTD geofence saw the car do it, <b>ENG</b> = you confirmed it. Both = <span class="ok-t">HANDSHAKE</span>. ' +
+      'PIT IN / PIT OUT: the car is in / leaving the pit lane. FUEL ON: the crew has started pouring (starts the fuelling clock if the geofence missed it). FUEL STOP COMPLETED: pouring finished, litres recorded. ' +
+      'A step you have not confirmed is applied from the plan (AUTO) only once the car has moved past it.</div>';
+    return { id: 'gate', html: card('Stop ' + st.id + ' handshake', h, 'GEO = geofence, ENG = engineer'), form: true };
+  }
+
+  // one handshake row: step name, GEO/ENG chips, status and the engineer's control for that step
+  function gateRow(ctx, g, x, pltdOn) {
+    var s = ctx.s, st = g.stop, pl = g.planned || {}, done = x.state === 'done';
+    var ctl = '';
+    if (x.id === 'driver') {
+      if (done) ctl = '<span class="' + (x.by === 'auto' ? 'muted' : 'ok-t') + '">' + (g.driverAck && g.driverAck.driverIn ? esc(name(ctx, g.driverAck.driverIn)) + ' in' : 'no change') + '</span>';
+      else if (ctx.eng) {
+        var defIn = pl.change ? pl.driverIn : s.drivers.activeId;
+        ctl = '<select id="gt-driver">' + (s.config.members || []).filter(function (m) { return m.driver; }).map(function (m) { return '<option value="' + m.id + '"' + (m.id === defIn ? ' selected' : '') + '>' + esc(m.name) + (m.id === s.drivers.activeId ? ' (stays)' : '') + '</option>'; }).join('') + '</select><button class="btn sm primary" data-act="gatedriver" data-stop="' + st.id + '">DRIVER CHANGE DONE</button>';
+      } else ctl = '<span class="muted">' + (pl.change ? esc(name(ctx, pl.driverIn)) + ' planned' : 'no change planned') + '</span>';
+    } else if (x.id === 'fuel') {
+      if (done) ctl = '<span class="' + (x.by === 'auto' ? 'muted' : 'ok-t') + '">' + (st.service && st.service.fuelAdded ? st.service.fuelAdded + ' L' + (st.service.brimmed ? ' brim' : '') : 'no fuel') + '</span>' + (ctx.eng && x.by === 'auto' && ctx.svcFix !== st.id ? ' <button class="btn sm" data-act="svcfix" data-stop="' + st.id + '">Correct it</button>' : '');
+      else ctl = '<span class="muted small">' + (st.fuelInTs ? 'fuelling since ' + U.clock(st.fuelInTs, true) + ' - ' : '') + 'record litres in the Fuel stop card</span>';
+    } else if (x.id === 'pitout' && done) ctl = '<span class="muted small">' + (st.outTs ? 'out ' + U.clock(st.outTs, true) : 'car still in the lane') + '</span>';
+    else if (x.id === 'fuelon' && x.state === 'skip') ctl = '';
+    else if (!done && x.engTs == null && ctx.eng) ctl = '<button class="btn sm' + (x.mode === 'geo' || (g.current && g.current.id === x.id) ? ' primary' : '') + '" data-act="gatecmd" data-gate="' + x.id + '" data-stop="' + st.id + '">' + STEP_ENG[x.id] + '</button>';
+    else if (x.id === 'fuelon' && done) ctl = '<span class="muted small">' + (st.fuelInTs ? 'clock from ' + U.clock(st.fuelInTs, true) : '') + '</span>';
+    var cls = 'hsrow m-' + x.mode + (g.current && g.current.id === x.id ? ' cur' : '');
+    return '<div class="' + cls + '"><span class="hs-n">' + STEP_NAME[x.id] + '</span>' + (x.state === 'skip' ? '<span class="hs-marks"></span>' : hsMarks(x, pltdOn)) + '<span class="hs-st">' + hsStatus(x, pltdOn) + '</span><span class="hs-ctl">' + ctl + '</span></div>';
   }
 
   function panelGateFuel(ctx) {
@@ -204,7 +225,7 @@
       '<label class="f">Penalty served<select id="ps-pen"><option value="">None</option><option>Drive through</option><option>Stop and go</option><option>Sin bin</option></select></label></div>' +
       '<div class="row small muted" style="margin-top:6px">Removed set tread (mm): ' + ['FL', 'FR', 'RL', 'RR'].map(function (c) { return c + ' <input id="ps-d-' + c + '" type="number" step="0.1" style="width:58px">'; }).join(' ') + '</div></details>';
     if (nx.length) h += '<div style="margin-top:8px"><span class="lbl">Fixed at this stop</span>' + nx.map(function (i) { return '<div><label class="chk"><input type="checkbox" class="ps-fix" value="' + i.id + '"> ' + esc(i.text) + '</label></div>'; }).join('') + '</div>';
-    h += '<div class="row" style="margin-top:10px">' + (!pltdOn && !st.fuelInTs ? '<button class="btn" data-act="gatecmd" data-gate="fuelstart" data-stop="' + st.id + '">FUELLING STARTED</button>' : '') +
+    h += '<div class="row" style="margin-top:10px">' + (!st.fuelInTs && !s.gates[st.id + ':fuelon'] && !prev ? '<button class="btn" data-act="gatecmd" data-gate="fuelon" data-stop="' + st.id + '">FUEL ON</button>' : '') +
       '<button class="btn primary" data-act="gatefuel" data-stop="' + st.id + '">' + (prev ? 'SAVE CORRECTION' : 'FUEL STOP COMPLETED') + '</button>' + (prev ? '' : '<button class="btn sm" data-act="gatefuel" data-stop="' + st.id + '" data-nofuel="1">No fuel this stop</button>') + '</div>';
     return { id: 'gatefuel', html: card(prev ? 'Correct stop ' + st.id + ' fuel' : 'Fuel stop ' + st.id, h, 'pre-fill now, confirm when fuelling ends'), form: true };
   }
@@ -500,6 +521,159 @@
     return { id: 'rules', html: card('Regulations', '<details><summary>' + esc((r.organiser || '').split(' (')[0]) + ' - ' + esc(r.version) + '</summary><ul class="rules" style="margin-top:6px">' + (r.notes || []).map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul></details>'), form: true };
   }
 
+  /* ================================================================== FUEL PLAN
+     One timeline with only the fuel stops of the plan being run; click a stop for its detail: who attends and in which role,
+     litres, jerry cans to bring, and the stop step by step with its GEO / ENG handshakes. Changing the litres of a stop
+     re-plans every later stop (previewed before it is applied). */
+  V.fuelSelected = function (ctx) {
+    var list = ctx.fp ? ctx.fp.stops : [];
+    if (!list.length) return null;
+    if (ctx.fuelSel != null) {
+      var best = null, bd = 20 * MIN;
+      list.forEach(function (x) { var dd = Math.abs(x.ts - ctx.fuelSel); if (dd < bd) { bd = dd; best = x; } });
+      if (best) return best;
+    }
+    return list.filter(function (x) { return x.live; })[0] || list.filter(function (x) { return !x.done; })[0] || list[list.length - 1];
+  };
+  V.fuel = function (ctx) {
+    var d = ctx.d;
+    if (!d.plan || !ctx.fp) return { layout: 'single', cols: [[{ id: 'fpnone', html: card('Fuel plan', '<div class="muted">No race session configured.</div>') }]] };
+    var sel = V.fuelSelected(ctx);
+    return { layout: 'plan-grid', top: [panelFuelTimeline(ctx, sel)], cols: [[panelFuelSteps(ctx, sel)], [panelFuelStop(ctx, sel), panelFuelCascade(ctx, sel)]] };
+  };
+
+  function fpLabel(ctx, x) { return 'F' + x.n + ' ' + U.clock(x.ts); }
+  function panelFuelTimeline(ctx, sel) {
+    var d = ctx.d, s = ctx.s, fp = ctx.fp, rs = d.raceSession, pl = d.plan;
+    var t0 = rs.startTs, t1 = pl.raceEndTs, span = Math.max(1, t1 - t0);
+    var x = function (t) { return Math.max(0, Math.min(100, (t - t0) / span * 100)); };
+    var sc = s.scenarios || {}, ap = sc.active || 'A', apl = sc.plans && sc.plans[ap];
+    var todo = fp.stops.filter(function (f) { return !f.done; }), done = fp.stops.filter(function (f) { return f.done; });
+    var litres = 0, cans = 0; todo.forEach(function (f) { litres += f.add; cans += f.cans.n; });
+    var chips = [['Fuel stops', done.length + ' done, ' + todo.length + ' to go'], ['Litres to go', U.L(litres, 0) + ' L'], ['Jerry cans to go', cans + ' x ' + fp.canL + ' L'], ['Finish fuel', U.L(pl.finishFuelL) + ' L'], ['Running', 'Scenario ' + ap + (apl ? ' - ' + esc(apl.name) : '')]];
+    var h = '<div class="chips-sum">' + chips.map(function (c) { return '<div class="sumchip"><span class="lbl">' + c[0] + '</span><span class="v">' + c[1] + '</span></div>'; }).join('') + '</div>';
+    // labels in up to three tiers so neighbouring stops never overlap
+    var lastX = [-100, -100, -100], b = '<div class="fptl">';
+    b += '<div class="fp-track"></div>';
+    if (rs.started) b += '<div class="fp-past" style="width:' + x(d.now) + '%"></div>';
+    todo.forEach(function (f) { if (f.window) b += '<div class="fp-win" style="left:' + x(f.window.openTs) + '%;width:' + Math.max(0.4, x(f.window.closeTs) - x(f.window.openTs)) + '%" title="' + esc('Fuel window F' + f.n + ': ' + U.clock(f.window.openTs) + '-' + U.clock(f.window.closeTs)) + '"></div>'; });
+    fp.stops.forEach(function (f) {
+      var px = x(f.ts), tier = 0;
+      while (tier < 3 && px - lastX[tier] < 7.5) tier++;
+      if (tier > 2) tier = (f.n - 1) % 3;
+      lastX[tier] = px;
+      var isSel = sel && sel.ts === f.ts, st = f.done ? 'done' : f.live ? 'live' : 'plan';
+      var al = px < 4 ? ' al' : px > 96 ? ' ar' : '';
+      var line2 = f.add + ' L' + (f.done ? '' : ' &middot; ' + f.cans.n + (f.cans.n === 1 ? ' can' : ' cans')) + (f.change && f.driverIn ? ' &middot; ' + esc(U.short(name(ctx, f.driverIn))) + ' in' : '');
+      var tip = (f.done ? 'Done: ' : f.live ? 'In progress: ' : 'Planned: ') + 'fuel stop F' + f.n + ' at ' + U.clock(f.ts) + ', ' + f.add + ' L' + (f.change ? ', ' + name(ctx, f.driverOut) + ' to ' + name(ctx, f.driverIn) : '') + ' - click for the detail';
+      b += '<div class="fp-lead ' + st + '" style="left:' + px + '%;top:' + (tier * 30 + 28) + 'px;height:' + (96 - tier * 30 - 28) + 'px"></div>';
+      b += '<button class="fp-lbl ' + st + (isSel ? ' sel' : '') + (f.litresSet ? ' set' : '') + al + '" data-act="fpsel" data-ts="' + f.ts + '" style="left:' + px + '%;top:' + (tier * 30) + 'px" title="' + esc(tip) + '"><b>' + fpLabel(ctx, f) + '</b><span>' + line2 + '</span></button>';
+      b += '<button class="fp-mk ' + st + (isSel ? ' sel' : '') + '" data-act="fpsel" data-ts="' + f.ts + '" style="left:' + px + '%" title="' + esc(tip) + '"></button>';
+    });
+    // preview of a litres change: where the later fuel stops would move to
+    var pv = ctx.fpPreview;
+    if (pv && pv.plan) pv.plan.stops.filter(function (f) { return f.add > 0 && f.ts > pv.fromTs + 1000; }).forEach(function (f) { b += '<div class="fp-ghost" style="left:' + x(f.ts) + '%" title="' + esc('With the new litres: fuel stop at ' + U.clock(f.ts) + ', ' + f.add + ' L') + '"></div>'; });
+    if (rs.started) b += '<div class="fp-now" style="left:' + x(d.now) + '%"></div>';
+    var hours = span / HOUR, step = hours > 24 ? 3 : hours > 12 ? 2 : 1;
+    for (var hh = 0; hh <= hours; hh += step) b += '<span class="fp-tick" style="left:' + x(t0 + hh * HOUR) + '%">' + U.clock(t0 + hh * HOUR) + '</span>';
+    b += '</div>';
+    var legend = '<div class="row tiny muted" style="margin-top:4px"><span><i class="lg fp-l-done"></i> done</span><span><i class="lg fp-l-plan"></i> planned</span><span><i class="lg fp-l-live"></i> in progress</span><span><i class="lg fp-l-set"></i> litres set by you</span><span><i class="lg fp-l-win"></i> fuel window</span>' + (pv ? '<span><i class="lg fp-l-ghost"></i> preview of your change</span>' : '') + '<span class="spacer"></span>Only fuel stops are shown. Driver-only stops are on Race Plan.</div>';
+    return { id: 'fptl', html: card('Fuel stops - the plan being run', h + '<div class="scroll"><div style="min-width:880px">' + b + '</div></div>' + legend, 'click a stop for its detail') };
+  }
+
+  function whoList(ctx, rows) {
+    return '<div class="fp-who">' + rows.map(function (r) { return '<span class="r">' + esc(r[0]) + '</span><span>' + (r[1] ? '<b>' + esc(r[1]) + '</b>' : r[3] ? '<span class="muted">none free</span>' : '<b class="crit-t">UNASSIGNED</b>' + (r[2] ? ' <span class="tiny muted">' + esc(r[2]) + '</span>' : '')) + '</span>'; }).join('') + '</div>';
+  }
+  function cansText(c, canL) { return c.n ? c.n + ' x ' + canL + ' L can' + (c.n > 1 ? 's' : '') + (c.partL > 0 ? ' (' + c.full + ' full + 1 with ' + U.L(c.partL) + ' L)' : ' (all full)') : 'none'; }
+
+  function panelFuelStop(ctx, f) {
+    var d = ctx.d, fp = ctx.fp;
+    if (!f) return { id: 'fpstop', html: card('Fuel stop', '<div class="muted">No fuel stops in this plan.</div>') };
+    var h = '';
+    if (f.done || (f.live && f.id)) {
+      h += '<div class="facts"><div class="fact"><span class="lbl">Added</span><div class="v">' + f.add + ' L</div><div class="s">' + esc(f.id) + (f.live ? ' in progress' : ' done') + '</div></div>' +
+        '<div class="fact"><span class="lbl">Cans</span><div class="v">' + f.cans.n + '</div><div class="s">' + fp.canL + ' L cans</div></div>' +
+        '<div class="fact"><span class="lbl">Fuelling</span><div class="v">' + (f.fuelMs != null ? U.dur(f.fuelMs) : '-') + '</div><div class="s">' + (f.change ? esc(U.short(name(ctx, f.driverOut))) + ' &rarr; ' + esc(U.short(name(ctx, f.driverIn))) : 'no driver change') + '</div></div></div>';
+      return { id: 'fpstop', html: card('Fuel stop F' + f.n + ' - ' + U.clock(f.ts), h, f.live ? 'in progress' : 'done') };
+    }
+    h += '<div class="facts">' +
+      '<div class="fact"><span class="lbl">Arrive with</span><div class="v">' + U.L(f.fuelArr) + ' L</div><div class="s">lap ~' + d.lapAt(f.ts) + ', in ' + U.mins(f.ts - d.now) + '</div></div>' +
+      '<div class="fact"><span class="lbl">Inject</span><div class="v purple-t">' + (f.brim ? 'Brim ' : '') + f.add + ' L</div><div class="s">' + (f.litresSet ? 'set by you' : 'from the planner') + ', leave with ' + U.L(f.fuelAfter) + ' L</div></div>' +
+      '<div class="fact"><span class="lbl">Bring</span><div class="v">' + f.cans.n + (f.cans.n === 1 ? ' can' : ' cans') + '</div><div class="s">' + esc(cansText(f.cans, fp.canL)) + '</div></div></div>';
+    if (f.overStore) h += '<div class="note warn" style="margin-top:8px">' + f.add + ' L is more than the ' + fp.method.maxStoredL + ' L the fuel area may hold for ' + esc(fp.method.label) + '.</div>';
+    if (f.window) h += '<div class="small muted" style="margin-top:6px">Fuel window ' + U.clock(f.window.openTs) + '-' + U.clock(f.window.closeTs) + ' (laps ' + d.lapAt(f.window.openTs) + '-' + d.lapAt(f.window.closeTs) + '). Stationary ~' + U.mins(f.statMs) + '.</div>';
+    var rc = f.refuel;
+    h += '<div class="sep"></div><span class="lbl">Refuel crew (' + esc(fp.method ? fp.method.label : '') + ')</span>' + whoList(ctx, rc.assign.map(function (a) { return [a.label.replace(' (9 kg foam)', ''), a.name, a.reason]; }));
+    var drv = f.change ? [['Driver out', name(ctx, f.driverOut)], ['Driver in', name(ctx, f.driverIn)]] : [['Driver (stays in)', name(ctx, f.driverOut)]];
+    h += '<span class="lbl" style="margin-top:8px">Also at this stop</span>' + whoList(ctx, drv.concat(f.support.map(function (a) { return [a.label, a.name, '', true]; })));
+    h += '<div class="tiny muted" style="margin-top:4px">Crew is forecast from the shift plan at ' + U.clock(f.ts) + '; the next fuel stop uses who is available right now.</div>';
+    // litres editor: future stops only (not the stop in progress, not event stops)
+    var editable = ctx.eng && !f.live && !f.event && f.ts > d.now + 2 * MIN;
+    if (editable) {
+      var cur = ctx.fuelEdit && ctx.fuelEdit.ts === f.ts ? ctx.fuelEdit.litres : f.add;
+      var maxL = Math.min(fp.maxAdd, Math.round((fp.capacity - f.fuelArr) * 2) / 2);
+      h += '<div class="sep"></div><span class="lbl">Change the litres for F' + f.n + '</span><div class="row" style="margin-top:6px"><button class="btn sm" data-act="fpstep" data-d="-5">-5</button><input id="fp-l" data-ts="' + f.ts + '" type="number" step="0.5" min="0" max="' + maxL + '" value="' + cur + '" style="width:90px"><button class="btn sm" data-act="fpstep" data-d="5">+5</button><button class="btn sm" data-act="fpbrim" data-l="' + maxL + '">Brim (' + maxL + ' L)</button><span class="tiny muted">L</span></div>' +
+        '<div class="row" style="margin-top:8px"><button class="btn primary sm" data-act="fpapply" data-ts="' + f.ts + '">Apply to the running plan</button>' + (f.litresSet ? '<button class="btn sm" data-act="fpauto" data-ts="' + f.ts + '">Back to planner litres</button>' : '') + (ctx.fuelEdit ? '<button class="btn sm" data-act="fpcancel">Cancel</button>' : '') + '</div>' +
+        '<div class="tiny muted" style="margin-top:4px">Less fuel brings the next fuel stop closer, more fuel pushes it later; every later stop re-plans. The preview below shows the effect before you apply it. Applied to Scenario ' + ((ctx.s.scenarios && ctx.s.scenarios.active) || 'A') + ' (Reset on Scenarios undoes it).</div>';
+    }
+    return { id: 'fpstop', html: card('Fuel stop F' + f.n + ' - ' + U.clock(f.ts), h, f.litresSet ? '<span class="purple-t">litres set by you</span>' : 'planned'), form: true };
+  }
+
+  // what a litres change does to the rest of the race, before it is applied
+  function panelFuelCascade(ctx, f) {
+    var pv = ctx.fpPreview, d = ctx.d;
+    if (!pv || !f || f.done || f.live) return { id: 'fpcascade', html: '' };
+    if (!pv.plan) return { id: 'fpcascade', html: card('Effect of the change', '<div class="muted small">Working...</div>') };
+    var after = function (pl) { return pl.stops.filter(function (x) { return x.add > 0 && x.ts > pv.fromTs + 1000; }); };
+    var a = after(d.plan), b = after(pv.plan), n = Math.max(a.length, b.length), rows = '';
+    for (var i = 0; i < Math.min(n, 8); i++) {
+      var x = a[i], y = b[i], dt = x && y ? Math.round((y.ts - x.ts) / MIN) : null;
+      rows += '<tr><td class="num">' + (i + 1) + '</td><td class="num">' + (x ? U.clock(x.ts) + ' &middot; ' + x.add + ' L' : '-') + '</td><td class="num">' + (y ? U.clock(y.ts) + ' &middot; ' + y.add + ' L' : '<span class="ok-t">removed</span>') + '</td><td class="num ' + (dt < 0 ? 'warn-t' : dt > 0 ? 'ok-t' : '') + '">' + (dt == null ? (x ? '' : '<span class="warn-t">new</span>') : (dt > 0 ? '+' : '') + dt + ' min') + '</td></tr>';
+    }
+    var sum = [['Fuel stops', d.plan.fuelStops + ' &rarr; ' + pv.plan.fuelStops], ['Stops', d.plan.stops.length + ' &rarr; ' + pv.plan.stops.length], ['Stationary', U.mins(d.plan.stationaryMs) + ' &rarr; ' + U.mins(pv.plan.stationaryMs)], ['Finish fuel', U.L(d.plan.finishFuelL) + ' &rarr; ' + U.L(pv.plan.finishFuelL) + ' L']];
+    var h = '<div class="small">F' + f.n + ': ' + f.add + ' L &rarr; <b class="purple-t">' + pv.litres + ' L</b></div><div class="chips-sum" style="margin-top:6px">' + sum.map(function (c) { return '<div class="sumchip"><span class="lbl">' + c[0] + '</span><span class="v">' + c[1] + '</span></div>'; }).join('') + '</div>' +
+      '<table><thead><tr><th class="num">Next fuel stops</th><th class="num">Now</th><th class="num">With the change</th><th class="num">Moves</th></tr></thead><tbody>' + rows + '</tbody></table>';
+    if (pv.plan.warnings.length) h += '<div class="note warn" style="margin-top:8px">' + pv.plan.warnings.slice(0, 3).map(esc).join('<br>') + '</div>';
+    return { id: 'fpcascade', html: card('Effect of the change', h, 'preview - nothing applied yet', 'gatecard') };
+  }
+
+  // the stop step by step: when, who, what - and for the stop in progress, the live GEO / ENG handshake of each step
+  function panelFuelSteps(ctx, f) {
+    var d = ctx.d, fp = ctx.fp, pltdOn = ctx.devices.pltd && ctx.devices.pltd.status === 'connected';
+    if (!f) return { id: 'fpsteps', html: card('Stop procedure', '<div class="muted">-</div>') };
+    if (f.done) return { id: 'fpsteps', html: card('Stop procedure', '<div class="small muted">F' + f.n + ' is done (' + esc(f.id) + '). Pick a planned stop on the timeline to see its procedure and crew.</div>') };
+    var g = d.gates && f.live ? d.gates : null, gs = {};
+    if (g) g.list.forEach(function (x) { gs[x.id] = x; });
+    var rc = f.refuel || { assign: [] };
+    var fuelCrew = rc.assign.map(function (a) { return [a.label.replace(' (9 kg foam)', '').replace('Vehicle ', ''), a.name]; });
+    var sup = {}; (f.support || []).forEach(function (a) { sup[a.key] = a.name; });
+    var tm = f.times || {}, eng = sup.engineer || 'Pit wall engineer';
+    var nm = function (id) { return name(ctx, id); };
+    var rows = [];
+    if (f.change) rows.push({ t: f.ts - 30 * MIN, title: 'Incoming driver gets ready', who: [['Driver in', nm(f.driverIn)]], what: 'Kit on, hydrate, at the pit wall by ' + U.clock(f.ts - 10 * MIN) + '.' });
+    rows.push({ t: tm.prep, title: 'Refuel crew to the fuel bay', who: fuelCrew,
+      what: 'Stage ' + cansText(f.cans, fp.canL) + ' = ' + f.add + ' L. 9 kg foam extinguisher at the bay. Summon alert goes out 5 min before.' });
+    rows.push({ t: tm.notify, title: 'BOX BOX on the pit board', who: [['Engineer', eng]], what: 'Last lap of the stint: the call on the Race tab turns into NOTIFY DRIVER.' });
+    rows.push({ t: tm.pitIn, step: 'pitin', title: 'Pit in', who: [['Engineer', eng]], what: 'The car is in the pit lane.' });
+    rows.push({ t: tm.swap, step: 'driver', title: f.change ? 'Driver change' : 'Driver stays in', who: f.change ? [['Out', nm(f.driverOut)], ['In', nm(f.driverIn)], ['Mechanic', sup.mechanic, true]] : [['Driver', nm(f.driverOut)]],
+      what: f.change ? (d.P.swapDuringFuel ? 'Can be done while fuelling.' : 'Before fuelling: no driver swap while the car is being fuelled.') : 'No change at this stop.' });
+    rows.push({ t: tm.fuelOn, step: 'fuelon', title: 'Fuelling started', who: fuelCrew,
+      what: 'Pour ' + f.add + ' L (' + f.cans.n + (f.cans.n === 1 ? ' can' : ' cans') + '). Minimum fuelling time ' + Math.round(d.P.fuelMinMs / MIN) + ' min; no other work on the car.' });
+    rows.push({ t: tm.fuelOff, step: 'fuel', title: 'Fuel completed', who: [['Engineer', eng]], what: 'Record the litres and cans. The car leaves with ~' + U.L(f.fuelAfter) + ' L.' });
+    rows.push({ t: tm.pitOut, step: 'pitout', title: 'Pit out', who: [['Engineer', eng]], what: 'The car is leaving the pit lane. Stationary ~' + U.mins(f.statMs) + '.' });
+    var h = '<div class="vt">' + rows.map(function (r) {
+      var x = r.step && gs[r.step], hs = '';
+      if (x) hs = '<div class="vt-hs">' + (x.state === 'skip' ? '' : hsMarks(x, pltdOn)) + ' ' + hsStatus(x, pltdOn) + '</div>';
+      else if (r.step) hs = '<div class="vt-hs"><span class="hs-marks">' + (r.step === 'driver' ? '<span class="hs na">GEO n/a</span>' : '<span class="hs pre" title="' + esc(STEP_GEO[r.step]) + '">GEO</span>') + '<span class="hs pre">ENG ' + STEP_ENG[r.step] + '</span></span>' + (r.step !== 'driver' ? ' <span class="tiny muted">' + esc(STEP_GEO[r.step]) + '</span>' : '') + '</div>';
+      var cls = 'vt-row' + (r.step ? ' gate' : '') + (x ? ' m-' + x.mode : '') + (g && g.current && x && g.current.id === x.id ? ' cur' : '');
+      return '<div class="' + cls + '"><span class="vt-t mono">' + U.clock(r.t) + '</span><div class="vt-title">' + esc(r.title) + '</div>' +
+        (r.who.length ? '<div class="vt-who">' + r.who.map(function (w) { return '<span class="tag">' + esc(w[0]) + '</span> ' + (w[1] ? '<b>' + esc(w[1]) + '</b>' : w[2] ? '<span class="muted">none free</span>' : '<b class="crit-t">UNASSIGNED</b>'); }).join(' &nbsp; ') + '</div>' : '') +
+        '<div class="vt-what small muted">' + r.what + '</div>' + hs + '</div>';
+    }).join('') + '</div>';
+    h += '<div class="tiny muted" style="margin-top:6px">' + (g ? 'Live: this stop is in progress - confirm the steps on the Race tab (Stop handshake card).' : 'Each step marked GEO / ENG is a handshake on the Race tab when the car comes in: the geofence and your button must agree.') + ' Times are planned estimates.</div>';
+    return { id: 'fpsteps', html: card('F' + f.n + ' step by step', h, f.live ? 'in progress' : 'planned ' + U.clock(f.ts)) };
+  }
+
   /* ================================================================== TEAM */
   V.team = function (ctx) {
     var col = [];
@@ -733,7 +907,7 @@
       case 'session.end': return 'Session end ' + p.sessionId;
       case 'alert': return p.text;
       case 'alert.ack': return 'Acknowledged: ' + p.key;
-      case 'gate.ack': return 'Stop ' + p.stopId + ' ' + ({ pitin: 'pit in', driver: 'driver change' + (p.driverIn ? ' (' + name(ctx, p.driverIn) + ' in)' : ' (no change)'), pitout: 'pit out' }[p.gate] || p.gate) + (p.auto ? ' applied from the plan - the geofence showed the car had moved on' : ' confirmed by the engineer');
+      case 'gate.ack': return 'Stop ' + p.stopId + ' ' + ({ pitin: 'pit in', driver: 'driver change' + (p.driverIn ? ' (' + name(ctx, p.driverIn) + ' in)' : ' (no change)'), fuelon: 'fuelling started', pitout: 'pit out' }[p.gate] || p.gate) + (p.auto ? ' applied from the plan - the geofence showed the car had moved on' : ' confirmed by the engineer');
       case 'stop.void': return 'Stop ' + p.stopId + ' rejected: ' + (p.reason || 'false geofence trigger');
       case 'scenario.activate': return 'Strategy switched to Scenario ' + p.id;
       case 'scenario.set': return 'Scenario ' + p.id + ' edited';

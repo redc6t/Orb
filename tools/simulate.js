@@ -46,14 +46,14 @@ function setCs(cs) { if (car.cs !== cs) { car.cs = cs; console.log(new Date().to
 function tick() {
   const now = Date.now(), fr = (now - car.posStart) / car.curLapMs;
   if (car.pit) {
-    // the simulated crew follows the Pit Wall: fuel only if planned or recorded, stop fuelling when the engineer
+    // the simulated crew follows the Pit Wall: start pouring on FUEL ON, fuel only if planned or recorded, stop fuelling when the engineer
     // presses FUEL STOP COMPLETED, leave when he presses PIT OUT; untouched stops use default timings
     const p = car.pit, t = now - p.t0, gs = pitStatus || {};
     if (p.phase === 'entry') { setCs('PIT ENTRY'); p.laneIdx = LANE_BOX * Math.min(1, t / 25000); if (t >= 25000) { p.phase = 'box'; p.at = now; } }
     else if (p.phase === 'box') {
       setCs('PITS');
-      if (now - p.at >= 10000) {
-        const fuel = p.forceNoFuel ? false : (gs.fuelDone ? gs.fuelAdded > 0 : (gs.plannedAdd > 0));
+      if (now - p.at >= 10000 || (gs.fuelOn && now - p.at >= 3000)) {
+        const fuel = gs.fuelOn || (p.forceNoFuel ? false : (gs.fuelDone ? gs.fuelAdded > 0 : (gs.plannedAdd > 0)));
         if (fuel) { p.phase = 'fuel'; p.at = now; p.fuel = true; } else { p.phase = 'post'; p.at = now; p.fuel = false; }
         console.log(new Date().toLocaleTimeString(), fuel ? 'crew fuels the car' : 'no fuel this stop');
       }

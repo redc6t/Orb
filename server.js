@@ -175,7 +175,7 @@ const server = http.createServer(async (req, res) => {
       const d = E.derive(st, Date.now()), g = d.gates;
       if (!g) return send(res, 200, { open: false, plannedAdd: d.nextStop ? d.nextStop.add : 0 });
       const svc = g.stop.service;
-      return send(res, 200, { open: !g.stop.outTs, stopId: g.stop.id, plannedAdd: (g.planned || {}).add || 0, fuelDone: !!svc, fuelAdded: svc ? svc.fuelAdded : 0, pitOut: !!st.gates[g.stop.id + ':pitout'] });
+      return send(res, 200, { open: !g.stop.outTs, stopId: g.stop.id, plannedAdd: (g.planned || {}).add || 0, fuelOn: !!st.gates[g.stop.id + ':fuelon'], fuelDone: !!svc, fuelAdded: svc ? svc.fuelAdded : 0, pitOut: !!st.gates[g.stop.id + ':pitout'] });
     }
     if (p === '/branding/logo') { const f = logoFile(); return send(res, 200, fs.readFileSync(f), TYPES[path.extname(f)]); }
     if (p === '/api/export') {
@@ -272,8 +272,10 @@ function gateCmd(p, ws) {
     if (g && !store.state.gates[g.stop.id + ':pitin']) append('gate.ack', { stopId: g.stop.id, gate: 'pitin', plan: g.planned }, 'engineer');
   } else if (p.gate === 'driver') {
     append('gate.ack', { stopId: p.stopId, gate: 'driver', driverIn: p.driverIn || null }, 'engineer');
-  } else if (p.gate === 'fuelstart') {
-    if (st.carState.current !== 'FUELLING') append('carstate', { cs: 'FUELLING' }, 'engineer', 'manual');
+  } else if (p.gate === 'fuelon') {
+    // the engineer's half of the fuelling handshake; with the PLTD offline it also sets the car state so the timers run
+    if (!pltdOn && st.carState.current !== 'FUELLING') append('carstate', { cs: 'FUELLING' }, 'engineer', 'manual');
+    append('gate.ack', { stopId: p.stopId, gate: 'fuelon' }, 'engineer');
   } else if (p.gate === 'fuel') {
     append('stop.service', Object.assign({}, p.service || {}, { stopId: p.stopId }), 'engineer');
     if (!pltdOn && store.state.carState.current === 'FUELLING') append('carstate', { cs: 'PITS' }, 'engineer', 'manual');

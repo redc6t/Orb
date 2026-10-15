@@ -556,7 +556,7 @@
 
     // ---- fixed points: stops pinned by dragging in a scenario, and scenario events that force a stop (repair, sin bin)
     var fixed = [];
-    ((whatIf && whatIf.pins) || []).forEach(function (pn) { fixed.push({ ts: pn.ts, kind: 'pin', fuel: pn.fuel, driverIn: pn.driverIn, chain: true }); });
+    ((whatIf && whatIf.pins) || []).forEach(function (pn) { fixed.push({ ts: pn.ts, kind: 'pin', fuel: pn.fuel, add: pn.add, driverIn: pn.driverIn, chain: true }); });
     ((whatIf && whatIf.extraStops) || []).forEach(function (x) { fixed.push({ ts: x.ts, kind: x.kind || 'repair', statMs: x.statMs, label: x.label, fuel: null, chain: false }); });
     ((whatIf && whatIf.scPins) || []).forEach(function (x) { fixed.push({ ts: x.ts, kind: 'pin', fuel: x.fuel, driverIn: x.driverIn, chain: false, label: x.label, undersc: true }); });
     fixed = fixed.filter(function (x) { return x.ts > t + 60000 && x.ts < raceEndTs - 120000; }).sort(function (a, b) { return a.ts - b.ts; });
@@ -568,7 +568,9 @@
         stints.push({ driverId: driver, startTs: stintStart, fromTs: t, endTs: fp.ts, fuelStart: fuel, fuelEnd: fArr });
       }
       var add = 0;
-      if (fp.fuel === true || (fp.fuel == null && fArr < P.capacity * 0.6)) add = Math.max(0, Math.round(Math.min(maxAdd, P.capacity - fArr) * 2) / 2);
+      // litres set on the Fuel Plan tab: that amount (capped by the tank and the per-stop limit); everything after re-plans around it
+      if (fp.add != null && fp.add > 0) add = Math.max(0, Math.round(Math.min(fp.add, maxAdd, P.capacity - fArr) * 2) / 2);
+      else if (fp.fuel === true || (fp.fuel == null && fArr < P.capacity * 0.6)) add = Math.max(0, Math.round(Math.min(maxAdd, P.capacity - fArr) * 2) / 2);
       if (fp.ts <= t + 60000 && inPitServiced) add = 0;
       var nd = driver;
       if (fp.driverIn) nd = fp.driverIn;
@@ -581,7 +583,7 @@
       if (fp.statMs) stat = Math.max(stat, fp.statMs);
       stops.push({ k: 0, ts: fp.ts, fuelArr: fArr, add: add, brim: add > 0 && add >= P.capacity - fArr - 0.5, cans: P.method && P.method.canL ? Math.ceil(add / P.method.canL) : null,
         driverOut: driver, driverIn: nd, change: change, statMs: stat, laneMs: P.pitLaneMs, counts: counts && stat >= P.mandMinMs,
-        type: fp.kind === 'pin' ? (add > 0 ? 'fuel' : (change ? 'driver' : (counts ? 'mandatory' : 'service'))) : fp.kind, label: fp.label || null, window: null, pinned: fp.kind === 'pin' && !fp.undersc, undersc: !!fp.undersc, event: fp.kind !== 'pin' });
+        type: fp.kind === 'pin' ? (add > 0 ? 'fuel' : (change ? 'driver' : (counts ? 'mandatory' : 'service'))) : fp.kind, label: fp.label || null, window: null, pinned: fp.kind === 'pin' && !fp.undersc, undersc: !!fp.undersc, event: fp.kind !== 'pin', litresSet: fp.add != null && fp.add > 0 ? fp.add : null });
       if (change) { used[driver] = fp.ts; stintStart = fp.ts + P.pitLaneMs / 2 + stat; }
       extraLoss += P.pitLaneMs + stat;
       t = fp.ts + P.pitLaneMs + stat; fuel = fArr + add; driver = nd;
@@ -591,7 +593,7 @@
     // a pin at or before now while the car is in the pits = the stop in progress: apply it as pinned
     if (inPit) {
       var curPin = ((whatIf && whatIf.pins) || []).filter(function (x) { return x.ts <= t + 60000; }).pop();
-      if (curPin) applyFixed({ ts: t, kind: 'pin', fuel: curPin.fuel, driverIn: curPin.driverIn, chain: true }, fixed.length ? fixed[0].ts : raceEndTs);
+      if (curPin) applyFixed({ ts: t, kind: 'pin', fuel: curPin.fuel, add: curPin.add, driverIn: curPin.driverIn, chain: true },fixed.length ? fixed[0].ts : raceEndTs);
     }
     fixed.forEach(function (fp, i) {
       // the stop in progress (car in the pits) is always planned first; free stops are searched only in front of event stops
@@ -811,42 +813,96 @@
     });
     return out;
   }
-  // Gates: the engineer moves the stop forward (Pit in -> Driver change -> Fuel stop completed -> Pit out).
-  // No timers. A gate is overridden ("AUTO") only when the geofences show the car has physically moved past it:
-  //   Pit in  <- fuelling started / car left the fuel bay / pit exit
-  //   Driver  <- car left the fuel bay / pit exit           (planned driver applied)
-  //   Fuel    <- car left the fuel bay / pit exit           (planned litres applied, not used to calibrate the model)
-  //   Pit out <- pit exit geofence
+  // Gates: every step of a stop has up to two signals and is a HANDSHAKE when both agree:
+  //   GEO = a PLTD geofence saw the car do it, ENG = the engineer confirmed it on the pit wall.
+  //   Pit in            GEO pit-entry geofence        ENG PIT IN                (car is in the pit lane)
+  //   Driver change     no geofence                   ENG DRIVER CHANGE DONE
+  //   Fuelling started  GEO car in the fuel zone      ENG FUEL ON               (crew pouring; starts the fuelling clock if the geofence missed it)
+  //   Fuel completed    GEO car left the fuel zone    ENG FUEL STOP COMPLETED   (litres + cans recorded)
+  //   Pit out           GEO pit-exit geofence         ENG PIT OUT               (car is leaving the pit lane)
+  // No timers. A step the engineer has not confirmed is applied from the plan ("AUTO") only when the geofences show
+  // the car has physically moved past it.
   function gatesFor(s, d, now, st, later) {
     var key = function (g) { return st.id + ':' + g; };
     var pin = s.gates[key('pitin')];
     var snap = pin && pin.plan ? pin.plan : null;
     var planned = snap || (d.nextStop ? { add: d.nextStop.add, brim: d.nextStop.brim, driverIn: d.nextStop.driverIn, change: d.nextStop.change, type: d.nextStop.type, cans: d.nextStop.cans } : null);
+    var geo = st.geo || {};
     var gone = st.outTs || (later && later.inTs) || null;            // the car is out of this stop
     var leftFuel = st.fuelOutTs || gone;                             // the car has left the fuel bay
+    var svc = st.service, recNoFuel = !!(svc && !(svc.fuelAdded > 0));
+    var fuelOnSkip = !st.fuelInTs && (recNoFuel || !(planned && planned.add > 0));
     var steps = [
-      { id: 'pitin', label: 'Pit in', overrideAt: st.fuelInTs || leftFuel },
-      { id: 'driver', label: 'Driver change', overrideAt: leftFuel },
-      { id: 'fuel', label: 'Fuel stop', overrideAt: leftFuel },
-      { id: 'pitout', label: 'Pit out', overrideAt: gone }
+      { id: 'pitin', label: 'Pit in', hasGeo: true, geoTs: geo.entry || null, overrideAt: st.fuelInTs || leftFuel },
+      { id: 'driver', label: 'Driver change', hasGeo: false, geoTs: null, overrideAt: leftFuel },
+      { id: 'fuelon', label: 'Fuelling started', hasGeo: true, geoTs: geo.fuelIn || null, overrideAt: leftFuel, skip: fuelOnSkip },
+      { id: 'fuel', label: 'Fuel completed', hasGeo: !recNoFuel, geoTs: recNoFuel ? null : (geo.fuelOut || null), overrideAt: leftFuel },
+      { id: 'pitout', label: 'Pit out', hasGeo: true, geoTs: geo.exit || null, overrideAt: gone }
     ];
     steps.forEach(function (g) {
-      var ack = g.id === 'fuel' ? (st.service ? { by: st.service.auto ? 'auto' : 'human', ts: st.service.ts } : null) : s.gates[key(g.id)];
-      g.state = ack ? 'done' : (g.overrideAt ? 'due' : 'open');      // due = the geofence has overtaken it, the server applies it now
+      var ack = g.id === 'fuel' ? (svc ? { by: svc.auto ? 'auto' : 'human', ts: svc.ts } : null) : s.gates[key(g.id)];
+      g.state = g.skip ? 'skip' : ack ? 'done' : (g.overrideAt ? 'due' : 'open');      // due = the geofence has overtaken it, the server applies it now
       g.by = ack ? ack.by : null; g.ackTs = ack ? ack.ts : null;
+      g.engTs = ack && ack.by === 'human' ? ack.ts : null;
+      // hs = handshake (both signals), ok = engineer on a step with no geofence, eng = engineer waiting for the geofence,
+      // geo = geofence waiting for the engineer, auto = applied from the plan
+      g.mode = g.skip ? 'skip' : g.by === 'auto' ? 'auto' : g.engTs ? (!g.hasGeo ? 'ok' : g.geoTs ? 'hs' : 'eng') : (g.geoTs ? 'geo' : 'none');
       if (g.id === 'driver' && ack && s.gates[key('driver')]) g.driverIn = s.gates[key('driver')].driverIn || null;
     });
-    var allDone = steps.every(function (g) { return g.state === 'done'; });
+    var allDone = steps.every(function (g) { return g.state === 'done' || g.state === 'skip'; });
     if (allDone && st.outTs && now - st.outTs > 3 * MIN) return null;
     if (later && allDone) return null;
     var complete = allDone && !!st.outTs;
     var noFuel = !!(st.service && !(st.service.fuelAdded > 0));
     var stuckInFuel = noFuel && s.carState.current === 'FUELLING' && !st.outTs;
-    var current = steps.filter(function (g) { return g.state !== 'done'; })[0] || null;
+    var current = steps.filter(function (g) { return g.state !== 'done' && g.state !== 'skip'; })[0] || null;
     var drvAck = s.gates[key('driver')];
     var auto = { stopId: st.id, auto: true, fuelAdded: st.fuelInTs && planned ? (planned.add || 0) : 0, brimmed: false, capacityL: d.P.capacity };
     var autoDriver = planned && planned.change ? planned.driverIn : null;
     return { stop: st, list: steps, current: current, planned: planned, autoService: auto, autoDriverIn: autoDriver, driverAck: drvAck || null, done: complete, allSteps: allDone, noFuel: noFuel, stuckInFuel: stuckInFuel };
+  }
+
+  /* ------------------------------------------- fuel plan: the running plan's fuel stops, with crew, cans and stop timings */
+  function canSplit(add, canL) {
+    if (!(add > 0) || !canL) return { n: 0, full: 0, partL: 0 };
+    var full = Math.floor(add / canL + 1e-6), part = Math.round((add - full * canL) * 10) / 10;
+    return { n: full + (part > 0 ? 1 : 0), full: full, partL: part };
+  }
+  // who else attends a fuel stop besides the refuel crew: first available tagged member, non-drivers first, never the refuel
+  // crew or the in/out driver. The pit-wall roles (engineer, radio, timing) may fall on one person; the mechanic is someone else.
+  var SUPPORT_ROLES = [['engineer', 'Pit wall engineer', 1], ['raceceiver', 'Radio (Raceceiver relay)', 1], ['timing', 'Lap timing', 1], ['mechanic', 'Mechanic (driver change, checks)', 0]];
+  function supportCrew(crew, rc, outId, inId) {
+    var taken = {}, wall = {}; rc.assign.forEach(function (a) { if (a.memberId) taken[a.memberId] = 1; });
+    return SUPPORT_ROLES.map(function (r) {
+      var cands = crew.filter(function (x) { return x.status === 'available' && x.roles.indexOf(r[0]) >= 0 && !taken[x.id] && x.id !== outId && x.id !== inId; })
+        .sort(function (a, b) { return (a.driver ? 1 : 0) - (b.driver ? 1 : 0); });
+      var c = cands.filter(function (x) { return !wall[x.id]; })[0] || (r[2] ? cands[0] : null) || null;
+      if (c) { if (r[2]) wall[c.id] = 1; else taken[c.id] = 1; }
+      return { key: r[0], label: r[1], memberId: c ? c.id : null, name: c ? c.name : null };
+    });
+  }
+  function fuelPlan(s, d) {
+    var P = d.P, canL = (P.method && P.method.canL) || 20, first = firstSessionStart(s);
+    var out = d.stops.list.filter(function (x) { return x.added > 0; }).map(function (x) {
+      return { done: !x.open, live: x.open, id: x.id, ts: x.inTs, add: x.added, cans: canSplit(x.added, canL), driverOut: x.driverOut, driverIn: x.driverIn, change: !!(x.driverIn && x.driverIn !== x.driverOut), fuelMs: x.fuelMs };
+    });
+    var refLap = d.refLap.ms;
+    (d.plan ? d.plan.stops : []).forEach(function (x) {
+      if (!(x.add > 0)) return;
+      var isNext = d.nextFuel && x.k === d.nextFuel.k;
+      var crew = isNext ? d.crew : crewView(s, x.ts, P, false, first);
+      var rc = isNext && d.refuelCrew ? d.refuelCrew : refuelCrew(s, P, crew, x.driverOut, x.driverIn);
+      var half = x.laneMs / 2, fuelMs = Math.max(P.fuelMinMs, (x.add / P.pourLpm + P.fuelHandlingMin) * MIN);
+      var swap = x.change && !P.swapDuringFuel ? P.driverChangeMs : 0;
+      var inBox = x.ts + half;
+      out.push({ done: false, live: !!(d.inPits && x.k === 1), k: x.k, ts: x.ts, add: x.add, brim: x.brim, litresSet: x.litresSet || null, pinned: !!x.pinned, event: !!x.event,
+        fuelArr: x.fuelArr, fuelAfter: x.fuelArr + x.add, window: x.window, cans: canSplit(x.add, canL), overStore: P.method && P.method.maxStoredL != null && x.add > P.method.maxStoredL,
+        driverOut: x.driverOut, driverIn: x.driverIn, change: x.change, statMs: x.statMs, fuelMs: fuelMs, refuel: rc, support: supportCrew(crew, rc, x.driverOut, x.change ? x.driverIn : null),
+        times: { prep: x.ts - 15 * MIN, notify: x.ts - refLap, pitIn: x.ts, swap: inBox, fuelOn: inBox + swap, fuelOff: inBox + swap + fuelMs, pitOut: x.ts + x.laneMs + x.statMs } });
+    });
+    out.sort(function (a, b) { return a.ts - b.ts; });
+    out.forEach(function (x, i) { x.n = i + 1; });
+    return { stops: out, canL: canL, method: P.method, maxPerStop: P.maxPerStop, maxAdd: Math.max(1, Math.min(P.maxPerStop, P.capacity - P.reserve)), capacity: P.capacity };
   }
 
   function derive(s, now, whatIf, opts) {
@@ -1056,5 +1112,5 @@
     return out;
   }
 
-  return { derive: derive, scenarioTemplates: scenarioTemplates, defToWhatIf: defToWhatIf, gates: gates, pendingGates: pendingGates, GATE_S: GATE_S, params: params, memberName: memberName, memberById: memberById, MIN: MIN, HOUR: HOUR, refuelCrew: refuelCrew, classifyLap: classifyLap };
+  return { derive: derive, fuelPlan: fuelPlan, canSplit: canSplit, scenarioTemplates: scenarioTemplates, defToWhatIf: defToWhatIf, gates: gates, pendingGates: pendingGates, GATE_S: GATE_S, params: params, memberName: memberName, memberById: memberById, MIN: MIN, HOUR: HOUR, refuelCrew: refuelCrew, classifyLap: classifyLap };
 });

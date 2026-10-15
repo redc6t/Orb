@@ -175,6 +175,14 @@
         var st = s.openStopId ? findStop(s, s.openStopId) : null;
         if (PIT_STATES.indexOf(cs) >= 0 && !st) st = openStop(s, ts, e.src);
         if (st) {
+          // geofence side of the stop handshake: only states reported by the car (PLTD / UDP), not engineer overrides
+          if (e.src === 'pltd' || e.src === 'udp') {
+            var geo = st.geo || (st.geo = {});
+            if (PIT_STATES.indexOf(cs) >= 0 && !geo.entry) geo.entry = ts;     // any pit state proves the car is in the lane
+            if (cs === 'FUELLING' && !geo.fuelIn) geo.fuelIn = ts;
+            if (prev === 'FUELLING' && cs !== 'FUELLING' && geo.fuelIn && !geo.fuelOut) geo.fuelOut = ts;
+            if ((cs === 'PIT EXIT' || cs === 'RUNNING') && !geo.exit) geo.exit = ts;
+          }
           if ((cs === 'PITS' || cs === 'FUELLING') && !st.statInTs) st.statInTs = ts;
           if (cs === 'FUELLING' && !st.fuelInTs) st.fuelInTs = ts;
           if (prev === 'FUELLING' && cs !== 'FUELLING' && !st.fuelOutTs) st.fuelOutTs = ts;
@@ -307,6 +315,11 @@
       case 'alert.ack': s.acks[p.key] = { ts: ts, by: e.by }; break;
       case 'gate.ack': {
         s.gates[p.stopId + ':' + p.gate] = { ts: ts, by: p.auto ? 'auto' : 'human', note: p.note || '', plan: p.plan ? clone(p.plan) : null, driverIn: p.driverIn || null };
+        if (p.gate === 'fuelon' && !p.auto) {
+          // FUEL ON from the engineer: the crew is pouring. If the fuel-zone geofence has not fired, the fuelling clock starts now.
+          var fs = findStop(s, p.stopId);
+          if (fs && !fs.outTs && !fs.fuelInTs) { fs.fuelInTs = ts; if (!fs.statInTs) fs.statInTs = ts; }
+        }
         if (p.gate === 'driver' && p.driverIn && p.driverIn !== s.drivers.activeId) {
           var gs = findStop(s, p.stopId);
           if (gs && !gs.voided) { if (gs.outTs) driverSwap(s, gs, p.driverIn); else s.drivers.pendingIn = p.driverIn; }
