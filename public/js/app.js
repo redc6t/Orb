@@ -447,7 +447,7 @@
     override: function (b) { App.send('crew.override', { memberId: b.getAttribute('data-id'), untilTs: App.now() + 3600000, reason: 'contingency' }); },
     draftshifts: function () {
       if (!confirm('Replace all shift blocks with a draft built from the current plan?')) return;
-      App.send('crew.shiftsAll', { shifts: draftShifts(numv('gs-len') || 6) });
+      App.send('crew.shiftsAll', { shifts: E.draftShifts(App.state, App.now(), numv('gs-len') || 6) });
     },
     editshifts: function (b) { openShiftEditor(b.getAttribute('data-id')); },
     shiftsave: function (b) {
@@ -506,43 +506,6 @@
     var bl = App.state.crew.shifts[id] || [];
     U.modal('<h3 class="section-title">Shifts - ' + U.esc(E.memberName(App.state, id)) + '</h3><div id="shift-rows">' + bl.map(shiftRow).join('') + '</div>' +
       '<div class="row" style="margin-top:8px"><button class="btn" data-act="shiftadd">Add block</button><span class="spacer"></span><button class="btn primary" data-act="shiftsave" data-id="' + id + '">Save</button><button class="btn" data-act="modalclose">Cancel</button></div>');
-  }
-
-  // Draft: drivers on duty around their planned stints and resting in long gaps;
-  // other crew split into two alternating groups (role-balanced) for races >= 12 h.
-  function draftShifts(shiftH) {
-    var s = App.state, d = E.derive(s, App.now());
-    var rs = d.raceSession, t0 = rs.startTs, t1 = d.plan ? d.plan.raceEndTs : t0 + rs.durationMs;
-    var out = {}, HOUR = 3600000;
-    var members = s.config.members || [];
-    members.filter(function (m) { return m.driver; }).forEach(function (m) {
-      var stints = s.drivers.stints.filter(function (x) { return x.driverId === m.id && x.sessionId === rs.id; }).map(function (x) { return [x.startTs, x.endTs || App.now()]; })
-        .concat((d.plan ? d.plan.stints : []).filter(function (x) { return x.driverId === m.id; }).map(function (x) { return [x.fromTs, x.endTs]; })).sort(function (a, b) { return a[0] - b[0]; });
-      var blocks = [], cur = t0 - HOUR;
-      stints.forEach(function (st) {
-        var dutyFrom = st[0] - 45 * MIN;
-        if (dutyFrom - cur >= 3 * HOUR) { blocks.push({ startTs: cur + 30 * MIN, endTs: dutyFrom - 15 * MIN, kind: dutyFrom - cur >= 5 * HOUR ? 'sleeping' : 'resting', note: dutyFrom - cur >= 5 * HOUR ? 'sleep' : 'rest' }); }
-        blocks.push({ startTs: Math.max(cur, dutyFrom), endTs: st[1] + 30 * MIN, kind: 'duty', note: 'stint + debrief' });
-        cur = st[1] + 30 * MIN;
-      });
-      if (t1 - cur >= 3 * HOUR) blocks.push({ startTs: cur + 30 * MIN, endTs: t1 - HOUR, kind: 'resting', note: 'rest' });
-      out[m.id] = blocks.filter(function (b) { return b.endTs > b.startTs; });
-    });
-    var crew = members.filter(function (m) { return !m.driver; });
-    var long = (t1 - t0) >= 12 * HOUR;
-    var groups = [[], []];
-    crew.slice().sort(function (a, b) { return (a.roles || []).join().localeCompare((b.roles || []).join()); }).forEach(function (m, i) { groups[i % 2].push(m); });
-    crew.forEach(function (m) {
-      if (!long) { out[m.id] = [{ startTs: t0 - HOUR, endTs: t1 + 30 * MIN, kind: 'duty', note: '' }]; return; }
-      var g = groups[0].indexOf(m) >= 0 ? 0 : 1, blocks = [], t = t0 - HOUR, k = 0;
-      while (t < t1) {
-        var end = Math.min(t1 + 30 * MIN, t + shiftH * HOUR);
-        blocks.push({ startTs: t, endTs: end, kind: (k % 2 === g) ? 'duty' : 'resting', note: 'Group ' + (g ? 'B' : 'A') });
-        t = end; k++;
-      }
-      out[m.id] = blocks;
-    });
-    return out;
   }
 
   /* ------------------------------------------------------------ plan bars: drag a stop to move it */

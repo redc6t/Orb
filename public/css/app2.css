@@ -37,8 +37,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .hdr-clock { text-align: center; }
 .big { font-size: 2em; font-weight: 700; line-height: 1.05; }
 .mid { font-size: 1.25em; font-weight: 600; }
-.hdr-stats { display: flex; gap: 20px; align-items: flex-start; }
-.hdr-stats > div { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.hdr-stats { display: flex; gap: 36px; align-items: flex-start; margin-left: 14px; }
+.hdr-stats > div { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .hdr-stats .cs { font-size: 2em; line-height: 1.05; padding: 0 10px; }
 .hdr-right { display: flex; gap: 8px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
 .flag-pill { padding: 6px 14px; border-radius: 6px; font-weight: 800; letter-spacing: .06em; min-width: 92px; text-align: center; }

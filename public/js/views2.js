@@ -645,14 +645,14 @@
     var g = d.gates && f.live ? d.gates : null, gs = {};
     if (g) g.list.forEach(function (x) { gs[x.id] = x; });
     var rc = f.refuel || { assign: [] };
-    var fuelCrew = rc.assign.map(function (a) { return [a.label.replace(' (9 kg foam)', '').replace('Vehicle ', ''), a.name]; });
+    var fuelCrew = rc.assign.map(function (a) { return [a.label.replace(' (9 kg foam)', '').replace('Vehicle ', '') + (a.supervise ? ' (supervising)' : ''), a.name]; });
     var sup = {}; (f.support || []).forEach(function (a) { sup[a.key] = a.name; });
     var tm = f.times || {}, eng = sup.engineer || 'Pit wall engineer';
     var nm = function (id) { return name(ctx, id); };
     var rows = [];
     if (f.change) rows.push({ t: f.ts - 30 * MIN, title: 'Incoming driver gets ready', who: [['Driver in', nm(f.driverIn)]], what: 'Kit on, hydrate, at the pit wall by ' + U.clock(f.ts - 10 * MIN) + '.' });
     rows.push({ t: tm.prep, title: 'Refuel crew to the fuel bay', who: fuelCrew,
-      what: 'Stage ' + cansText(f.cans, fp.canL) + ' = ' + f.add + ' L. 9 kg foam extinguisher at the bay. Summon alert goes out 5 min before.' });
+      what: 'Summoned 5 min before pit-in. Stage ' + cansText(f.cans, fp.canL) + ' = ' + f.add + ' L. 9 kg foam extinguisher at the bay.' + (f.change ? ' The incoming driver joins the zone to supervise, hands off; the outgoing driver goes straight to rest.' : '') });
     rows.push({ t: tm.notify, title: 'BOX BOX on the pit board', who: [['Engineer', eng]], what: 'Last lap of the stint: the call on the Race tab turns into NOTIFY DRIVER.' });
     rows.push({ t: tm.pitIn, step: 'pitin', title: 'Pit in', who: [['Engineer', eng]], what: 'The car is in the pit lane.' });
     rows.push({ t: tm.swap, step: 'driver', title: f.change ? 'Driver change' : 'Driver stays in', who: f.change ? [['Out', nm(f.driverOut)], ['In', nm(f.driverIn)], ['Mechanic', sup.mechanic, true]] : [['Driver', nm(f.driverOut)]],

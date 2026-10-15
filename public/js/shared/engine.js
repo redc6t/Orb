@@ -274,12 +274,33 @@
     return null;
   }
 
+  // when this member last handed the car over at a pit stop (null if they did not)
+  function steppedOutTs(s, id) {
+    var d = s.drivers, i, st;
+    if (d.activeId === id) {
+      // driver change confirmed while the stop is still open: he is already out of the car
+      if (!s.openStopId || !d.pendingIn || d.pendingIn === id) return null;
+      for (i = s.stops.length - 1; i >= 0; i--) if (s.stops[i].id === s.openStopId) return s.stops[i].statInTs || s.stops[i].inTs;
+      return null;
+    }
+    var last = null; d.stints.forEach(function (x) { if (x.driverId === id && x.endTs != null) last = x; });
+    if (!last) return null;
+    for (i = s.stops.length - 1; i >= 0; i--) {
+      st = s.stops[i];
+      if (!st.voided && st.driverOut === id && (st.statInTs || st.inTs) === last.endTs) return last.endTs;
+    }
+    return null;
+  }
+
   function memberStatus(s, m, now, carOnTrack) {
     var ov = s.crew.status[m.id];
     var st = 'available', reason = '', src = 'default';
     var sh = shiftAt(s, m.id, now);
     if (sh) { st = sh.kind === 'duty' ? 'available' : sh.kind; reason = sh.note || ''; src = 'shift'; }
     if (ov && (!sh || ov.since >= sh.startTs)) { st = ov.status; reason = ov.reason; src = 'manual'; }
+    // stepped out of the car at a stop: straight to rest, until a later shift block or a manual status
+    var outTs = steppedOutTs(s, m.id);
+    if (outTs != null && outTs <= now && !(ov && ov.since >= outTs) && !(sh && sh.startTs > outTs)) { st = 'resting'; reason = 'stepped out of the car'; src = 'car'; }
     if (s.drivers.activeId === m.id && carOnTrack) { st = 'driving'; src = 'car'; }
     return { status: st, reason: reason, src: src };
   }
@@ -682,24 +703,26 @@
 
   // Only members TAGGED with a role are assigned to it, and only while their status is Available.
   // Untagged available people are offered as suggestions, never assigned silently.
+  // Golden rule at a fuel stop: the outgoing driver steps out and goes to rest - never on the refuel crew.
+  // The incoming driver enters the fuel zone as Refueller Assistant, supervising only (hands off).
+  // Pouring and the extinguisher go to the other available members tagged for them.
   function refuelCrew(s, P, crew, outId, inId) {
     var roles = (P.method && P.method.roles) || [];
-    var taken = {}, assign = [], issues = [];
-    var eligible = function (c, r) {
-      if (taken[c.id] || c.status !== 'available') return false;
-      if (r.notOutgoing && c.id === outId) return false;
-      if (r.notIncoming && c.id === inId) return false;
-      return true;
-    };
-    // preference: not involved in the swap and not a driver > not involved > involved (where the rule allows)
-    var rank = function (c) { return (c.id === outId || c.id === inId ? 2 : 0) + (c.driver ? 1 : 0); };
+    var taken = {}, assign = [], issues = [], byKey = {};
+    var eligible = function (c) { return !taken[c.id] && c.status === 'available' && c.id !== outId && c.id !== inId; };
+    var rank = function (c) { return c.driver ? 1 : 0; };
+    var sup = inId && inId !== outId ? roles.filter(function (r) { return r.key === 'assistant'; })[0] : null;
+    if (sup) {
+      var ic = crew.filter(function (c) { return c.id === inId; })[0];
+      taken[inId] = 1;
+      byKey[sup.key] = { key: sup.key, label: sup.label, memberId: inId, name: ic ? ic.name : memberName(s, inId), supervise: true, suggest: [] };
+    }
     // assign the most constrained roles first so a flexible person is not used up early
-    var order = roles.map(function (r, i) { return { r: r, i: i, n: crew.filter(function (c) { return c.roles.indexOf(r.key) >= 0 && eligible(c, r); }).length }; })
+    var order = roles.filter(function (r) { return r !== sup; }).map(function (r, i) { return { r: r, i: i, n: crew.filter(function (c) { return c.roles.indexOf(r.key) >= 0 && eligible(c); }).length }; })
       .sort(function (a, b) { return a.n - b.n || a.i - b.i; });
-    var byKey = {};
     order.forEach(function (o) {
       var r = o.r;
-      var cands = crew.filter(function (c) { return c.roles.indexOf(r.key) >= 0 && eligible(c, r); }).sort(function (a, b) { return rank(a) - rank(b); });
+      var cands = crew.filter(function (c) { return c.roles.indexOf(r.key) >= 0 && eligible(c); }).sort(function (a, b) { return rank(a) - rank(b); });
       var pick = cands[0] || null;
       if (pick) taken[pick.id] = 1;
       byKey[r.key] = { key: r.key, label: r.label, memberId: pick ? pick.id : null, name: pick ? pick.name : null, suggest: [] };
@@ -709,9 +732,9 @@
       if (!a.memberId) {
         var tagged = crew.filter(function (c) { return c.roles.indexOf(r.key) >= 0; });
         a.reason = !tagged.length ? 'nobody tagged "' + r.key + '"' : 'tagged crew unavailable or barred (' + tagged.map(function (c) { return c.name + ': ' + (c.status !== 'available' ? c.status : 'in/out driver'); }).join(', ') + ')';
-        var sg = crew.filter(function (c) { return eligible(c, r); }).sort(function (x, y) { return rank(x) - rank(y); }).slice(0, 3);
+        var sg = crew.filter(function (c) { return eligible(c); }).sort(function (x, y) { return rank(x) - rank(y); }).slice(0, 3);
         a.suggest = sg.map(function (c) { return c.name; }); a.suggestIds = sg.map(function (c) { return c.id; });
-        a.taggedIds = crew.filter(function (c) { return c.roles.indexOf(r.key) >= 0 && !taken[c.id] && ['resting', 'sleeping', 'offline', 'flag'].indexOf(c.status) >= 0; }).map(function (c) { return c.id; });
+        a.taggedIds = crew.filter(function (c) { return c.roles.indexOf(r.key) >= 0 && !taken[c.id] && c.id !== outId && c.id !== inId && ['resting', 'sleeping', 'offline', 'flag'].indexOf(c.status) >= 0; }).map(function (c) { return c.id; });
         issues.push('No ' + r.label + ': ' + a.reason);
       }
       assign.push(a);
@@ -898,7 +921,7 @@
       out.push({ done: false, live: !!(d.inPits && x.k === 1), k: x.k, ts: x.ts, add: x.add, brim: x.brim, litresSet: x.litresSet || null, pinned: !!x.pinned, event: !!x.event,
         fuelArr: x.fuelArr, fuelAfter: x.fuelArr + x.add, window: x.window, cans: canSplit(x.add, canL), overStore: P.method && P.method.maxStoredL != null && x.add > P.method.maxStoredL,
         driverOut: x.driverOut, driverIn: x.driverIn, change: x.change, statMs: x.statMs, fuelMs: fuelMs, refuel: rc, support: supportCrew(crew, rc, x.driverOut, x.change ? x.driverIn : null),
-        times: { prep: x.ts - 15 * MIN, notify: x.ts - refLap, pitIn: x.ts, swap: inBox, fuelOn: inBox + swap, fuelOff: inBox + swap + fuelMs, pitOut: x.ts + x.laneMs + x.statMs } });
+        times: { prep: x.ts - 5 * MIN, notify: x.ts - refLap, pitIn: x.ts, swap: inBox, fuelOn: inBox + swap, fuelOff: inBox + swap + fuelMs, pitOut: x.ts + x.laneMs + x.statMs } });
     });
     out.sort(function (a, b) { return a.ts - b.ts; });
     out.forEach(function (x, i) { x.n = i + 1; });
@@ -1112,5 +1135,74 @@
     return out;
   }
 
-  return { derive: derive, fuelPlan: fuelPlan, canSplit: canSplit, scenarioTemplates: scenarioTemplates, defToWhatIf: defToWhatIf, gates: gates, pendingGates: pendingGates, GATE_S: GATE_S, params: params, memberName: memberName, memberById: memberById, MIN: MIN, HOUR: HOUR, refuelCrew: refuelCrew, classifyLap: classifyLap };
+  /* ---------------------------------------------------- shift draft */
+  // Draft: drivers on duty around their planned stints and resting in long gaps;
+  // other crew split into two alternating groups (role-balanced) for races >= 12 h.
+  function draftShifts(s, now, shiftH) {
+    var d = derive(s, now);
+    var rs = d.raceSession, t0 = rs.startTs, t1 = d.plan ? d.plan.raceEndTs : t0 + rs.durationMs;
+    var out = {};
+    var members = s.config.members || [];
+    members.filter(function (m) { return m.driver; }).forEach(function (m) {
+      var stints = s.drivers.stints.filter(function (x) { return x.driverId === m.id && x.sessionId === rs.id; }).map(function (x) { return [x.startTs, x.endTs || now]; })
+        .concat((d.plan ? d.plan.stints : []).filter(function (x) { return x.driverId === m.id; }).map(function (x) { return [x.fromTs, x.endTs]; })).sort(function (a, b) { return a[0] - b[0]; });
+      // a driver stepping out of the car goes straight to rest from pit-in until he gets ready for his next stint
+      var blocks = [], cur = t0 - HOUR, drove = false;
+      stints.forEach(function (st) {
+        var dutyFrom = st[0] - 45 * MIN, gap = dutyFrom - cur, kind = gap >= 5 * HOUR ? 'sleeping' : 'resting';
+        if (drove && gap > 0) blocks.push({ startTs: cur, endTs: dutyFrom, kind: kind, note: 'stepped out - ' + (kind === 'sleeping' ? 'sleep' : 'rest') });
+        else if (!drove && gap >= 3 * HOUR) blocks.push({ startTs: cur + 30 * MIN, endTs: dutyFrom - 15 * MIN, kind: kind, note: kind === 'sleeping' ? 'sleep' : 'rest' });
+        blocks.push({ startTs: Math.max(cur, dutyFrom), endTs: st[1], kind: 'duty', note: 'stint' });
+        cur = st[1]; drove = true;
+      });
+      if (drove ? t1 > cur : t1 - cur >= 3 * HOUR) blocks.push({ startTs: drove ? cur : cur + 30 * MIN, endTs: drove ? t1 + 30 * MIN : t1 - HOUR, kind: 'resting', note: drove ? 'stepped out - rest' : 'rest' });
+      out[m.id] = blocks.filter(function (b) { return b.endTs > b.startTs; });
+    });
+    var crew = members.filter(function (m) { return !m.driver; });
+    var long = (t1 - t0) >= 12 * HOUR;
+    var groups = [[], []];
+    crew.slice().sort(function (a, b) { return (a.roles || []).join().localeCompare((b.roles || []).join()); }).forEach(function (m, i) { groups[i % 2].push(m); });
+    crew.forEach(function (m) {
+      if (!long) { out[m.id] = [{ startTs: t0 - HOUR, endTs: t1 + 30 * MIN, kind: 'duty', note: '' }]; return; }
+      var g = groups[0].indexOf(m) >= 0 ? 0 : 1, blocks = [], t = t0 - HOUR, k = 0;
+      while (t < t1) {
+        var end = Math.min(t1 + 30 * MIN, t + (shiftH || 6) * HOUR);
+        blocks.push({ startTs: t, endTs: end, kind: (k % 2 === g) ? 'duty' : 'resting', note: 'Group ' + (g ? 'B' : 'A') });
+        t = end; k++;
+      }
+      out[m.id] = blocks;
+    });
+    // every planned fuel stop: the refuel crew (outgoing driver resting, incoming supervising, the other two
+    // fuel-tagged people pouring and on the extinguisher) is on duty from 5 min before pit-in to pit-out
+    var kindAt = function (id, t) { var b = (out[id] || []).filter(function (x) { return x.startTs <= t && t < x.endTs; })[0]; return b ? b.kind : 'duty'; };
+    (d.plan ? d.plan.stops : []).filter(function (x) { return x.add > 0 && !x.event; }).forEach(function (x) {
+      var a = x.ts - 5 * MIN, b = x.ts + x.laneMs + x.statMs, inId = x.change ? x.driverIn : x.driverOut;
+      var crew = members.map(function (m) { var k = kindAt(m.id, x.ts); return { id: m.id, name: m.name, roles: m.roles || [], driver: !!m.driver, status: k === 'duty' ? 'available' : k }; });
+      var rc = refuelCrew(s, d.P, crew, x.driverOut, inId), used = {};
+      rc.assign.forEach(function (r) { if (r.memberId) used[r.memberId] = 1; });
+      // a role nobody on duty can fill: call in a tagged member who is resting (then sleeping)
+      rc.assign.forEach(function (r) {
+        if (r.memberId) return;
+        var c = crew.filter(function (c) { return c.roles.indexOf(r.key) >= 0 && !used[c.id] && c.id !== x.driverOut && c.id !== inId && (c.status === 'resting' || c.status === 'sleeping'); })
+          .sort(function (p, q) { return (p.status === 'sleeping') - (q.status === 'sleeping'); })[0];
+        if (c) { r.memberId = c.id; used[c.id] = 1; }
+      });
+      rc.assign.forEach(function (r) {
+        if (!r.memberId || r.supervise) return;
+        var bl = out[r.memberId] || [], add = [];
+        // carve the fuel duty out of any rest that overlaps it
+        bl = bl.reduce(function (acc, y) {
+          if (y.kind === 'duty' || y.endTs <= a || y.startTs >= b) { acc.push(y); return acc; }
+          if (y.startTs < a) acc.push({ startTs: y.startTs, endTs: a, kind: y.kind, note: y.note });
+          add.push({ startTs: Math.max(a, y.startTs), endTs: Math.min(b, y.endTs), kind: 'duty', note: 'fuel crew - ' + r.label });
+          if (y.endTs > b) acc.push({ startTs: b, endTs: y.endTs, kind: y.kind, note: y.note });
+          return acc;
+        }, []);
+        out[r.memberId] = bl.concat(add).sort(function (p, q) { return p.startTs - q.startTs; });
+      });
+    });
+    return out;
+  }
+
+  return { derive: derive, draftShifts: draftShifts, fuelPlan: fuelPlan, canSplit: canSplit, scenarioTemplates: scenarioTemplates, defToWhatIf: defToWhatIf, gates: gates, pendingGates: pendingGates, GATE_S: GATE_S, params: params, memberName: memberName, memberById: memberById, MIN: MIN, HOUR: HOUR, refuelCrew: refuelCrew, classifyLap: classifyLap };
 });
