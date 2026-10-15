@@ -85,7 +85,7 @@ To allow a second engineer laptop, add its IP to `engineerHosts` in `data/settin
 | BTTM v4.5 | `GET /data` polled at 1 Hz, colour bands from `GET /config` | BTTM IP |
 | Anything else | JSON over UDP, port 47800 | UDP port |
 
-The P52 must be on the device network (VDG / MME_AP, 192.168.0.x). Both devices use DHCP, so check their IPs on their screens.
+The main Race/Team Engineer PC must be on the device network (VDG / MME_AP, 192.168.0.x). Both devices use DHCP, so check their IPs on their screens.
 
 How the data is used:
 - PLTD car states (PIT ENTRY / PITS / FUELLING / PIT EXIT) open and close stops and run the stop timers.
