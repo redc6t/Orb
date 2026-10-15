@@ -736,7 +736,38 @@
   }
 
   /* ================================================================== CAR */
-  V.car = function (ctx) { return { layout: 'grid2', cols: [[panelIssues(ctx), panelPenalties(ctx)], [panelTyres(ctx), panelBttmDetail(ctx)]] }; };
+  V.car = function (ctx) { return { layout: 'grid2', cols: [[panelTyres(ctx), panelIssues(ctx), panelPenalties(ctx)], [panelMap(ctx), panelPltd(ctx), panelBttmDetail(ctx)]] }; };
+
+  // PLTD live timing: running lap, prediction, delta and the micro-sector breakdown for this lap and the last one
+  function panelPltd(ctx) {
+    var d = ctx.d, pl = ctx.live.pltd || {}, lv = pl.live || {}, sx = pl.sectors, on = pl.status === 'connected';
+    var sgn = function (ms) { return ms == null ? '-' : (ms > 0 ? '+' : '') + (ms / 1000).toFixed(2); };
+    var dcls = function (ms) { return ms == null ? '' : ms > 0 ? ' crit-t' : ' ok-t'; };
+    var h = '<div class="strip pltd-strip">' +
+      '<div><span class="lbl">Lap</span><span class="v">' + (lv.lap != null ? lv.lap : '-') + '</span></div>' +
+      '<div><span class="lbl">Running</span><span class="v">' + U.lap(lv.el) + '</span></div>' +
+      '<div><span class="lbl">Predicted</span><span class="v">' + U.lap(lv.est) + '</span></div>' +
+      '<div data-tip="kpi:Delta"><span class="lbl">Delta</span><span class="v' + (lv.v ? dcls(lv.d) : '') + '">' + (lv.v ? sgn(lv.d) : '-') + '</span></div>' +
+      '<div><span class="lbl">Last</span><span class="v">' + U.lap(d.lastLap && d.lastLap.ms) + '</span></div>' +
+      '<div><span class="lbl">Best</span><span class="v">' + U.lap(d.bestLapMs) + '</span></div>' +
+      '<div data-tip="kpi:Ref pace"><span class="lbl">Ref pace</span><span class="v">' + U.lap(d.refLap.ms) + '</span></div>' +
+      '<div><span class="lbl">Speed</span><span class="v">' + (lv.spd != null ? Math.round(lv.spd) : '-') + ' <small>km/h</small></span></div></div>';
+    if (sx && sx.n) {
+      var COL = ['#2c2f34', '#00C846', '#E03030', '#8B5CF6'], cells = '', sum = 0, n = 0, last = sx.last || [], lsum = 0;
+      for (var i = 0; i < sx.n; i++) {
+        var c = sx.cells[i] || { c: 0 };
+        if (c.done) { sum += c.d; n++; }
+        cells += '<div class="msc' + (i === sx.cur ? ' cur' : '') + '" title="' + esc('Micro-sector ' + (i + 1) + (last[i] != null ? ', last lap ' + sgn(last[i]) + ' s' : '')) + '"><span class="bar" style="background:' + COL[c.c || 0] + '"></span><span class="n">' + (i + 1) + '</span><span class="dv' + (c.done ? dcls(c.d) : ' muted') + '">' + (c.done ? sgn(c.d) : i === sx.cur ? 'now' : '') + '</span></div>';
+      }
+      last.forEach(function (x) { if (x != null) lsum += x; });
+      h += '<div class="sep"></div><div class="row tiny muted" style="margin-bottom:4px"><span>Micro-sectors vs reference</span><span class="spacer"></span><span>' + (sx.cur != null ? 'sector ' + (sx.cur + 1) + ' of ' + sx.n : sx.n + ' sectors') +
+        (n ? ' | this lap <span class="' + dcls(sum).trim() + '">' + sgn(sum) + ' s</span>' : '') + (last.length ? ' | last lap ' + sgn(lsum) + ' s' : '') + '</span></div><div class="mscs">' + cells + '</div>' +
+        '<div class="tiny muted" style="margin-top:4px"><span class="ok-t">green</span> faster, <span class="crit-t">red</span> slower, <span style="color:#8B5CF6">purple</span> best, grey not yet run. Hover a sector for its last-lap delta.</div>';
+    } else h += '<div class="tiny muted" style="margin-top:6px">Micro-sectors appear once the PLTD has its recon lap.</div>';
+    var age = lv.ts ? Date.now() - lv.ts : null;
+    var hint = on ? (age != null && age > 3000 ? 'data ' + Math.round(age / 1000) + ' s old' : 'live, 10 Hz') : 'PLTD ' + (pl.status || 'disabled');
+    return { id: 'pltd', html: card('Live timing (PLTD)', h, hint) };
+  }
 
   function issueRow(ctx, i) {
     var done = i.status === 'fixed' || i.status === 'closed';

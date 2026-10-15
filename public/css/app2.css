@@ -320,6 +320,14 @@ label.f[data-tip] { text-decoration: underline dotted #4a4d53; text-underline-of
 .msecs { display: flex; gap: 2px; flex-wrap: wrap; }
 .msec { flex: 1 0 10px; min-width: 8px; height: 12px; border-radius: 2px; }
 .msec.cur { outline: 2px solid #fff; outline-offset: -1px; }
+.pltd-strip { grid-template-columns: repeat(4, 1fr); row-gap: 10px; }
+.pltd-strip .v { font-size: 1.35em; }
+.mscs { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 3px; }
+.msc { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 2px 0; border-radius: 3px; }
+.msc .bar { display: block; width: 100%; height: 16px; border-radius: 2px; }
+.msc .n { font-size: 10px; color: var(--sub); }
+.msc .dv { font-family: var(--mono); font-size: 11px; min-height: 1.2em; }
+.msc.cur { outline: 2px solid #fff; outline-offset: -1px; }
 .gline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 5px 0; border-bottom: 1px solid var(--line); }
 .gline:last-child { border-bottom: none; }
 .gline .gl-n { width: 108px; color: var(--sub); font-size: .82em; text-transform: uppercase; letter-spacing: .05em; }

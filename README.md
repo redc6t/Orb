@@ -2,7 +2,7 @@
 
 Offline, self-hosted pit wall strategist for endurance racing. Your PC runs the server. The browser on the PC is the engineer screen; any phone, tablet or laptop on the same network opens the same screens view-only.
 
-Version 2.2.2. The version lives in `package.json` only; the server console and the footer of every page read it from there. Version 2 is a UI overhaul of the 1.x classic layout with the same features, server, engine and data format, and reads the same `data` folder.
+Version 2.2.3. The version lives in `package.json` only; the server console and the footer of every page read it from there. Version 2 is a UI overhaul of the 1.x classic layout with the same features, server, engine and data format, and reads the same `data` folder.
 
 ## What changed in 2.0 and why
 
@@ -117,6 +117,11 @@ PLTD v0.17 has no impact output. Sending `{"t":"impact",...}` from a future firm
 - **MESSAGE** (driver only, no effect on the plan): the pit board. BOX BOX does not create a stop; the stop starts when the car crosses the pit-entry geofence.
 
 The feed and log tag every item accordingly.
+
+## Changes in 2.2.3
+
+- **Car tab layout:** Tyre sets move to the top of the left column, above the Car status log and Penalties. The right column is now the live Track map (same GNSS map as the Race tab), then Live timing, then Brakes, tyres & TPMS.
+- **Live timing (PLTD) card (Car tab):** lap number, running lap time, predicted lap, delta, last, best, reference pace and speed, plus a micro-sector grid with each sector's colour, number and delta for the current lap (hover for the last-lap delta), and this-lap / last-lap totals.
 
 ## Changes in 2.2.2
 
