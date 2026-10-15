@@ -72,7 +72,7 @@ Send `BOX BOX` from Race control and the simulated car pits at the end of the la
 
 | Device | Can do |
 |---|---|
-| The P52 (any of its own IP addresses) | Everything |
+| The main PC (any of its own IP addresses) | Everything |
 | Any other device | View every tab, run what-if scenarios locally, browse the log and replay. No changes: the server rejects them (HTTP 403 / WebSocket error). |
 
 To allow a second engineer laptop, add its IP to `engineerHosts` in `data/settings.json`. The server port is set there too.
