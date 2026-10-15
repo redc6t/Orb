@@ -1,4 +1,4 @@
-# Pit Wall Pro2 - Mullaloo Motorsport Engineering Solutions - Pietro
+# Pit Wall Pro2 - Mullaloo Motorsport Engineering Solutions
 
 Offline, self-hosted pit wall strategist for endurance racing. Your PC runs the server. The browser on the PC is the engineer screen; any phone, tablet or laptop on the same network opens the same screens view-only.
 
