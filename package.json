@@ -1,0 +1,15 @@
+{
+  "name": "mme-pitwall-pro2",
+  "version": "2.1.4",
+  "description": "Mullaloo Motorsport Engineering Solutions - Pit Wall Pro2 strategy server (offline, multi-client)",
+  "main": "server.js",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "sim": "node tools/simulate.js",
+    "demo": "node tools/demo.js",
+    "test": "node tools/test-engine.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": { "ws": "8.18.0" }
+}

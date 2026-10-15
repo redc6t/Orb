@@ -1,0 +1,48 @@
+{
+  "id": "beers-v4-2025-02",
+  "organiser": "BEERS - Budget Extreme Endurance Racing (Ian Jeffery Motorsport)",
+  "document": "Standing Regulations",
+  "version": "Version 4, reviewed 09/02/2025",
+  "fuel": {
+    "tankMaxL": 120,
+    "minFuelStopMin": 8,
+    "maxPerStopL": null,
+    "timingBasis": "zone",
+    "refuelAllowed": { "GREEN": true, "YELLOW": false, "DOUBLE YELLOW": false, "SC": false, "RED": false },
+    "driverSwapDuringFuel": false,
+    "maxConcurrentRefuel": null,
+    "methods": [
+      { "id": "jerry20", "label": "Jerry cans 20 L", "canL": 20, "maxStoredL": 100, "roles": [
+        { "key": "refueller", "label": "Vehicle Refueller", "notOutgoing": true, "notIncoming": true },
+        { "key": "assistant", "label": "Refueller Assistant", "notOutgoing": false, "notIncoming": true },
+        { "key": "fire", "label": "Fire Attendant (9 kg foam)", "notOutgoing": false, "notIncoming": false } ] },
+      { "id": "gravity60", "label": "Gravity tower 60 L drum", "canL": 60, "maxStoredL": 120, "roles": [
+        { "key": "refueller", "label": "Vehicle Refueller", "notOutgoing": true, "notIncoming": true },
+        { "key": "cutoff", "label": "Rig Emergency Cut-off", "notOutgoing": true, "notIncoming": true },
+        { "key": "fire", "label": "Fire Attendant (9 kg foam)", "notOutgoing": false, "notIncoming": false } ] },
+      { "id": "drum60", "label": "Portable drum & hand pump 60 L", "canL": 60, "maxStoredL": 120, "roles": [
+        { "key": "refueller", "label": "Vehicle Refueller", "notOutgoing": true, "notIncoming": true },
+        { "key": "pump", "label": "Fuel Hand Pump Operator", "notOutgoing": true, "notIncoming": true },
+        { "key": "fire", "label": "Fire Attendant (9 kg foam)", "notOutgoing": false, "notIncoming": false } ] }
+    ]
+  },
+  "stops": { "mandatoryCount": 0, "mandatoryMinMin": 0, "timingBasis": "lane", "nonFuelMinMin": 0 },
+  "drivers": { "maxStintMin": 120, "minDrivers": 4, "minDrivers24h": 5, "maxDrivers": null },
+  "tyres": { "minTreadwear": 220 },
+  "clock": { "stopsOnRed": false },
+  "flags": ["GREEN", "YELLOW", "SC", "RED"],
+  "penalties": { "contactSinBinMin": null, "blackFlagProgression": true },
+  "crew": { "raceceiverRequired": true },
+  "lights": { "headlightsMinRaceH": 24 },
+  "notes": [
+    "Fuelling timer default 8 min (confirmed at drivers briefing). No work on the car during a fuel stop.",
+    "No mandatory pit stop count and no minimum time for non-fuel stops in the standing regs.",
+    "NO refuelling under Yellow or Red. Cars already in the fuel area may finish under Yellow. SC treated as Yellow.",
+    "No driver swap during fuelling. No per-stop litre cap; fuel area storage caps it (jerry 5 x 20 L, drums 2 x 60 L).",
+    "Fuelling method: jerry cans, gravity tower or drum & hand pump, each with its own 3-person crew rule.",
+    "Max continuous stint 120 min. Min 4 drivers per entry, 5 for a 24 h event.",
+    "Raceceiver relay: a dedicated crew member is required at all times.",
+    "Black flags escalate per driver per day (5th may eject the team). Tyres min 220 treadwear.",
+    "Continuous 24 h+ events: working low-beam headlights and high-level brake light required."
+  ]
+}

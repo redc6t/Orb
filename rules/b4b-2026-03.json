@@ -1,0 +1,42 @@
+{
+  "id": "b4b-2026-03",
+  "organiser": "B4B Events (Bang For Your Buck Motorsport)",
+  "document": "Standing Regulations",
+  "version": "Updated March 2026 (pending AASA approval) + 7h supplementary rules",
+  "fuel": {
+    "tankMaxL": 120,
+    "minFuelStopMin": 5,
+    "maxPerStopL": 80,
+    "timingBasis": "zone",
+    "refuelAllowed": { "GREEN": true, "YELLOW": true, "DOUBLE YELLOW": true, "SC": true, "RED": false },
+    "driverSwapDuringFuel": false,
+    "maxConcurrentRefuel": 6,
+    "methods": [
+      { "id": "jerry20", "label": "Jerry cans 20 L", "canL": 20, "maxStoredL": 80, "roles": [
+        { "key": "refueller", "label": "Vehicle Refueller", "notOutgoing": true, "notIncoming": true },
+        { "key": "assistant", "label": "Refueller Assistant", "notOutgoing": false, "notIncoming": true },
+        { "key": "fire", "label": "Fire Attendant (9 kg foam)", "notOutgoing": false, "notIncoming": false } ] },
+      { "id": "jerry25", "label": "Jerry cans 25 L", "canL": 25, "maxStoredL": 75, "roles": [
+        { "key": "refueller", "label": "Vehicle Refueller", "notOutgoing": true, "notIncoming": true },
+        { "key": "assistant", "label": "Refueller Assistant", "notOutgoing": false, "notIncoming": true },
+        { "key": "fire", "label": "Fire Attendant (9 kg foam)", "notOutgoing": false, "notIncoming": false } ] }
+    ]
+  },
+  "stops": { "mandatoryCount": 5, "mandatoryMinMin": 5, "timingBasis": "lane", "nonFuelMinMin": 5 },
+  "drivers": { "maxStintMin": 120, "minDrivers": 3, "minDrivers24h": 3, "maxDrivers": 6 },
+  "tyres": { "minTreadwear": 200 },
+  "clock": { "stopsOnRed": false },
+  "flags": ["GREEN", "YELLOW", "DOUBLE YELLOW", "SC", "RED"],
+  "penalties": { "contactSinBinMin": 15, "blackFlagProgression": false },
+  "crew": { "raceceiverRequired": false },
+  "lights": { "headlightsMinRaceH": 24 },
+  "notes": [
+    "Min 5 pit stops of at least 5 min each (supplementary rules, pit stop monitoring in place).",
+    "Fuel stop minimum 5 min, kill switch OFF, nobody in the car, no other work during fuelling.",
+    "Max 80 L per stop. Fuel area: max 4 x 20 L or 3 x 25 L cans.",
+    "Fuel area OPEN under Safety Car, CLOSED under Red (pause fuelling until racing resumes).",
+    "Driver swaps only after fuelling is complete.",
+    "Max continuous stint 120 min (may be shortened at briefing).",
+    "Contact = minimum 15 min sin bin regardless of fault."
+  ]
+}

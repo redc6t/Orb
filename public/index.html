@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pit Wall Pro2 - Mullaloo Motorsport Engineering Solutions - Pietro</title>
+<link rel="icon" href="/assets/favicon.png">
+<link rel="stylesheet" href="/css/app2.css">
+</head>
+<body>
+<header id="top">
+  <div class="brand">
+    <img id="logo" src="/branding/logo" alt="Mullaloo Motorsport Engineering Solutions - Pietro">
+    <div class="brand-text">
+      <div class="team" id="hdr-team">Pit Wall</div>
+      <div class="sub" id="hdr-car">Mullaloo Motorsport Engineering Solutions - Pietro</div>
+    </div>
+  </div>
+  <div class="hdr-clock">
+    <div class="lbl" id="hdr-session">-</div>
+    <div class="big mono" id="hdr-remaining">--:--:--</div>
+    <div class="sub mono" id="hdr-elapsed">elapsed --:--:--</div>
+  </div>
+  <div class="hdr-stats">
+    <div><span class="lbl">Lap</span><span class="mid mono" id="hdr-lap">-</span></div>
+    <div><span class="lbl">Car</span><span id="hdr-cs" class="cs cs-UNKNOWN">-</span></div>
+    <div><span class="lbl">Local</span><span class="mid mono" id="hdr-local">--:--</span></div>
+  </div>
+  <div class="hdr-right">
+    <div id="hdr-plan" class="plan-pill" data-act="gotab" data-tab="plans" title="Scenario running - click to compare scenarios">SCENARIO A</div>
+    <div id="hdr-flag" class="flag-pill flag-GREEN">GREEN</div>
+    <div class="devices" id="hdr-devices"></div>
+    <button class="icon-btn" id="btn-mute" title="Mute alert sound" aria-pressed="false">Sound on</button>
+    <div id="hdr-role" class="role-badge">-</div>
+  </div>
+</header>
+<nav id="tabs" role="tablist">
+  <button data-tab="race" class="active">Race</button>
+  <button data-tab="plan">Plan</button>
+  <button data-tab="plans">Scenarios</button>
+  <button data-tab="team">Team</button>
+  <button data-tab="car">Car</button>
+  <button data-tab="garage">Garage display</button>
+  <button data-tab="log">Log</button>
+  <span class="spacer"></span>
+  <span class="brandline" id="brandline">Mullaloo Motorsport Engineering Solutions - Pietro</span>
+  <button data-tab="setup" class="tab-setup">Setup</button>
+</nav>
+<div id="replay-banner" hidden></div>
+<section id="timeline-wrap"><div id="timeline"></div><div id="tl-legend"></div></section>
+<main id="view"></main>
+<div id="toasts" aria-live="polite"></div>
+<div id="modal" hidden><div class="modal-card" role="dialog" aria-modal="true"><div id="modal-body"></div></div></div>
+<div id="conn" hidden>Reconnecting to pit wall server...</div>
+<script src="/js/brand.js"></script>
+<script src="/js/shared/reducer.js"></script>
+<script src="/js/shared/engine.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/tips.js"></script>
+<script src="/js/views2.js"></script>
+<script src="/js/setup.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>
