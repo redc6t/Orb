@@ -73,29 +73,8 @@ extra.forEach(x => { if (x[0] < now) push(x[0], x[1], x[2]); });
 events.sort((a, b) => a.ts - b.ts || a.seq - b.seq);
 events.forEach((e, i) => { e.seq = i + 1; });
 
-// --- crew shifts drafted around the plan (same algorithm idea as the UI button)
-const s2 = R.reduce(cfg, events);
-const d = E.derive(s2, now);
-const HOUR = 3600e3, shifts = {};
-members.filter(m => m.driver).forEach(m => {
-  const st = s2.drivers.stints.filter(x => x.driverId === m.id && x.sessionId === 'race').map(x => [x.startTs, x.endTs || now])
-    .concat(d.plan.stints.filter(x => x.driverId === m.id).map(x => [x.fromTs, x.endTs])).sort((a, b) => a[0] - b[0]);
-  const bl = []; let cur = raceStart - HOUR;
-  // Mitsukitty's drivers are also its fuel crew: between stints they are on duty in the garage / fuel bay,
-  // with one sleep block (max 4 h) in a long gap or a short rest in a medium one
-  st.forEach(x => {
-    const f = x[0] - 45 * 60e3, gap = f - cur;
-    if (gap >= 6 * HOUR) bl.push({ startTs: cur + HOUR, endTs: cur + HOUR + Math.min(4 * HOUR, gap - 3 * HOUR), kind: 'sleeping', note: 'sleep' });
-    else if (gap >= 3 * HOUR) bl.push({ startTs: cur + 30 * 60e3, endTs: cur + 2 * HOUR, kind: 'resting', note: 'rest' });
-    bl.push({ startTs: Math.max(cur, f), endTs: x[1] + 30 * 60e3, kind: 'duty', note: 'stint + debrief' }); cur = x[1] + 30 * 60e3;
-  });
-  shifts[m.id] = bl;
-});
-members.filter(m => !m.driver).forEach((m, i) => {
-  const bl = []; let tt = raceStart - HOUR, k = 0; const end = raceStart + 36 * HOUR;
-  while (tt < end) { const e = Math.min(end, tt + 6 * HOUR); bl.push({ startTs: tt, endTs: e, kind: k % 2 === i % 2 ? 'duty' : 'resting', note: 'Group ' + (i % 2 ? 'B' : 'A') }); tt = e; k++; }
-  shifts[m.id] = bl;
-});
+// --- crew shifts: the same draft as the Generate schedule button on the Team tab (6 h crew groups)
+const shifts = E.draftShifts(R.reduce(cfg, events), now, 6);
 events.unshift({ seq: 0, ts: pracStart - 900e3, type: 'crew.shiftsAll', payload: { shifts }, by: 'engineer' });
 events.forEach((e, i) => { e.seq = i + 1; });
 

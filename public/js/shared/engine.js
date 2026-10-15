@@ -1174,6 +1174,7 @@
     });
     // every planned fuel stop: the refuel crew (outgoing driver resting, incoming supervising, the other two
     // fuel-tagged people pouring and on the extinguisher) is on duty from 5 min before pit-in to pit-out
+    var calls = {};   // fuel call-ins so far, to share the wake-ups around
     var kindAt = function (id, t) { var b = (out[id] || []).filter(function (x) { return x.startTs <= t && t < x.endTs; })[0]; return b ? b.kind : 'duty'; };
     (d.plan ? d.plan.stops : []).filter(function (x) { return x.add > 0 && !x.event; }).forEach(function (x) {
       var a = x.ts - 5 * MIN, b = x.ts + x.laneMs + x.statMs, inId = x.change ? x.driverIn : x.driverOut;
@@ -1184,8 +1185,8 @@
       rc.assign.forEach(function (r) {
         if (r.memberId) return;
         var c = crew.filter(function (c) { return c.roles.indexOf(r.key) >= 0 && !used[c.id] && c.id !== x.driverOut && c.id !== inId && (c.status === 'resting' || c.status === 'sleeping'); })
-          .sort(function (p, q) { return (p.status === 'sleeping') - (q.status === 'sleeping'); })[0];
-        if (c) { r.memberId = c.id; used[c.id] = 1; }
+          .sort(function (p, q) { return ((p.status === 'sleeping') - (q.status === 'sleeping')) || ((calls[p.id] || 0) - (calls[q.id] || 0)); })[0];
+        if (c) { r.memberId = c.id; used[c.id] = 1; calls[c.id] = (calls[c.id] || 0) + 1; }
       });
       rc.assign.forEach(function (r) {
         if (!r.memberId || r.supervise) return;
