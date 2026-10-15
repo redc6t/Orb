@@ -6,5 +6,5 @@
   var company = 'Mullaloo Motorsport Engineering';
   var owner = 'Pietro Gambarin';
   var year = '2026';
-  return { company: company, owner: owner, year: year, line: company + ' - ' + year + ' ' + owner, product: 'Pit Wall Pro2' };
+  return { company: company, owner: owner, year: year, line: company + ' - ' + year + ' ' + owner, product: 'Pitwall Strategy Manager' };
 });

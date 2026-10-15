@@ -1,10 +1,10 @@
-# Pit Wall Pro2 - Mullaloo Motorsport Engineering
+# Pitwall Strategy Manager - Mullaloo Motorsport Engineering
 
 Offline, self-hosted pit wall strategist for endurance racing. Your PC runs the server. The browser on the PC is the engineer screen; any phone, tablet or laptop on the same network opens the same screens view-only.
 
-Version 2.2.0 (Pro2): a UI overhaul of Pro1 with the same features, server, engine and data format. Pro1 stays available as the full classic layout. Both read the same `data` folder, so you can switch between them on the same weekend (run one at a time).
+Version 2.2.0. The version lives in `package.json` only; the server console and the footer of every page read it from there. Version 2 is a UI overhaul of the 1.x classic layout with the same features, server, engine and data format, and reads the same `data` folder.
 
-## What changed in Pro2 and why
+## What changed in 2.0 and why
 
 The layout follows patterns that recur in established tools:
 
@@ -26,7 +26,7 @@ The layout follows patterns that recur in established tools:
   - **Feed:**
     - **Attention:** unacknowledged alerts with an Ack button, plus jobs for the next stop with a Fixed button.
     - **Race story:** flags, stops, pit board, issues, crew changes. Alerts move here only once acknowledged.
-- **Race Plan** (was Plan): one stint table (done, now and plan with stops inline), plus the fuel trace, fuel model, what-if and regulations. "Drop one fuel stop" now re-runs the real planner at reduced burn until a fuel stop actually disappears. Pro1's litres-only estimate could show "<0.01 L/lap" where the true figure was 8%.
+- **Race Plan** (was Plan): one stint table (done, now and plan with stops inline), plus the fuel trace, fuel model, what-if and regulations. "Drop one fuel stop" now re-runs the real planner at reduced burn until a fuel stop actually disappears. The 1.x litres-only estimate could show "<0.01 L/lap" where the true figure was 8%.
 - **Team:** one roster table (rotation order, presence, status control, duty hours, drive stats) and the shift plan.
 - **Car:** issues, tyres with life bars, full BTTM detail with alarms, penalties.
 - **Garage display:** big type for a crew TV or tablet:
@@ -36,9 +36,9 @@ The layout follows patterns that recur in established tools:
 - **Setup** sits at the right of the tab bar. It is unchanged.
 - **Timeline:** now has a legend and hover text on fuel windows.
 
-### Where Pro1 items went
+### Where 1.x items went
 
-| Pro1 | Pro2 |
+| 1.x | 2.x |
 |---|---|
 | The call, Fuel KPI tiles | Race > Now (call + fuel gauge; model detail in Plan > Fuel model) |
 | Next stop tiles, refuel crew (Call card + Crew tab) | Race > Next (once) |
@@ -54,7 +54,7 @@ The layout follows patterns that recur in established tools:
 ## Run it (Windows 11)
 
 1. Install Node.js 18+ (LTS) once. `node_modules` is included, so no internet is needed after that.
-2. Double-click `start-pitwall.bat` (Pro2). It opens http://localhost:8080 and prints the address for other devices, for example `http://192.168.0.23:8080`.
+2. Double-click `start-pitwall.bat`. It opens http://localhost:8080 and prints the address for other devices, for example `http://192.168.0.23:8080`.
 3. The first time, Windows Firewall asks about Node.js: allow **Private networks**, or other devices cannot connect.
 4. First launch shows the **Setup** form. Fill it in and press **Create race weekend**. Restarting the server resumes the weekend automatically.
 
@@ -216,7 +216,7 @@ The **Scenarios** tab (previously Plans A-F) holds six saved scenarios: clean, S
 - **On the map:** the Race map shows this outline with turn numbers until the PLTD has recorded its own reference lap. After that the PLTD outline is used.
 - **Simulator:** it drives this layout, with a simulated pit lane on the infield side of the start/finish straight.
 - **Geometry (2.1.2):** the centreline is fitted to satellite imagery (true shape, north-up). The pit lane (about 460 m), pits area, fuel area, pit entry/exit and start/finish line come from the team's mark-ups. Only the absolute GPS position is approximate.
-- **Branding:** the company and owner name live in `public/js/brand.js`, and the default logo is `public/assets/mullaloo-logo.png`.
+- **Branding:** the product, company and owner name live in `public/js/brand.js`, the version in `package.json`, and the default logo is `public/assets/mullaloo-logo.png`.
 
 ## Mini map (Pit Wall, centre column)
 

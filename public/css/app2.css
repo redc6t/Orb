@@ -1,4 +1,4 @@
-/* Pit Wall Pro2 - Mullaloo Motorsport Engineering
+/* Pitwall Strategy Manager - Mullaloo Motorsport Engineering
    Design rules (ISA-101 style, adapted to the PLTD/BTTM dark theme):
    - neutral greys for structure and normal values; colour only for state (warn / critical / fuel / flag)
    - one big coloured element per screen at most: the call
@@ -85,6 +85,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* ---------------- layout */
 #view { padding: 10px 16px 40px; }
 #brandfoot { margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--line); color: var(--sub); font-size: .78em; letter-spacing: .02em; text-align: center; }
+#brandfoot { flex-wrap: wrap; }
+#brandfoot #brandprod { color: var(--text2); }
+#brandfoot .sep-dot { color: var(--dim); }
 #brandfoot img { width: 28px; height: 28px; border-radius: 6px; object-fit: contain; background: var(--well); flex: none; }
 .race { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; align-items: start; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
@@ -326,7 +329,7 @@ label.f[data-tip] { text-decoration: underline dotted #4a4d53; text-underline-of
 .pb-ev-h { position: absolute; right: -3px; top: 0; bottom: 0; width: 9px; cursor: ew-resize; background: rgba(255,255,255,.6); border-radius: 0 3px 3px 0; }
 .pb-stop.undersc { box-shadow: 0 0 0 2px var(--orange); }
 
-/* ---------------- 2.1.4 */
+/* ---------------- title contrast */
 /* titles one step lighter so they read at a glance */
 .card h3 { color: #a9aeb6; }
 .lbl { color: #969ba3; }

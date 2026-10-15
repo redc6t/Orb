@@ -1,4 +1,4 @@
-/* Pit Wall Pro2 views.
+/* Pitwall Strategy Manager views.
    Hierarchy (ISA-101 style): Race = overview (L1) | Plan, Team, Car = areas (L2) | detail in-place (L3) | Log = diagnostics (L4).
    Rule: every datum has one home. The status bar carries lap, car state, flag and clocks; nothing below repeats them. */
 (function () {

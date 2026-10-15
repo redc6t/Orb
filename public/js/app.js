@@ -29,7 +29,7 @@
     ws.onmessage = function (m) {
       var msg; try { msg = JSON.parse(m.data); } catch (e) { return; }
       if (msg.t === 'init') {
-        App.role = msg.role; App.meta = msg.meta; App.map = msg.map || null; App.config0 = msg.config0; App.events = msg.events || []; App.devices = msg.devices || {};
+        App.role = msg.role; App.meta = msg.meta; document.getElementById('brandver').textContent = msg.meta && msg.meta.version ? 'v' + msg.meta.version : ''; App.map = msg.map || null; App.config0 = msg.config0; App.events = msg.events || []; App.devices = msg.devices || {};
         App.offset = msg.now - Date.now();
         App.state = App.config0 ? R.reduce(App.config0, App.events) : null;
         if (App.state) U.setClock24(!(App.state.config.ui && App.state.config.ui.clock24 === false || (App.state.config.ui && App.state.config.ui.clock24 === 'false')));
@@ -146,7 +146,7 @@
     document.getElementById('hdr-devices').innerHTML = [['PLTD', dv.pltd], ['BTTM', dv.bttm], ['UDP', dv.udp]].map(function (x) {
       return '<span class="dev" title="' + U.esc(x[0] + ': ' + ((x[1] && x[1].status) || 'disabled') + (x[1] && x[1].host ? ' ' + x[1].host : '')) + '"><span class="dot ' + st(x[1]) + '"></span>' + x[0] + '</span>';
     }).join('');
-    if (!s) { document.getElementById('hdr-team').textContent = 'Pit Wall Pro2'; document.getElementById('hdr-car').textContent = ''; return; }
+    if (!s) { document.getElementById('hdr-team').textContent = window.PWBrand.product; document.getElementById('hdr-car').textContent = ''; return; }
     var cfg = s.config;
     document.getElementById('hdr-team').textContent = (cfg.team.carNumber ? '#' + cfg.team.carNumber + ' ' : '') + (cfg.team.name || 'Team');
     document.getElementById('hdr-car').textContent = [cfg.car.year, cfg.car.make, cfg.car.model].filter(Boolean).join(' ') + ' | ' + (cfg.track.name || '');
@@ -661,6 +661,7 @@
     this.setAttribute('aria-pressed', String(m)); this.textContent = m ? 'Sound off' : 'Sound on'; U.setMuted(m);
   });
   document.getElementById('modal').addEventListener('click', function (e) { if (e.target.id === 'modal') U.closeModal(); });
+  document.getElementById('brandprod').textContent = window.PWBrand.product;
   document.getElementById('brandline').textContent = window.PWBrand.line;
   document.getElementById('logo').addEventListener('error', function () { this.src = '/assets/mullaloo-logo.png'; });
 

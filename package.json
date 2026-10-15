@@ -1,7 +1,7 @@
 {
-  "name": "mme-pitwall-pro2",
+  "name": "mme-pitwall-strategy-manager",
   "version": "2.2.0",
-  "description": "Mullaloo Motorsport Engineering - Pit Wall Pro2 strategy server (offline, multi-client)",
+  "description": "Mullaloo Motorsport Engineering - Pitwall Strategy Manager server (offline, multi-client)",
   "main": "server.js",
   "private": true,
   "scripts": {
