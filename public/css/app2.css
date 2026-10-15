@@ -364,7 +364,7 @@ label.f[data-tip] { text-decoration: underline dotted #4a4d53; text-underline-of
 @media (max-width: 760px) { .hsrow { grid-template-columns: 1fr auto; } .hsrow .hs-st { grid-column: 1 / -1; } .hsrow .hs-ctl { grid-column: 1 / -1; justify-content: flex-start; } }
 
 /* ---------------- 2.2: Fuel Plan - horizontal fuel-stop timeline */
-.fptl { position: relative; height: 140px; margin-top: 4px; }
+.fptl { position: relative; height: 140px; margin: 4px 28px 0; } /* side margins keep the edge ticks/labels inside the scroll box */
 .fp-track { position: absolute; left: 0; right: 0; top: 96px; height: 10px; background: var(--well); border: 1px solid var(--line); border-radius: 5px; }
 .fp-past { position: absolute; left: 0; top: 97px; height: 8px; background: #26282c; border-radius: 5px 0 0 5px; }
 .fp-win { position: absolute; top: 96px; height: 10px; background: rgba(206, 147, 216, .35); }
@@ -383,7 +383,7 @@ label.f[data-tip] { text-decoration: underline dotted #4a4d53; text-underline-of
 .fp-lbl.sel { border-color: var(--cyan); box-shadow: 0 0 0 1px var(--cyan); }
 .fp-lbl:hover, .fp-mk:hover { border-color: var(--cyan); }
 .fp-ghost { position: absolute; top: 108px; width: 0; height: 12px; margin-left: -1px; border-left: 2px dashed var(--fuel); }
-.fp-tick { position: absolute; top: 122px; transform: translateX(-50%); font-size: .68em; color: var(--sub); font-family: var(--mono); }
+.fp-tick { position: absolute; top: 122px; transform: translateX(-50%); white-space: nowrap; font-size: .68em; color: var(--sub); font-family: var(--mono); }
 .lg { display: inline-block; width: 12px; height: 8px; border-radius: 2px; vertical-align: middle; }
 .fp-l-done { background: #6a6f78; } .fp-l-plan { background: var(--fuel); } .fp-l-live { background: var(--amber); }
 .fp-l-set { border: 1px dashed var(--fuel); } .fp-l-win { background: rgba(206, 147, 216, .35); } .fp-l-ghost { border-left: 2px dashed var(--fuel); width: 2px; }
