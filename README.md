@@ -1,6 +1,6 @@
 # Pit Wall Pro2 - Mullaloo Motorsport Engineering Solutions - Pietro
 
-Offline, self-hosted pit wall strategist for endurance racing. The P52 runs the server. The browser on the P52 is the engineer screen; any phone, tablet or laptop on the same network opens the same screens view-only.
+Offline, self-hosted pit wall strategist for endurance racing. Your PC runs the server. The browser on the PC is the engineer screen; any phone, tablet or laptop on the same network opens the same screens view-only.
 
 Version 2.1.4 (Pro2): a UI overhaul of Pro1 with the same features, server, engine and data format. Pro1 stays available as the full classic layout. Both read the same `data` folder, so you can switch between them on the same weekend (run one at a time).
 
