@@ -50,7 +50,7 @@
     'devices.bttm.pollMs': { d: 'How often the BTTM is polled.', up: 'Less load on the BTTM, slower updates.', down: 'Faster updates, more load on the BTTM web server.' },
     'devices.udp.enabled': { d: 'Listen for JSON over UDP (simulator, future IMU impact node, other devices).' },
     'devices.udp.port': { d: 'UDP port to listen on.' },
-    '#su-logo': { d: 'Logo shown in the header and on every device. The Mullaloo Motorsport Engineering Solutions logo is built in; upload a PNG/SVG only to replace it (kept for every weekend).' },
+    '#su-logo': { d: 'Logo shown in the header and on every device. The Mullaloo Motorsport Engineering logo is built in; upload a PNG/SVG only to replace it (kept for every weekend).' },
     // ---------------- pit wall inputs
     '#fc-l': { d: 'Litres you read on the gauge or dipstick right now. Anchors the fuel estimate and calibrates the model (half weight of a brim fill).' },
     '#ps-fuel': { d: 'Litres actually poured at this stop. Pre-filled from the plan.', up: 'Longer next stint.', down: 'Earlier next fuel stop.' },

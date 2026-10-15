@@ -3,7 +3,8 @@
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.PWBrand = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
-  var company = 'Mullaloo Motorsport Engineering Solutions';
-  var owner = 'Pietro';
-  return { company: company, owner: owner, line: company + ' - ' + owner, product: 'Pit Wall Pro2' };
+  var company = 'Mullaloo Motorsport Engineering';
+  var owner = 'Pietro Gambarin';
+  var year = '2026';
+  return { company: company, owner: owner, year: year, line: company + ' - ' + year + ' ' + owner, product: 'Pit Wall Pro2' };
 });

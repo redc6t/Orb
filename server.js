@@ -1,5 +1,5 @@
 'use strict';
-/* Mullaloo Motorsport Engineering Solutions - Pit Wall server
+/* Mullaloo Motorsport Engineering - Pit Wall server
  * node server.js  ->  http://localhost:8080 (engineer)  |  http://<laptop-ip>:8080 (view-only devices)
  * Fully offline: no CDN, no cloud. Only dependency: ws.
  */
