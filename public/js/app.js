@@ -429,6 +429,12 @@
     },
     endsession: function () { if (confirm('End the session now (chequered flag)?')) App.send('session.end', { sessionId: App.state.activeSessionId }); },
     flag: function (b) { App.send('flag.set', { flag: b.getAttribute('data-flag') }); },
+    extendlap: function () {
+      var c = E.derive(App.state, App.now()).call, x = c.extend;
+      if (c.code !== 'notify' || !x) return;
+      if (!x.ok) return U.toast('Cannot extend: ' + x.why, 'warn', null, false);
+      App.send('stint.extend', { untilTs: x.untilTs, laps: x.laps, add: x.add, driverIn: x.driverIn, stopK: x.stopK });
+    },
     pitmsg: function (b) { App.send('pitmsg.send', { text: b.getAttribute('data-text'), pri: 1 }); },
     pitmsgcustom: function () { var t = val('pm-text').trim(); if (!t) return; App.send('pitmsg.send', { text: t, pri: checked('pm-pri') ? 1 : 0 }); document.getElementById('pm-text').value = ''; },
     whatif: function () {

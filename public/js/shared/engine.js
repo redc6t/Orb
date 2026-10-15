@@ -577,7 +577,10 @@
 
     // ---- fixed points: stops pinned by dragging in a scenario, and scenario events that force a stop (repair, sin bin)
     var fixed = [];
-    ((whatIf && whatIf.pins) || []).forEach(function (pn) { fixed.push({ ts: pn.ts, kind: 'pin', fuel: pn.fuel, add: pn.add, driverIn: pn.driverIn, chain: true }); });
+    // +1 lap from the Race tab: the called stop is held at untilTs (never closer than the next minute) in every plan and scenario
+    var ext = sess.running ? activeExt(s, now) : null, extTs = ext ? Math.max(ext.untilTs, t + 61000) : null;
+    ((whatIf && whatIf.pins) || []).forEach(function (pn) { if (!(ext && pn.ts <= extTs)) fixed.push({ ts: pn.ts, kind: 'pin', fuel: pn.fuel, add: pn.add, driverIn: pn.driverIn, chain: true }); });
+    if (ext) fixed.push({ ts: extTs, kind: 'pin', extAdd: ext.add || 0, driverIn: ext.driverIn || undefined, chain: true, extended: ext.laps });
     ((whatIf && whatIf.extraStops) || []).forEach(function (x) { fixed.push({ ts: x.ts, kind: x.kind || 'repair', statMs: x.statMs, label: x.label, fuel: null, chain: false }); });
     ((whatIf && whatIf.scPins) || []).forEach(function (x) { fixed.push({ ts: x.ts, kind: 'pin', fuel: x.fuel, driverIn: x.driverIn, chain: false, label: x.label, undersc: true }); });
     fixed = fixed.filter(function (x) { return x.ts > t + 60000 && x.ts < raceEndTs - 120000; }).sort(function (a, b) { return a.ts - b.ts; });
@@ -591,6 +594,7 @@
       var add = 0;
       // litres set on the Fuel Plan tab: that amount (capped by the tank and the per-stop limit); everything after re-plans around it
       if (fp.add != null && fp.add > 0) add = Math.max(0, Math.round(Math.min(fp.add, maxAdd, P.capacity - fArr) * 2) / 2);
+      else if (fp.extAdd != null) add = fp.extAdd > 0 ? Math.max(0, Math.round(Math.min(fp.extAdd, maxAdd, P.capacity - fArr) * 2) / 2) : 0;
       else if (fp.fuel === true || (fp.fuel == null && fArr < P.capacity * 0.6)) add = Math.max(0, Math.round(Math.min(maxAdd, P.capacity - fArr) * 2) / 2);
       if (fp.ts <= t + 60000 && inPitServiced) add = 0;
       var nd = driver;
@@ -604,7 +608,7 @@
       if (fp.statMs) stat = Math.max(stat, fp.statMs);
       stops.push({ k: 0, ts: fp.ts, fuelArr: fArr, add: add, brim: add > 0 && add >= P.capacity - fArr - 0.5, cans: P.method && P.method.canL ? Math.ceil(add / P.method.canL) : null,
         driverOut: driver, driverIn: nd, change: change, statMs: stat, laneMs: P.pitLaneMs, counts: counts && stat >= P.mandMinMs,
-        type: fp.kind === 'pin' ? (add > 0 ? 'fuel' : (change ? 'driver' : (counts ? 'mandatory' : 'service'))) : fp.kind, label: fp.label || null, window: null, pinned: fp.kind === 'pin' && !fp.undersc, undersc: !!fp.undersc, event: fp.kind !== 'pin', litresSet: fp.add != null && fp.add > 0 ? fp.add : null });
+        type: fp.kind === 'pin' ? (add > 0 ? 'fuel' : (change ? 'driver' : (counts ? 'mandatory' : 'service'))) : fp.kind, label: fp.label || null, window: null, pinned: fp.kind === 'pin' && !fp.undersc && !fp.extended, undersc: !!fp.undersc, extended: fp.extended || null, event: fp.kind !== 'pin', litresSet: fp.add != null && fp.add > 0 ? fp.add : null });
       if (change) { used[driver] = fp.ts; stintStart = fp.ts + P.pitLaneMs / 2 + stat; }
       extraLoss += P.pitLaneMs + stat;
       t = fp.ts + P.pitLaneMs + stat; fuel = fArr + add; driver = nd;
@@ -643,6 +647,14 @@
   }
 
   /* ---------------------------------------------------------- stops */
+  // +1 lap extension: live until the car next enters the pits
+  function activeExt(s, now) {
+    var x = s.stintExt;
+    if (!x || s.openStopId || x.ts > now) return null;
+    if (s.stops.some(function (st) { return st.inTs >= x.ts && !st.voided; })) return null;
+    return x;
+  }
+
   function stopsInfo(s, sess, P, now) {
     var list = s.stops.filter(function (st) { return st.sessionId === sess.id && !st.voided; }).map(function (st) {
       var laneMs = (st.outTs || now) - st.inTs;
@@ -1039,19 +1051,32 @@
       var l = lapsTo(nextStop.ts), lapsLeft = Math.floor(l), mins = (nextStop.ts - now) / MIN;
       var hh = function (t) { var x = new Date(t); return ('0' + x.getHours()).slice(-2) + ':' + ('0' + x.getMinutes()).slice(-2); };
       var what = (nextStop.add ? 'fuel stop, ' + (nextStop.brim ? 'brim ' : '') + nextStop.add + ' L' : nextStop.type + ' stop') + (nextStop.change ? ', ' + memberName(s, nextStop.driverIn) + ' in' : '');
+      var ext = activeExt(s, now), extTxt = ext ? ', stint extended +' + ext.laps + ' lap' + (ext.laps > 1 ? 's' : '') : '';
       if (mins <= 5 || l <= 1) {
         // last lap of the allocated stint: the engineer tells the driver (pit board), the geofences take it from there
         if (lapsLeft <= 0) {
-          var sent = null; for (var i = s.pitmsgs.length - 1; i >= 0; i--) { var pm = s.pitmsgs[i]; if (/BOX/.test(pm.text || '') && now - pm.ts < 3 * ref) { sent = pm; break; } }
-          if (sent) return { code: 'notify', level: 'warn', title: 'BOX THIS LAP', detail: 'BOX BOX sent ' + hh(sent.ts) + (sent.ack ? ' - driver acknowledged' : ' - waiting for the driver to acknowledge') + ' | stop ' + nextStop.k + ': ' + what, sent: true };
-          return { code: 'notify', level: 'warn', title: 'NOTIFY DRIVER: BOX BOX', detail: 'Stop ' + nextStop.k + ' at the end of this lap (' + what + ') - send BOX BOX on the pit board', sent: false, stopK: nextStop.k };
+          var since = ext ? ext.ts : 0, sent = null;
+          for (var i = s.pitmsgs.length - 1; i >= 0; i--) { var pm = s.pitmsgs[i]; if (/BOX/.test(pm.text || '') && !/NEXT LAP/.test(pm.text) && now - pm.ts < 3 * ref && pm.ts >= since) { sent = pm; break; } }
+          var extend = extendCheck(s, P, nextStop, ref, fuel, ext);
+          if (sent) return { code: 'notify', level: 'warn', title: 'BOX THIS LAP', detail: 'BOX BOX sent ' + hh(sent.ts) + (sent.ack ? ' - driver acknowledged' : ' - waiting for the driver to acknowledge') + ' | stop ' + nextStop.k + ': ' + what + extTxt, sent: true, stopK: nextStop.k, extend: extend };
+          return { code: 'notify', level: 'warn', title: 'NOTIFY DRIVER: BOX BOX', detail: 'Stop ' + nextStop.k + ' at the end of this lap (' + what + ')' + extTxt + ' - send BOX BOX on the pit board', sent: false, stopK: nextStop.k, extend: extend };
         }
-        return { code: 'boxin', level: 'warn', title: 'BOX IN ' + lapsLeft + ' LAP' + (lapsLeft > 1 ? 'S' : ''), detail: 'Stop ' + nextStop.k + ' at ~' + hh(nextStop.ts) + ' (' + what + ')' };
+        return { code: 'boxin', level: 'warn', title: 'BOX IN ' + lapsLeft + ' LAP' + (lapsLeft > 1 ? 'S' : ''), detail: 'Stop ' + nextStop.k + ' at ~' + hh(nextStop.ts) + ' (' + what + extTxt + ')' };
       }
       if (nextStop.window && now >= nextStop.window.openTs) return { code: 'window', level: 'warn', title: 'WINDOW OPEN', detail: 'Fuel window closes in ' + Math.round((nextStop.window.closeTs - now) / MIN) + ' min' };
       return { code: 'stay', level: 'ok', title: 'STAY OUT', detail: 'Next stop in ' + Math.round((nextStop.ts - now) / MIN) + ' min (~' + Math.ceil(l) + ' laps)' };
     }
     return { code: 'stay', level: 'ok', title: 'STAY OUT', detail: 'No further stops required' };
+  }
+
+  // can the called stop move one lap later? Fuel must still arrive above reserve and the stint stay inside the limit.
+  function extendCheck(s, P, ns, ref, fuel, ext) {
+    var untilTs = ns.ts + ref, fuelArr = ns.fuelArr - fuel.lapL;
+    var stintMs = s.drivers.stintStartTs ? untilTs + P.pitLaneMs / 2 - s.drivers.stintStartTs : 0;
+    var why = fuelArr < P.reserve - 0.5 ? 'fuel would arrive at ' + fuelArr.toFixed(1) + ' L, below the ' + P.reserve + ' L reserve'
+      : stintMs > P.maxStintMs ? 'stint would run ' + Math.round(stintMs / MIN) + ' min, over the ' + Math.round(P.maxStintMs / MIN) + ' min limit' : '';
+    return { untilTs: untilTs, laps: (ext ? ext.laps : 0) + 1, add: ns.add > 0 ? Math.round((ns.add + fuel.lapL) * 2) / 2 : 0,
+      driverIn: ns.change ? ns.driverIn : null, stopK: ns.k, ok: !why, why: why };
   }
 
   function saveToDrop(P, pl, fuelNow, now, sess, ref, SI) {

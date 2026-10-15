@@ -66,7 +66,9 @@
   // NOW: the call, fuel, active driver, on deck, garage
   function panelNow(ctx) {
     var d = ctx.d, s = ctx.s, c = d.call, f = d.fuel, m = f.model, st = d.stint, P = d.P;
-    var h = '<div class="call ' + c.level + '"><div class="title">' + esc(c.title) + '</div><div class="detail">' + esc(c.detail) + '</div>' +
+    var x = ctx.eng && c.code === 'notify' && c.extend;
+    var extBtn = x ? '<button class="btn ext-lap" data-act="extendlap"' + (x.ok ? ' title="Keep the driver out one more lap - the stop and every plan move one lap later"' : ' disabled title="Cannot extend: ' + esc(x.why) + '"') + '><span class="n">+1</span><span class="u">lap</span></button>' : '';
+    var h = '<div class="call ' + c.level + '">' + extBtn + '<div class="title">' + esc(c.title) + '</div><div class="detail">' + esc(c.detail) + '</div>' +
       (ctx.eng && c.code === 'notify' && !c.sent ? '<div class="row" style="margin-top:8px"><button class="btn primary" data-act="pitmsg" data-text="BOX BOX">Send BOX BOX to the driver</button></div>' : '') + '</div>';
     // fuel gauge: level vs capacity, reserve mark, uncertainty band, planned arrival at next fuel stop
     var cap = f.capacity, lvl = Math.max(0, f.nowL), unc = f.uncertaintyL || 0;
@@ -917,6 +919,7 @@
       case 'issue.update': return 'Issue ' + p.id + ' ' + (p.status || (p.nextStop ? 'next stop' : 'updated'));
       case 'fuel.check': return 'Gauge reading ' + p.litres + ' L';
       case 'pitmsg.send': return 'Pit board: ' + p.text + (p.kind === 'flag' ? (p.on ? ' ON' : ' OFF') : '') + (p.delivered === false ? ' (not delivered)' : '');
+      case 'stint.extend': return 'Stint extended +' + p.laps + ' lap' + (p.laps > 1 ? 's' : '') + (p.stopK ? ' - stop ' + p.stopK : '') + ' moved to ~' + U.clock(p.untilTs);
       case 'pitmsg.ack': return 'Driver acknowledged pit board';
       case 'crew.status': return name(ctx, p.memberId) + ' now ' + (U.STATUS_LABEL[p.status] || p.status) + (p.reason ? ' (' + p.reason + ')' : '');
       case 'driver.queue': return 'Rotation: ' + (p.order || []).map(function (id) { return U.short(name(ctx, id)); }).join(', ');

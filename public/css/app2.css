@@ -101,6 +101,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .call { border-radius: 10px; padding: 14px 16px; border: 1px solid var(--line2); background: var(--well); }
 .call .title { font-size: 2.1em; font-weight: 800; letter-spacing: .02em; line-height: 1.05; }
 .call .detail { color: var(--text2); margin-top: 4px; }
+.call .ext-lap { float: right; margin-left: 12px; font-size: 1em; display: flex; flex-direction: column; align-items: center; line-height: 1.05; padding: 6px 16px; border-color: var(--amber); color: var(--amber); }
+.call .ext-lap .n { font-size: 2.1em; font-weight: 800; } .call .ext-lap .u { margin-top: 4px; font-weight: 600; }
 .call.ok .title { color: var(--text); } .call.info .title { color: var(--text2); }
 .call.warn { border-color: var(--amber); } .call.warn .title { color: var(--amber); }
 .call.crit { border-color: var(--red); background: #2a0d0d; } .call.crit .title { color: #fff; }

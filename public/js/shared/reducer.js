@@ -306,6 +306,11 @@
         s.pitmsgs.forEach(function (m) { if (m.deviceId === p.id) m.ack = { by: p.by, ts: ts }; });
         break;
       }
+      case 'stint.extend': {
+        // engineer keeps the car out past the called stop; the planner pins the stop at untilTs until the car next pits
+        s.stintExt = { ts: ts, untilTs: p.untilTs, laps: p.laps || 1, add: p.add || 0, driverIn: p.driverIn || null, stopK: p.stopK || null };
+        break;
+      }
       case 'penalty.add': {
         s.penalties.push({ ts: ts, kind: p.kind, minutes: p.minutes || 0, driverId: p.driverId || s.drivers.activeId, reason: p.reason || '', blackFlag: !!p.blackFlag });
         break;
