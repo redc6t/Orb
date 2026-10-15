@@ -1136,30 +1136,52 @@
   }
 
   /* ---------------------------------------------------- shift draft */
-  // Draft: drivers on duty around their planned stints and resting in long gaps;
-  // other crew split into two alternating groups (role-balanced) for races >= 12 h.
+  // Draft. Drivers rotate stint by stint: while a stint runs, the next driver in is on duty getting ready,
+  // the one who just stepped out rests, then (by how recently they drove) one sleeps, at least two wait
+  // in the garage for mechanical work and the fuel crew, and any extra drivers sleep.
+  // Other crew split into two alternating groups (role-balanced) for races >= 12 h.
   function draftShifts(s, now, shiftH) {
     var d = derive(s, now);
     var rs = d.raceSession, t0 = rs.startTs, t1 = d.plan ? d.plan.raceEndTs : t0 + rs.durationMs;
     var out = {};
     var members = s.config.members || [];
-    members.filter(function (m) { return m.driver; }).forEach(function (m) {
-      var stints = s.drivers.stints.filter(function (x) { return x.driverId === m.id && x.sessionId === rs.id; }).map(function (x) { return [x.startTs, x.endTs || now]; })
-        .concat((d.plan ? d.plan.stints : []).filter(function (x) { return x.driverId === m.id; }).map(function (x) { return [x.fromTs, x.endTs]; })).sort(function (a, b) { return a[0] - b[0]; });
-      // a driver stepping out of the car goes straight to rest from pit-in until he gets ready for his next stint
-      var blocks = [], cur = t0 - HOUR, drove = false;
-      stints.forEach(function (st) {
-        var dutyFrom = st[0] - 45 * MIN, gap = dutyFrom - cur, kind = gap >= 5 * HOUR ? 'sleeping' : 'resting';
-        if (drove && gap > 0) blocks.push({ startTs: cur, endTs: dutyFrom, kind: kind, note: 'stepped out - ' + (kind === 'sleeping' ? 'sleep' : 'rest') });
-        else if (!drove && gap >= 3 * HOUR) blocks.push({ startTs: cur + 30 * MIN, endTs: dutyFrom - 15 * MIN, kind: kind, note: kind === 'sleeping' ? 'sleep' : 'rest' });
-        blocks.push({ startTs: Math.max(cur, dutyFrom), endTs: st[1], kind: 'duty', note: 'stint' });
-        cur = st[1]; drove = true;
+    var long = (t1 - t0) >= 12 * HOUR;
+    var drivers = members.filter(function (m) { return m.driver; });
+    var stints = s.drivers.stints.filter(function (x) { return x.sessionId === rs.id; }).map(function (x) { return { id: x.driverId, from: x.startTs, to: x.endTs || now }; })
+      .concat((d.plan ? d.plan.stints : []).map(function (x) { return { id: x.driverId, from: x.fromTs, to: x.endTs }; }))
+      .filter(function (x) { return x.to > x.from; }).sort(function (a, b) { return a.from - b.from; });
+    var firstAt = {}; stints.forEach(function (x) { if (firstAt[x.id] == null) firstAt[x.id] = x.from; });
+    var lastOut = {}, slices = [], prev = t0 - HOUR;
+    stints.forEach(function (st, i) {
+      var inId = null;
+      for (var j = i + 1; j < stints.length; j++) if (stints[j].id !== st.id) { inId = stints[j].id; break; }
+      var pool = drivers.filter(function (m) { return m.id !== st.id && m.id !== inId; }).sort(function (a, b) {
+        var oa = lastOut[a.id], ob = lastOut[b.id];
+        if (oa != null || ob != null) return (ob == null ? -Infinity : ob) - (oa == null ? -Infinity : oa);   // most recently out first
+        var fa = firstAt[a.id] == null ? Infinity : firstAt[a.id], fb = firstAt[b.id] == null ? Infinity : firstAt[b.id];
+        return fb - fa;                                                                                          // not driven yet: furthest first stint first
       });
-      if (drove ? t1 > cur : t1 - cur >= 3 * HOUR) blocks.push({ startTs: drove ? cur : cur + 30 * MIN, endTs: drove ? t1 + 30 * MIN : t1 - HOUR, kind: 'resting', note: drove ? 'stepped out - rest' : 'rest' });
+      var k = pool.length, nSleep = k >= 3 ? 1 + Math.max(0, k - 4) : 0, kinds = {};
+      kinds[st.id] = ['duty', 'stint']; if (inId) kinds[inId] = ['duty', 'next in - garage, get ready'];
+      pool.forEach(function (m, n) {
+        kinds[m.id] = n === 0 ? ['resting', lastOut[m.id] != null ? 'stepped out - rest' : 'rest']
+          : n <= nSleep ? [long ? 'sleeping' : 'resting', long ? 'sleep' : 'rest'] : ['duty', 'garage'];
+      });
+      slices.push({ a: prev, b: st.to, kinds: kinds });
+      prev = st.to;
+      if (!stints[i + 1] || stints[i + 1].id !== st.id) lastOut[st.id] = st.to;
+    });
+    if (prev < t1 + 30 * MIN) { var fin = {}; drivers.forEach(function (m) { fin[m.id] = ['resting', 'rest']; }); slices.push({ a: prev, b: t1 + 30 * MIN, kinds: fin }); }
+    drivers.forEach(function (m) {
+      var blocks = [];
+      slices.forEach(function (sl) {
+        var k = sl.kinds[m.id] || ['resting', 'rest'], last = blocks[blocks.length - 1];
+        if (last && last.kind === k[0] && last.note === k[1] && last.endTs === sl.a) last.endTs = sl.b;
+        else blocks.push({ startTs: sl.a, endTs: sl.b, kind: k[0], note: k[1] });
+      });
       out[m.id] = blocks.filter(function (b) { return b.endTs > b.startTs; });
     });
     var crew = members.filter(function (m) { return !m.driver; });
-    var long = (t1 - t0) >= 12 * HOUR;
     var groups = [[], []];
     crew.slice().sort(function (a, b) { return (a.roles || []).join().localeCompare((b.roles || []).join()); }).forEach(function (m, i) { groups[i % 2].push(m); });
     crew.forEach(function (m) {
@@ -1178,7 +1200,7 @@
     var kindAt = function (id, t) { var b = (out[id] || []).filter(function (x) { return x.startTs <= t && t < x.endTs; })[0]; return b ? b.kind : 'duty'; };
     (d.plan ? d.plan.stops : []).filter(function (x) { return x.add > 0 && !x.event; }).forEach(function (x) {
       var a = x.ts - 5 * MIN, b = x.ts + x.laneMs + x.statMs, inId = x.change ? x.driverIn : x.driverOut;
-      var crew = members.map(function (m) { var k = kindAt(m.id, x.ts); return { id: m.id, name: m.name, roles: m.roles || [], driver: !!m.driver, status: k === 'duty' ? 'available' : k }; });
+      var crew = members.map(function (m) { var k = kindAt(m.id, a); return { id: m.id, name: m.name, roles: m.roles || [], driver: !!m.driver, status: k === 'duty' ? 'available' : k }; });
       var rc = refuelCrew(s, d.P, crew, x.driverOut, inId), used = {};
       rc.assign.forEach(function (r) { if (r.memberId) used[r.memberId] = 1; });
       // a role nobody on duty can fill: call in a tagged member who is resting (then sleeping)
