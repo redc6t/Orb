@@ -1,336 +1,260 @@
-# Pitwall Strategy Manager - Mullaloo Motorsport Engineering
+# Pitwall Strategy Manager
 
-Offline, self-hosted pit wall strategist for endurance racing. Your PC runs the server. The browser on the PC is the engineer screen; any phone, tablet or laptop on the same network opens the same screens view-only.
+**An offline, self-hosted pit wall for endurance racing.** One laptop runs a small server; the engineer works in a browser on that laptop, and any phone, tablet or TV on the same Wi-Fi sees the same screens, view-only. No internet, no cloud account, no subscription.
 
-Version 2.2.3. The version lives in `package.json` only; the server console and the footer of every page read it from there. Version 2 is a UI overhaul of the 1.x classic layout with the same features, server, engine and data format, and reads the same `data` folder.
+![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)
+![Node.js 18+](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)
+![Runs offline](https://img.shields.io/badge/internet-not%20required-lightgrey.svg)
+![Version](https://img.shields.io/badge/version-2.2.4-informational.svg)
 
-## What changed in 2.0 and why
+![The Race tab during a 36 h race: the call, fuel on board, the driver's stint, the next stop and the live track map](docs/screenshots/race.png)
 
-The layout follows patterns that recur in established tools:
+> **Free and open source.** Pitwall Strategy Manager is released under the [GNU GPL v3](LICENSE). Use it, fork it, rebrand it and change it for your own team, series or car. See [License](#license).
 
-- **ISA-101 high-performance HMI** (industrial control rooms):
-  - Neutral greys for structure and normal values.
-  - Colour only for abnormal states (amber warning, red critical, lilac fuel, flags).
-  - Flashing only for unacknowledged critical items.
-  - Bars with limits instead of bare numbers.
-  - A display hierarchy: overview, area, detail, diagnostics.
-- **Endurance stint planners** (iRacePlan, the team spreadsheets): one stint table is the backbone of the plan.
-- **Pro data systems** (Catapult RaceWatch): dedicated displays for the pit wall and the garage.
-- **WEC-style pit walls:** a permanent status strip, and one feed for alerts and messages.
+---
 
-**Rule: every datum has one home.**
-- The status bar carries time remaining, lap, car state, flag, devices and role. Nothing below repeats them.
-- The Race screen has three columns, each with one job:
-  - **Now:** the call, fuel gauge (reserve and planned-arrival marks, uncertainty band), the driver in the car with a stint gauge, up next, and the garage rotation.
-  - **Next:** the next stop with fuel, driver swap, stationary time, a fuel-window bar against now, and the refuel crew. When the car enters the pit lane this column becomes **pit mode**: timers as bars against the minimums, jobs for this stop, refuel crew, and the stop log form.
-  - **Feed:**
-    - **Attention:** unacknowledged alerts with an Ack button, plus jobs for the next stop with a Fixed button.
-    - **Race history:** flags, stops, pit board, issues, crew changes. Alerts move here only once acknowledged.
-- **Race Plan** (was Plan): one stint table (done, now and plan with stops inline), plus the fuel trace, fuel model, what-if and regulations. "Drop one fuel stop" now re-runs the real planner at reduced burn until a fuel stop actually disappears. The 1.x litres-only estimate could show "<0.01 L/lap" where the true figure was 8%.
-- **Team:** one roster table (rotation order, presence, status control, duty hours, drive stats) and the shift plan.
-- **Car:** issues, tyres with life bars, full BTTM detail with alarms, penalties.
-- **Garage display:** big type for a crew TV or tablet:
-  - next stop countdown, or the fuelling minimum countdown while the car is in
-  - refuel crew names and the driver change
-  - jobs for this stop, and refuelling-closed warnings
-- **Setup** sits at the right of the tab bar. It is unchanged.
-- **Timeline:** now has a legend and hover text on fuel windows.
+## Contents
 
-### Where 1.x items went
+- [What it does](#what-it-does)
+- [Quick start](#quick-start)
+- [Try the demo](#try-the-demo)
+- [A tour of the app](#a-tour-of-the-app)
+- [Connecting devices](#connecting-devices)
+- [Who can change what](#who-can-change-what)
+- [Your data and backups](#your-data-and-backups)
+- [Make it your own](#make-it-your-own)
+- [Troubleshooting](#troubleshooting)
+- [Gotchas for first-time users](#gotchas-for-first-time-users)
+- [Documentation](#documentation)
+- [Release notes](#release-notes)
+- [License](#license)
 
-| 1.x | 2.x |
+## What it does
+
+Pitwall Strategy Manager answers, every second, the questions a pit wall asks during a long race:
+
+| Question | What the app gives you |
 |---|---|
-| The call, Fuel KPI tiles | Race > Now (call + fuel gauge; model detail in Plan > Fuel model) |
-| Next stop tiles, refuel crew (Call card + Crew tab) | Race > Next (once) |
-| Pit lane + Log stop panels | Race > Next becomes pit mode when the car is in |
-| Timing panel, lap table, car state chip | Status bar (lap, car state) + Race > Timing strip; lap table in Plan > Laps |
-| Drivers panel, Team status list | Race > Now (driver, up next, garage chips); full detail in Team |
-| Car issues (Pit Wall) | Race > Feed (next-stop jobs); full log in Car |
-| Race control | Race > Race control (same functions, compact) |
-| Strategy plan + Stops completed | Plan > Stint table (single table) |
-| Rotation + Roster tables | Team > one table |
-| Alert toasts only | Toasts + Attention list with acknowledge (logged, replayable) |
+| **Should the car stop now?** | One call, recomputed every second: STAY OUT, WINDOW OPEN, BOX IN 3 LAPS ... NOTIFY DRIVER: BOX BOX. |
+| **How much fuel is in the car?** | A fuel model that learns the real burn from every brim fill and gauge reading, split into green-flag and Safety Car rates. |
+| **What is the plan to the flag?** | Stops, fuel loads and driver changes, kept legal against your series rules (stint limit, fuel stop minimum, mandatory stops, no refuelling under flags). |
+| **What if there is a Safety Car?** | Six side-by-side scenarios. Drag a stop or a Safety Car and the rest of the race re-plans live. |
+| **Who does what at the next stop?** | Litres, jerry cans, the refuel crew by name and a step-by-step procedure for every fuel stop. |
+| **Who is fit to drive?** | Driver rotation, crew presence, rest and sleep, and alerts before anyone goes over their limits. |
+| **What happened?** | An append-only race log you can export, import on another laptop and replay through the whole app. |
 
-## Run it (Windows 11)
+It works with nothing but a keyboard. Hook up a GPS lap timer and tyre/brake telemetry and laps, pit lane entries, flags and temperatures arrive by themselves.
 
-1. Install Node.js 18+ (LTS) once. `node_modules` is included, so no internet is needed after that.
-2. Double-click `start-pitwall.bat`. It opens http://localhost:8080 and prints the address for other devices, for example `http://192.168.0.23:8080`.
-3. The first time, Windows Firewall asks about Node.js: allow **Private networks**, or other devices cannot connect.
-4. First launch shows the **Setup** form. Fill it in and press **Create race weekend**. Restarting the server resumes the weekend automatically.
+## Quick start
 
-### Try it now with the demo
+**You need:** a Windows 10/11 laptop and [Node.js 18 or newer (LTS)](https://nodejs.org). The one dependency (`ws`) is already in the repo, so nothing else is downloaded.
 
+1. **Get the code.** Download the ZIP from GitHub (green **Code** button, **Download ZIP**) and unzip it, or `git clone` the repository.
+2. **Start the server.** Double-click `start-pitwall.bat`. Your browser opens `http://localhost:8080`, and the console prints the address other devices can use, for example `http://192.168.0.23:8080`.
+3. **Allow the firewall prompt.** The first time, Windows asks whether Node.js may use the network: allow **Private networks**.
+4. **Create your race weekend.** The first launch opens **Setup**. Fill it in and press **Create race weekend**. Restarting the server resumes the weekend automatically.
+
+On macOS or Linux, run the same server from a terminal:
+
+```bash
+npm start
 ```
-make-demo.bat          (builds a BEERS 36h weekend, 6 h into the race - replaces only the DEMO weekend)
-start-pitwall.bat
-start-simulator.bat    (fake PLTD + BTTM; the sim driver obeys the pit board)
+
+## Try the demo
+
+The demo builds a 36-hour race that has been running for 6 hours, with laps, stops, a Safety Car, car issues and a full crew. A simulator then plays the car: it laps, obeys the pit board, and drives the pit lane when you call it in.
+
+1. Double-click `make-demo.bat` (it only replaces the DEMO weekend; your real weekends are not touched).
+2. Double-click `start-pitwall.bat`.
+3. Double-click `start-simulator.bat` (a fake GPS lap timer plus a fake tyre/brake sensor unit).
+4. When the call says **BOX**, press **BOX BOX** in Race control. The car pits at the end of the lap, and the Race tab switches to pit mode.
+
+From a terminal the same steps are `npm run demo`, `npm start` and `npm run sim`.
+
+> The demo is built relative to the moment you run it. If you come back a day later the clocks look odd: stop the server and run `make-demo.bat` again.
+
+## A tour of the app
+
+The screenshots below come from the demo, with an invented team (**#27 Redline Endurance**), six drivers, two engineers and two mechanics.
+
+### 1. Set up the weekend
+
+![Setup: regulations, event, sessions and team members with their roles](docs/screenshots/setup.png)
+
+Pick the **rules profile** for your series, the track, the race length and the session times. Add every team member and tick the **roles** each one can do (driver, mechanic, refueller, fire attendant, radio, timing, engineer). The order of the drivers is the starting rotation. In **Team & car** set the tank sizes and the fuel baseline; the app refines the burn rate from real measurements as the race runs.
+
+### 2. Run the race from one screen
+
+![Race tab: the call, fuel gauge, driver stint, next stop and the track map](docs/screenshots/race.png)
+
+The **Race** tab has three columns, each with one job:
+
+- **Now:** the call, fuel on board with its uncertainty, the driver in the car with a stint bar against the limit, and who is up next.
+- **Next:** the next stop (fuel, driver change, time stationary), its fuel window, and the refuel crew by name.
+- **Track and feed:** the live map, Race control (flags and pit board messages), and the attention list: alerts stay there until someone presses **Ack**.
+
+The status strip at the top (time remaining, lap, car state, flag, device lights) never moves, whatever tab you are on.
+
+### 3. Call the car in and work the stop
+
+![Pit mode: the stop handshake, pit lane timers and the stop log](docs/screenshots/pit-mode.png)
+
+Five minutes before a planned stop the call counts down (**BOX IN 3 LAPS**, 2, 1), then becomes **NOTIFY DRIVER: BOX BOX** with a one-click send. When the car enters the pit lane, the centre column becomes **pit mode**: every step of the stop (pit in, driver change, fuel on, fuel completed, pit out) is confirmed twice, once by the GPS geofence and once by you, and the timers show the time against the regulation minimums.
+
+### 4. See the whole race plan
+
+![Race Plan: the stint table, fuel trace, fuel model and what-if](docs/screenshots/race-plan.png)
+
+**Race Plan** is one stint table: done, now and planned, with every stop inline. Next to it are the fuel trace, the learned fuel model, a **what-if** box (slower laps, a Safety Car, a burn change) and the regulations in force.
+
+### 5. Plan every fuel stop
+
+![Fuel Plan: the fuel stops on a timeline and the step-by-step procedure for one stop](docs/screenshots/fuel-plan.png)
+
+**Fuel Plan** shows only the fuel stops. Click one to see litres on arrival, litres to add, the jerry cans to bring, the crew by role and a timed, step-by-step procedure from "refuel crew to the fuel bay" to pit out. Change the litres of a stop and a preview shows how every later stop moves before you apply it.
+
+### 6. Prepare for what might happen
+
+![Scenarios: six what-if versions of the rest of the race side by side](docs/screenshots/scenarios.png)
+
+**Scenarios** keeps six versions of the rest of the race: clean, Safety Car, early SC plus a penalty, mechanical, chaos, driver down. Drag a stop or a Safety Car along a bar and everything after it re-plans while you drag. **Run this scenario** makes it the live strategy.
+
+### 7. Look after the people
+
+![Team: rotation, presence, hours on duty, drive stats and the shift plan](docs/screenshots/team.png)
+
+**Team** is one roster: rotation order, presence (available, driving, resting, sleeping, offline, flag duty, unavailable), hours on duty, time driven and best lap. Below it, the shift plan shows who drives, rests and sleeps across the whole race. The app raises a rest alert after too many hours on duty and summons the refuel crew by name five minutes before each fuel stop.
+
+### 8. Watch the car
+
+![Car: tyre sets, car issues, penalties, live timing and brake/tyre temperatures](docs/screenshots/car.png)
+
+**Car** holds the tyre sets with life bars, the car issue log (flag an issue for the next stop and it shows up on the stop's job list), penalties, live timing with micro-sectors, and brake, tyre and pressure readings with alarm colours.
+
+### 9. Put a screen in the garage
+
+![Garage display during a stop: fuelling minimum countdown, refuel crew, driver change and jobs, in big type](docs/screenshots/garage.png)
+
+Open **Garage display** on a tablet or TV for the crew: the countdown to the next stop (or, with the car in, to the end of the fuelling minimum), the refuel crew, the driver change and the jobs for this stop, in type you can read from across the garage.
+
+### 10. Review and replay
+
+![Log: the event log, replay and weekend file export](docs/screenshots/log.png)
+
+Every change is written to an append-only log. **Log** lets you search it, export the weekend (setup plus full log) or a CSV, import a weekend on another laptop, and **replay** the race: every tab shows what the pit wall saw at that moment.
+
+## Connecting devices
+
+Everything can be typed in by hand. If the car carries telemetry, the app reads it directly:
+
+| Source | How it connects | What it gives |
+|---|---|---|
+| **PLTD** GPS lap timer | WebSocket to the device, plus HTTP for lap times and the track map | Laps, micro-sectors, live position, pit lane geofences (pit in, fuel bay, pit out); pit board messages and flags are sent back to the driver's dash |
+| **BTTM** tyre/brake monitor | HTTP polled once a second | Brake and tyre temperatures and tyre pressures, with warning and critical alarms |
+| **Anything else** | JSON over UDP, port 47800, one object per datagram | Laps, car state, flags, fuel readings, impacts, car issues |
+
+UDP examples:
+
+```json
+{"t":"lap","n":12,"ms":91234,"pitted":false}
+{"t":"flag","flag":"SC"}
+{"t":"issue","cat":"engine","sev":"warn","text":"Oil temp high"}
 ```
 
-Send `BOX BOX` from Race control and the simulated car pits at the end of the lap. The PLTD states then open and close the stop and the service form appears. Raising SC or YELLOW slows the simulated car.
+Set the device addresses in **Setup**. The laptop must be on the same network as the devices.
 
 ## Who can change what
 
 | Device | Can do |
 |---|---|
-| The main PC (any of its own IP addresses) | Everything |
-| Any other device | View every tab, run what-if scenarios locally, browse the log and replay. No changes: the server rejects them (HTTP 403 / WebSocket error). |
+| The laptop running the server (opened as `localhost`) | Everything. The badge reads **ENGINEER**. |
+| Any other phone, tablet or laptop | Sees every tab, runs what-ifs locally, browses the log and replay. Cannot change anything: the badge reads **VIEW ONLY** and the server rejects changes. |
 
-To allow a second engineer laptop, add its IP to `engineerHosts` in `data/settings.json`. The server port is set there too.
+To give a second engineer laptop full control, add its IP address to `engineerHosts` in `data/settings.json` and restart. The port is set in the same file.
 
-## Devices
+## Your data and backups
 
-| Device | Protocol used (from your firmware) | Setup field |
-|---|---|---|
-| PLTD v0.17 | WebSocket client to `ws://IP/ws` (10 Hz `live`, `flagstate`, `pitshown`, `pitack`); completed lap time read from `GET /data` -> `last_lap` on every lap change | PLTD IP |
-| BTTM v4.5 | `GET /data` polled at 1 Hz, colour bands from `GET /config` | BTTM IP |
-| Anything else | JSON over UDP, port 47800 | UDP port |
-
-The main Race/Team Engineer PC must be on the device network (VDG / MME_AP, 192.168.0.x). Both devices use DHCP, so check their IPs on their screens.
-
-How the data is used:
-- PLTD car states (PIT ENTRY / PITS / FUELLING / PIT EXIT) open and close stops and run the stop timers.
-- Pit board messages and the Yellow / SC / Red flags go back to the PLTD. The firmware caps messages at 16 characters.
-- BTTM alarm levels:
-  - Red band = warning, logged.
-  - Flashing band = critical: a car issue is logged automatically, flagged for the next stop.
-  - Each level re-alarms at most every 5 min.
-
-UDP messages, one JSON object per datagram:
+Everything lives in plain files in the `data` folder:
 
 ```
-{"t":"lap","n":12,"ms":91234,"pitted":false}   {"t":"carstate","cs":"PITS"}   {"t":"flag","flag":"SC"}
-{"t":"fuel","litres":32.5}                     {"t":"impact","g":4.2,"lat":-33.36,"lon":116.15}
-{"t":"issue","cat":"engine","sev":"warn","text":"Oil temp high"}
+data/settings.json                  port, engineer laptops, last weekend (resumed at start)
+data/cars/*.json                    car library, including learned fuel burn
+data/events/<id>/events.jsonl       the race log: every change, append-only
+data/events/<id>/config.json        the weekend as created
+data/branding/logo.*                your logo, if you upload one
 ```
 
-PLTD v0.17 has no impact output. Sending `{"t":"impact",...}` from a future firmware build logs impacts as car issues.
+Copy the `data` folder to a USB stick or a second laptop at least once per session. If the laptop dies, copy the folder (or import the weekend file from **Log**) on another machine, start the server and carry on.
 
-## What changes the strategy (2.1)
+## Make it your own
 
-- **STRATEGY** (changes the timeline):
-  - geofence gates and stop service
-  - track flags (fuel burn, refuelling rules, the call)
-  - driver corrections and rotation
-  - gauge readings
-  - switching or editing Scenarios A-F
-  - session start/end
-- **MESSAGE** (driver only, no effect on the plan): the pit board. BOX BOX does not create a stop; the stop starts when the car crosses the pit-entry geofence.
+The app is written to be adapted. Fork it and change whatever your team needs:
 
-The feed and log tag every item accordingly.
+- **Branding:** the product, company and owner names live in `public/js/brand.js`; upload your logo in **Setup**, or replace `public/assets/`.
+- **Series rules:** each regulation set is a JSON file in `rules/` (two are included). Copy one, edit the stint limit, fuel stop minimum, mandatory stops and flag rules, and restart.
+- **Tracks:** track presets and the outline used by the map are in `lib/defaults.js` and `lib/tracks/`. With a PLTD, the device records its own reference lap and geofences at the track.
+- **Car:** tank sizes, fuel baseline per track, refuel method and pour rate are set in **Setup** and saved to the car library for next time.
+- **Tooltips:** hover any field for an explanation; the texts are in `public/js/tips.js`.
+- **Code:** the strategy engine and the state reducer in `public/js/shared/` run identically on the server and in every browser. `npm test` runs pre-race plans and full simulated races against both included rule sets.
 
-## Changes in 2.2.3
-
-- **Car tab layout:** Tyre sets move to the top of the left column, above the Car status log and Penalties. The right column is now the live Track map (same GNSS map as the Race tab), then Live timing, then Brakes, tyres & TPMS.
-- **Live timing (PLTD) card (Car tab):** lap number, running lap time, predicted lap, delta, last, best, reference pace and speed, plus a micro-sector grid with each sector's colour, number and delta for the current lap (hover for the last-lap delta), and this-lap / last-lap totals.
-
-## Changes in 2.2.2
-
-- **Bigger text:** the base font goes from 14 px to 16 px across every tab, card, form, modal and toast. The status bar (team, car, race clock, lap, car state) and the page footer keep their old size.
-- **Shifts & sleep (Team tab):** bars are about twice as tall, and the colours now contrast clearly: green duty, amber resting, blue sleeping, orange flag duty, red unavailable, dark grey offline, white driving (faded = planned). The legend uses the same colours as the bars and now lists unavailable.
-
-## Changes in 2.2.1
-
-- **Race tab layout:** the Track map moves from the bottom of the centre column to the top of the right column, above Race control and the feed.
-- **Race history** (was Race story): the visible log is half the height (23vh) and scrolls inside its card. It shrinks further only to stay level with the taller of the other two columns.
-
-## Changes in 2.2.0
-
-- **Tabs:** Plan is now **Race Plan**, and the new **Fuel Plan** sits between it and Scenarios.
-- **Fuel Plan:**
-  - One timeline with only the fuel stops of the plan being run (done, in progress, planned). Each stop has a short label: time, litres, cans and the driver coming in.
-  - Click a stop for its detail:
-    - litres on arrival, litres to add, and litres on leaving
-    - jerry cans to bring, for example 4 x 20 L = 3 full + 1 with 4.5 L
-    - the refuel crew by role, and the driver change
-    - who else attends: pit wall engineer, radio, timing, mechanic
-  - A step-by-step procedure for that stop, from the refuel crew going to the bay through to pit out, with times, names and each step's GEO / ENG handshake.
-  - **Change the litres of a stop:** a preview shows where every later fuel stop moves, the fuel stop count and the finish fuel. Less fuel brings the next fuel stop closer; more pushes it later. Apply it and the running scenario re-plans. Reset on Scenarios undoes it.
-  - Crew for later stops is forecast from the shift plan. The next stop uses whoever is available now.
-- **Stop handshake** (replaces the four-step gate strip): every step has two signals. **GEO** means the PLTD geofence saw it; **ENG** means you confirmed it. Both together = HANDSHAKE.
-
-| Step | GEO | ENG |
-|---|---|---|
-| Pit in | pit-entry geofence | PIT IN: the car is in the pit lane |
-| Driver change | none | DRIVER CHANGE DONE |
-| Fuelling started | car in the fuel zone | FUEL ON: the crew is pouring (starts the fuelling clock if the geofence missed it) |
-| Fuel completed | car left the fuel zone | FUEL STOP COMPLETED: litres and cans recorded |
-| Pit out | pit-exit geofence | PIT OUT: the car is leaving the pit lane |
-
-- **Reading the handshake:**
-  - Amber "geofence seen - confirm it": the car did it and you have not confirmed yet.
-  - "Waiting for the geofence": you confirmed and the car has not got there yet.
-  - A step nobody confirms is still applied from the plan (AUTO) once the car has moved past it.
-  - FUEL ON now works with the PLTD connected too.
-- **Icons:** the driving icon is a steering wheel again.
-- **Demo / simulator team:** Mitsukitty, Lancer.
-  - Mal: owner, every role.
-  - Tanna, Pat, Jared: drivers, mechanics, full fuel crew, radio, timing.
-  - Driver4, Driver5: drivers, full fuel crew.
-  - Pietro, Rhys: engineers (mechanic, timing, radio, race engineering); no driving, no fuel.
-  - Drivers stay on fuel duty between stints, with one sleep block each. The simulated crew starts pouring on FUEL ON.
-
-## Changes in 2.1.4
-
-- **Scenarios:** fuel windows are thicker on both timelines. Drag a fuel stop, or its window, and the scenario re-plans live while you drag (stints, later stops, stop count, finish fuel); it is saved on release.
-- **Durations:** always shown with units (1h 55m, 4m 52s). Clock times are 24 h by default, or 12 h am/pm (Setup, Clock format).
-- **FIX:** an UNASSIGNED refuel role shows a FIX button (Race, Garage display). It opens Team, "Fix the refuel crew", with one-click fixes: wake a tagged person, or give an available person the role.
-- **Icons:** double size. Car = driving, jerry can = next refuel crew, spanner = mechanic in the garage, bed = sleeping, moon = resting. Sleeping is a new status.
-- **Layout:** the feed ends level with the left column and scrolls inside its card. Card titles are lighter, and Garage display titles are big and white.
-- **Flags:** Yellow to SC no longer logs a phantom GREEN. The PLTD gets the new flag on before the old one off, and echoes are ignored briefly.
-- **Simulator:**
-  - the lap counts where the pit lane crosses the start/finish line, with no jump and no double lap
-  - a no-fuel stop stays in the pits area
-  - Yellow and SC slow the car at once
-  - SAVE FUEL and PUSH change its pace
-
-## Fixes in 2.1.3
-
-- **Moving fuel between stops:** in Scenarios, drop a fuel stop onto another stop to move the fuel there. Both stops keep their times and driver changes. Dragging a stop elsewhere still moves the whole stop.
-- **The stop in progress follows what you record.** After "No fuel this stop", the plan no longer suggests fuel for it. The Pit lane card shows "Planned at pit in" and "Recorded", and the fuelling minimum and fuel-bay geofence no longer apply.
-- **Completion:** the stop is "complete" only after the pit-exit geofence. Before that, the card reads "waiting for the pit-exit geofence" and warns if the PLTD still shows the car in the fuel bay.
-- **Simulator:** it follows the gates through `/api/sim/stop`. It fuels only if planned or recorded, stops fuelling on FUEL STOP COMPLETED, and leaves on PIT OUT.
-- **Layout:** the Stop gates card and the Fuel stop card now sit in the centre column, above the Pit lane card.
-
-## The call near a stop (2.1.2)
-
-From 5 min before the planned stop (the end of the driver's allocated stint), the call counts laps: BOX IN 3 LAPS, then 2, then 1. On the last lap it becomes **NOTIFY DRIVER: BOX BOX**, with a one-click send and a notification. Once sent, it shows the time sent and the driver's acknowledgement.
-
-During a stop the outgoing driver's time is frozen at the moment the car stops. After the driver change is confirmed, the new driver shows as "In the car - timer starts at pit out". No stint-limit or fuel-window alerts are raised while the car is in the pits.
-
-## Stop gates (2.1.1)
-
-The engineer is the gate controller. The **Stop gates** card at the top of the Race tab's centre column has four steps, with no countdowns:
-
-| Step | Button | Geofence override (only if you have not confirmed it) |
-|---|---|---|
-| Pit in | **PIT IN** (also opens the stop by hand if the PLTD missed it) | Fuelling starts or the car leaves the fuel bay or pit lane |
-| Driver change | Pick the driver, **DRIVER CHANGE DONE** | The car leaves the fuel bay or pit lane: the planned driver is applied |
-| Fuel stop | Fuel card, pre-filled from the plan and editable while fuelling: **FUEL STOP COMPLETED** (or **No fuel this stop**) | The car leaves the fuel bay or pit lane: the planned litres are recorded (not used to calibrate the fuel model) |
-| Pit out | **PIT OUT** | The pit-exit geofence |
-
-- **OK** means confirmed by the engineer. **AUTO** means the geofence overtook the step.
-- **Correct it** reopens an AUTO fuel stop.
-- **PLTD offline:** the buttons also set the car state (Pit in, Fuelling started, Fuel stop completed, Pit out), so the stop timers keep working.
-- A manual car-state override sits under the pit lane card if a geofence is missed.
-
-## Scenarios (2.1.1)
-
-The **Scenarios** tab (previously Plans A-F) holds six saved scenarios: clean, Safety Car, early SC + sin bin, mechanical, chaos (red flag + 2 SC), driver down.
-
-- **Stops:**
-  - **drag a stop** to move it. Earlier stops are pinned and later stops re-plan.
-  - **click a stop** to toggle fuel or unpin it.
-- **Events:** in **Assumptions** mode, drag a Safety Car, red flag, repair or sin bin along the bar, or drag its right edge to change its length. Everything after it cascades.
-- **Lap numbers:** each bar shows the estimated lap number above it, and clock time and race hour below.
-- **Reset** returns a scenario to its original.
-- **Run this scenario** makes it the live strategy; the status bar shows SCENARIO X.
-
-## Track preset: Collie Motorplex long circuit
-
-- **Layout:** 2.55 km, 13 turns, run anti-clockwise. The outline was traced from the official layout diagram and scaled to 2.55 km. It is stored in `lib/tracks/collie-long.json` with T1 to T13 and the start/finish line.
-- **On the map:** the Race map shows this outline with turn numbers until the PLTD has recorded its own reference lap. After that the PLTD outline is used.
-- **Simulator:** it drives this layout, with a simulated pit lane on the infield side of the start/finish straight.
-- **Geometry (2.1.2):** the centreline is fitted to satellite imagery (true shape, north-up). The pit lane (about 460 m), pits area, fuel area, pit entry/exit and start/finish line come from the team's mark-ups. Only the absolute GPS position is approximate.
-- **Branding:** the product, company and owner name live in `public/js/brand.js`, the version in `package.json`, and the default logo is `public/assets/mullaloo-logo.png`.
-
-## Mini map (Race tab, top of the right column)
-
-- **Offline vector map, no tiles.** It is drawn from the PLTD itself: `/refpath` gives the track outline (available once the PLTD has recorded its reference lap), `/geozones` the pit and fuel polygons and lines, and `/sf/get` the start/finish.
-- **Position.** The car position comes from PLTD `/data` lat/lon at 2 Hz, the same rate the PLTD's own web page polls. If the PLTD position is stale, BTTM GNSS takes over.
-- **Car dot.** Coloured by PLTD car state, with a 20 s trail. It turns grey when the position is more than 3 s old.
-- **Before the reference lap exists,** the map draws the live trail instead.
-- **Positions are live only.** They are not written to the race log, so Replay shows no map.
-
-## Tooltips
-
-Hover a field or KPI tile for about half a second, focus it with the keyboard, or tap its label on a tablet. The tip explains the parameter and what raising or lowering it does. Tip texts are in `public/js/tips.js`.
-
-## Regulations
-
-Profiles live in `rules/` and are chosen in Setup. The profile in force and its version are shown on the Strategy tab.
-
-- **B4B Events** - Standing Regulations, March 2026, plus the 7 h supplementary rules:
-  - 5 stops of at least 5 min each.
-  - 5 min fuel stop, 80 L per stop.
-  - Fuel area open under SC.
-- **BEERS** - Standing Regulations V4, 09/02/2025:
-  - 8 min fuel stop.
-  - No mandatory stop count.
-  - No refuelling under Yellow or Red; SC treated as Yellow.
-  - Fuel-method crew rules.
-  - Raceceiver relay required at all times.
-  - 5 drivers minimum for 24 h+.
-
-PDF import is not built. To add a series, copy a JSON profile, edit it and restart.
-
-## How the strategy works
-
-**Fuel model.**
-- Burn starts from the car baseline for the track: Collie 18.75 L/h, Wanneroo 17.5 L/h.
-- Each lap is classed by its time against the live median green lap (push / green / slow / SC / pit). Stationary pit time burns nothing.
-- Each brim fill or visual check is a measured stint. A regression refits the green and SC rates, with the baseline as the prior.
-- A stint that differs by more than 10% raises an alert. **Save learned ... to this car** stores the result for next time.
-
-**Planner.**
-- Searches stop count, fuel-stop count and fuel-stop placement to minimise total stationary time within:
-  - fuel range and the reserve floor
-  - the 120 min continuous stint
-  - the per-stop fuel cap
-  - the mandatory stops
-- On BEERS it alternates driver-only stops with fuel stops instead of fuelling at every stop.
-
-**The call.** STAY OUT, WINDOW OPEN, BOX NEXT LAP, BOX THIS LAP, BOX NOW under caution, or STAY OUT when refuelling is closed. It is recomputed every second.
-
-**Windows.**
-- Opens: the earliest stop from which filling still reaches the next fuel stop.
-- Closes: reserve reached or stint limit.
-
-**Driver time.**
-- The outgoing driver's time stops when the car stops, and the incoming driver's starts when it leaves the box.
-- A driver who stays in through a non-fuel stop keeps counting continuous time.
-
-**Crew.**
-- Presence states: Available, Driving, Resting, Offline, Flag duty, Unavailable, each with a reason.
-- Shift plan drafted from the strategy: drivers rest between stints, other crew run alternating groups.
-- Rest alert after 7 h on duty, with a 1 h contingency override.
-- Prepare alerts for the next driver at 30 and 15 min.
-- Refuel crew summoned by name 5 min before a fuel stop.
-  - Only members **tagged** with the role and currently **Available** are assigned.
-  - Out/in driver rules are applied, and people not involved in the swap are preferred.
-  - If nobody qualifies the slot shows UNASSIGNED with the reason, and available untagged crew are listed as suggestions, never assigned silently.
-
-**Tyres.** Life = (min tread - min depth) / (new - min). Wear rate comes from measurements against time on the car during sessions only.
-
-## Files and recovery
-
-```
-data/settings.json                      port, engineerHosts, last weekend (auto-resume)
-data/cars/*.json                        car library, including learned fuel profiles
-data/events/<id>/config.json            weekend as created
-data/events/<id>/events.jsonl           every change, append-only - the race log and replay source
-data/events/<id>/car_config.json        readable snapshot
-data/events/<id>/driver_schedule.json   readable snapshot (roster, rotation, shifts)
-data/branding/logo.*                    your logo (upload in Setup)
+```bash
+npm test
 ```
 
-**Log & Replay** gives:
-- the weekend file (`.pitwall.json`: setup plus full log)
-- a CSV of every event
-- Import, which restores a weekend on any machine
-- Replay, which re-runs the log through the same engine, so every tab shows what the pit wall saw at that moment.
+## Troubleshooting
 
-## Assumptions to confirm before Collie
+| Symptom | Cause and fix |
+|---|---|
+| The console window closes straight away | Node.js is missing or older than 18. Install the current LTS from nodejs.org. |
+| Phones and tablets cannot open the page | The firewall blocked Node.js (allow it on **Private networks**), the address is wrong (use the one printed in the console, not `localhost`), or the device is on a different Wi-Fi. |
+| The laptop itself shows **VIEW ONLY** | You opened it through its network address. On the server laptop use `http://localhost:8080`. |
+| "Reconnecting to pit wall server" banner | The server stopped or the Wi-Fi dropped. Restart `start-pitwall.bat`; the weekend resumes where it was. |
+| Changes are not accepted | Replay is running (press **Back to live**) or the device is view-only. |
+| Race tab columns are stacked | The window is narrower than about 1400 px. Maximise the browser or zoom out (Ctrl and minus). |
+| PLTD or BTTM light is red | Wrong IP, the laptop is not on the car network, or the device is off. Check the IP on the device screen and in **Setup**. |
+| PLTD light is amber ("stale") | Connected, but no data for 3 s: weak Wi-Fi or a busy device. |
+| No track map or micro-sectors | The PLTD has not recorded its reference lap yet; it does so after the first clean lap. A live trail is drawn meanwhile. |
+| A refuel role shows **UNASSIGNED** | Nobody tagged with that role is available. Press **FIX** for one-click options, or tag more people in **Setup**. |
+| The fuel estimate drifts | No fuel measurement for a long time. Log a gauge reading, or tick **Filled to brim** at the next fuel stop. |
+| A handshake step stays amber | The geofence saw it and you have not confirmed it. Press the step's button, or leave it: it becomes AUTO once the car moves on. |
+| Simulator says "address in use" | Another simulator is still running. Close it, or start it with `--pltd` / `--bttm` on other ports and update **Setup**. |
+| Demo clocks look wrong | The demo was built a while ago. Stop the server and run `make-demo.bat` again. |
 
-- The 36 h race is continuous and the clock runs under Red (`clock.stopsOnRed` in the profile).
-- Mandatory stops are timed pit entry to exit. Fuel stops are timed on the PLTD fuel zone.
-- Lancer tanks are 45 L primary + 30 L secondary, from the Wanneroo campaign. Tick "confirmed" in Setup once checked.
-- Pit lane transit is 60 s, and a driver change is 30 s.
+## Gotchas for first-time users
 
-## Development
+- **Strategy versus message.** Flags, stop confirmations, driver changes and gauge readings change the plan. The pit board is only a message to the driver: sending **BOX BOX** does not create a stop. The stop starts when the car actually enters the pit lane (geofence) or you press **PIT IN**.
+- **The engineer confirms; the geofence backs you up.** Each stop step needs your confirmation. If you miss one, the app applies the planned value automatically (marked **AUTO**) once the car has moved past it, and you can correct it afterwards.
+- **Measure fuel early and often.** The model starts from the car's baseline burn for the track. Every brim fill or gauge reading makes it better. Press **Save learned burn to this car** after the race so the next event starts closer.
+- **Tag roles honestly.** The app only assigns people to refuel duties if they are tagged with that role and available. It never fills a gap silently: an empty slot shows **UNASSIGNED** with the reason.
+- **Durations always carry units.** `1h 55m` is a duration, `16:40` is a clock time. Switch to 12-hour clocks in **Setup** if you prefer.
+- **Rules are data, not PDFs.** There is no importer for organiser PDFs. Copy a JSON profile in `rules/` and edit it to match your series' regulations; check the numbers before race day.
+- **One server at a time.** Two copies of the app (or the old 1.x version) fight over port 8080 and the `data` folder. Close one first.
+- **The race clock keeps running under a red flag** (a profile setting). Change `clock.stopsOnRed` in your rules file if your series stops it.
+- **Replay has no map.** GPS positions are live only; they are not written to the log.
+- **Back up the `data` folder.** It is the whole race. Copy it to a USB stick at every driver change if you can.
 
-```
-npm test        engine checks: pre-race plans + full simulated races on both rulesets
-npm run demo    same as make-demo.bat
-```
+## Documentation
 
-Shared logic lives in `public/js/shared/`. The reducer and engine run identically on the server (alert logging) and in every browser (live view, what-if, replay).
+The full [user manual (PDF)](Pitwall_Strategy_Manager_User_Manual_v2.2.3.pdf) covers every screen, the pit stop workflow, the fuel model and the planner in detail, plus a guided demo and a feedback template.
+
+## Release notes
+
+- **2.2.4:** new README with a guided tour, troubleshooting and first-time gotchas. No change to the app.
+- **2.2.3:** Car tab: live track map and a live timing card with micro-sectors; tyre sets moved to the top.
+- **2.2.2:** larger base text and higher-contrast, taller shift bars.
+- **2.2.1:** the track map moves to the top of the Race tab's right column; Race story becomes Race history.
+- **2.2.0:** new **Fuel Plan** tab with per-stop procedure, cans and crew; the two-signal stop handshake (geofence + engineer).
+- **2.1.x:** draggable scenarios that re-plan live, the lap countdown call before a stop, stop gates, the Collie Motorplex track preset.
+- **2.0:** UI redesign following control-room (ISA-101) practice, with the same engine and data format as 1.x.
+
+The full history is in the git log.
+
+## License
+
+Pitwall Strategy Manager is **free and open source software**, released under the [GNU General Public License v3.0](LICENSE).
+
+You are welcome to take it and make it your own: run it at your events, fork it, rebrand it, add your series' rules, your tracks and your devices, and change anything else your team needs. There is no fee and no account.
+
+The GPL asks one thing in return: if you **distribute** a modified version, share its source code under the same license so the next team can build on it too. Running a modified copy on your own pit wall needs nothing more.
+
+Created by Pietro Gambarin, Mullaloo Motorsport Engineering. Contributions, bug reports and new rule profiles are welcome through GitHub issues and pull requests.
