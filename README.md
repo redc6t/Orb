@@ -2,7 +2,7 @@
 
 Offline, self-hosted pit wall strategist for endurance racing. Your PC runs the server. The browser on the PC is the engineer screen; any phone, tablet or laptop on the same network opens the same screens view-only.
 
-Version 2.2.0. The version lives in `package.json` only; the server console and the footer of every page read it from there. Version 2 is a UI overhaul of the 1.x classic layout with the same features, server, engine and data format, and reads the same `data` folder.
+Version 2.2.1. The version lives in `package.json` only; the server console and the footer of every page read it from there. Version 2 is a UI overhaul of the 1.x classic layout with the same features, server, engine and data format, and reads the same `data` folder.
 
 ## What changed in 2.0 and why
 
@@ -25,7 +25,7 @@ The layout follows patterns that recur in established tools:
   - **Next:** the next stop with fuel, driver swap, stationary time, a fuel-window bar against now, and the refuel crew. When the car enters the pit lane this column becomes **pit mode**: timers as bars against the minimums, jobs for this stop, refuel crew, and the stop log form.
   - **Feed:**
     - **Attention:** unacknowledged alerts with an Ack button, plus jobs for the next stop with a Fixed button.
-    - **Race story:** flags, stops, pit board, issues, crew changes. Alerts move here only once acknowledged.
+    - **Race history:** flags, stops, pit board, issues, crew changes. Alerts move here only once acknowledged.
 - **Race Plan** (was Plan): one stint table (done, now and plan with stops inline), plus the fuel trace, fuel model, what-if and regulations. "Drop one fuel stop" now re-runs the real planner at reduced burn until a fuel stop actually disappears. The 1.x litres-only estimate could show "<0.01 L/lap" where the true figure was 8%.
 - **Team:** one roster table (rotation order, presence, status control, duty hours, drive stats) and the shift plan.
 - **Car:** issues, tyres with life bars, full BTTM detail with alarms, penalties.
@@ -117,6 +117,11 @@ PLTD v0.17 has no impact output. Sending `{"t":"impact",...}` from a future firm
 - **MESSAGE** (driver only, no effect on the plan): the pit board. BOX BOX does not create a stop; the stop starts when the car crosses the pit-entry geofence.
 
 The feed and log tag every item accordingly.
+
+## Changes in 2.2.1
+
+- **Race tab layout:** the Track map moves from the bottom of the centre column to the top of the right column, above Race control and the feed.
+- **Race history** (was Race story): the visible log is half the height (23vh) and scrolls inside its card. It shrinks further only to stay level with the taller of the other two columns.
 
 ## Changes in 2.2.0
 
@@ -218,7 +223,7 @@ The **Scenarios** tab (previously Plans A-F) holds six saved scenarios: clean, S
 - **Geometry (2.1.2):** the centreline is fitted to satellite imagery (true shape, north-up). The pit lane (about 460 m), pits area, fuel area, pit entry/exit and start/finish line come from the team's mark-ups. Only the absolute GPS position is approximate.
 - **Branding:** the product, company and owner name live in `public/js/brand.js`, the version in `package.json`, and the default logo is `public/assets/mullaloo-logo.png`.
 
-## Mini map (Pit Wall, centre column)
+## Mini map (Race tab, top of the right column)
 
 - **Offline vector map, no tiles.** It is drawn from the PLTD itself: `/refpath` gives the track outline (available once the PLTD has recorded its reference lap), `/geozones` the pit and fuel polygons and lines, and `/sf/get` the start/finish.
 - **Position.** The car position comes from PLTD `/data` lat/lon at 2 Hz, the same rate the PLTD's own web page polls. If the PLTD position is stale, BTTM GNSS takes over.

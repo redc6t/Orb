@@ -243,9 +243,10 @@
   function fitFeed() {
     var cols = viewEl.querySelectorAll('.race > .col'); if (cols.length < 3) return;
     var feed = cols[2].querySelector('.feed'); if (!feed) return;
-    var a = cols[0].getBoundingClientRect(), c = cols[2].getBoundingClientRect();
+    var a = cols[0].getBoundingClientRect(), b = cols[1].getBoundingClientRect(), c = cols[2].getBoundingClientRect();
     if (c.top > a.top + 40 || window.innerWidth < 1400) { feed.style.maxHeight = ''; return; }   // stacked layout: leave it
-    var over = c.bottom - a.bottom, h = Math.max(160, feed.clientHeight - over);
+    var cap = window.innerHeight * 0.23;   // matches .feed max-height: only shrink to fit, never grow past it
+    var over = c.bottom - Math.max(a.bottom, b.bottom), h = Math.min(cap, Math.max(160, feed.clientHeight - over));
     if (Math.abs(over) > 2) feed.style.maxHeight = h + 'px';
   }
   window.addEventListener('resize', function () { if (App.tab === 'race') fitFeed(); });

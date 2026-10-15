@@ -55,8 +55,7 @@
     }
     if (target) colB.push(panelPitTimers(ctx, target));
     else if (!d.gates || d.gates.done) colB.push(panelNext(ctx));
-    colB.push(panelMap(ctx));
-    var colC = [];
+    var colC = [panelMap(ctx)];
     if (ctx.eng) colC.push(panelControl(ctx));
     colC.push(panelFeed(ctx));
     var colA = [panelNow(ctx), panelTelemetry(ctx)];
@@ -407,7 +406,7 @@
       if (e.type === 'alert') { var a = { key: e.payload.key, level: e.payload.level, ts: e.ts }; if (inAttention(a) || a.key.indexOf('stop:issues') === 0) return false; }
       return true;
     }).slice(-40).reverse();
-    h += '<span class="lbl">Race story</span><div class="feed" style="margin-top:4px">' + ev.map(function (e) {
+    h += '<span class="lbl">Race history</span><div class="feed" style="margin-top:4px">' + ev.map(function (e) {
       var lvl = e.type === 'alert' ? e.payload.level : (e.type === 'flag.set' && e.payload.flag !== 'GREEN' ? 'warn' : '');
       var ef = V.effectOf(e);
       return '<div class="fl ' + (lvl === 'info' ? '' : lvl) + '"><span class="t">' + U.clock(e.ts) + '</span><span>' + (ef !== 'info' ? '<span class="tag ' + ef + '">' + (ef === 'strat' ? 'STRATEGY' : 'MESSAGE') + '</span> ' : '') + esc(V.summarise(ctx, e)) + '</span></div>';

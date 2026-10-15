@@ -172,7 +172,7 @@ svg.minimap text.turn { fill: #9aa0aa; font-size: 9px; font-weight: 700; font-fa
 .attn.warn { border-left-color: var(--amber); } .attn.crit { border-left-color: var(--red); } .attn.task { border-left-color: var(--cyan); }
 .attn.unack.crit { background: #2a1111; }
 .attn .t { color: var(--sub); font-family: var(--mono); font-size: .8em; white-space: nowrap; }
-.feed { max-height: 46vh; overflow-y: auto; }
+.feed { max-height: 23vh; overflow-y: auto; }
 .fl { display: grid; grid-template-columns: 62px 1fr; gap: 8px; padding: 4px 2px; border-bottom: 1px solid var(--line); font-size: .86em; color: var(--text2); }
 .fl .t { color: var(--sub); font-family: var(--mono); font-size: .9em; }
 .fl.warn { color: var(--amber); } .fl.crit { color: #ff8a8a; }
