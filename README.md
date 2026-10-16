@@ -95,6 +95,8 @@ The **Race** tab has three columns, each with one job:
 - **Next:** the next stop (fuel, driver change, time stationary), its fuel window, and the refuel crew by name.
 - **Track and feed:** the live map, Race control (flags and pit board messages), and the attention list: alerts stay there until someone presses **Ack**.
 
+That is the default layout. To change it, press and hold the grip (nine dots) at the right of any card's header and drag the card to another place or column: the other cards slide out of the way as you move, and a dashed outline shows where it will land. The layout is saved in that browser, so the engineer's laptop and the garage screen can each have their own. Cards that only appear during a stop come back where you last put them, so a pit stop no longer pushes the rest of the page around. **Reset layout** at the bottom of the page restores the default. The Car tab works the same way.
+
 The status strip at the top (time remaining, lap, car state, flag, device lights) never moves, whatever tab you are on.
 
 ### 3. Call the car in and work the stop
@@ -214,6 +216,7 @@ npm test
 | The laptop itself shows **VIEW ONLY** | You opened it through its network address. On the server laptop use `http://localhost:8080`. |
 | "Reconnecting to pit wall server" banner | The server stopped or the Wi-Fi dropped. Restart `start-pitwall.bat`; the weekend resumes where it was. |
 | Changes are not accepted | Replay is running (press **Back to live**) or the device is view-only. |
+| Cards are in odd places, or one seems missing | The cards were rearranged in this browser. Press **Reset layout** at the bottom of the Race or Car tab. A card that only shows during a stop comes back at the next stop. |
 | Race tab columns are stacked | The window is narrower than about 1400 px. Maximise the browser or zoom out (Ctrl and minus). |
 | PLTD or BTTM light is red | Wrong IP, the laptop is not on the car network, or the device is off. Check the IP on the device screen and in **Setup**. |
 | PLTD light is amber ("stale") | Connected, but no data for 3 s: weak Wi-Fi or a busy device. |
