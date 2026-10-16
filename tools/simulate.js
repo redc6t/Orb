@@ -165,7 +165,8 @@ wss.on('connection', ws => {
       const id = msgId++;
       console.log('pit board:', m.text);
       wsAll({ t: 'pitshown', id });
-      if (/BOX/.test(m.text)) { car.boxReq = true; car.boxReqAt = Date.now(); car.wantFuel = !/NO FUEL|DRIVER/.test(m.text); }
+      // a repeated BOX keeps the first request's timer, so resending never pushes the stop back a lap
+      if (/BOX/.test(m.text)) { if (!car.boxReq) car.boxReqAt = Date.now(); car.boxReq = true; car.wantFuel = !/NO FUEL|DRIVER/.test(m.text); }
       if (/SAVE/.test(m.text)) { car.pace = 1.8; repace(); console.log('driver saves fuel (+1.8 s/lap)'); }
       if (/PUSH/.test(m.text)) { car.pace = -0.6; repace(); console.log('driver pushes (-0.6 s/lap)'); }
       if (/STAY OUT|NORMAL/.test(m.text) && car.pace > 0) { car.pace = 0; repace(); }

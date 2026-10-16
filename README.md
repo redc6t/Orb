@@ -7,7 +7,7 @@
 ![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)
 ![Node.js 18+](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)
 ![Runs offline](https://img.shields.io/badge/internet-not%20required-lightgrey.svg)
-![Version](https://img.shields.io/badge/version-2.2.7-informational.svg)
+![Version](https://img.shields.io/badge/version-2.2.8-informational.svg)
 
 ![The Race tab during a 36 h race: the call, fuel on board, the driver's stint, the next stop and the live track map](docs/screenshots/race.png)
 
@@ -247,6 +247,7 @@ The full [user manual (PDF)](Pitwall_Strategy_Manager_User_Manual_v2.2.3.pdf) co
 
 ## Release notes
 
+- **2.2.8:** simulator: sending BOX again while the driver is already called in no longer restarts his 20 s turn-in delay, so resending the pit board can no longer make him miss pit entry and run another lap.
 - **2.2.7:** Race Plan: every finished stint in the stint table gets a **+ auto-gen debrief** toggle. It opens a written recap of the stint as the engineer would give it: laps and time in the car, average, best and worst green-flag lap, consistency and drop-off, Safety Cars and flags, logged incidents, penalties and BTTM alarms, peak brake and tyre temperature per corner, and the stop that ended it. Laps now carry the BTTM peaks seen during them, so the debrief also works in replay; the demo race includes them.
 - **2.2.6:** new `stop-pitwall.bat` stops a pit wall server or simulator left running in the background (it only touches Node.js processes on the pit wall ports). `make-demo.bat` runs it first, so a stale server can no longer show an old weekend over the fresh demo.
 - **2.2.5:** movable cards on the Race and Car tabs: drag a card by the 9-dot grip in its header and the other cards slide out of the way live. The layout is saved in that browser; Reset layout at the bottom of the page restores the default. Cards that appear during a stop (pit gate, fuelling, pit timers) slot in next to where they normally sit.
