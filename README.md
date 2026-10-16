@@ -7,7 +7,7 @@
 ![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)
 ![Node.js 18+](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)
 ![Runs offline](https://img.shields.io/badge/internet-not%20required-lightgrey.svg)
-![Version](https://img.shields.io/badge/version-2.2.4-informational.svg)
+![Version](https://img.shields.io/badge/version-2.2.5-informational.svg)
 
 ![The Race tab during a 36 h race: the call, fuel on board, the driver's stint, the next stop and the live track map](docs/screenshots/race.png)
 
@@ -243,6 +243,7 @@ The full [user manual (PDF)](Pitwall_Strategy_Manager_User_Manual_v2.2.3.pdf) co
 
 ## Release notes
 
+- **2.2.5:** movable cards on the Race and Car tabs: drag a card by the 9-dot grip in its header and the other cards slide out of the way live. The layout is saved in that browser; Reset layout at the bottom of the page restores the default. Cards that appear during a stop (pit gate, fuelling, pit timers) slot in next to where they normally sit.
 - **2.2.4:** new README with a guided tour, troubleshooting and first-time gotchas; contributing guide, code of conduct, security policy, accessibility statement, and issue and pull request templates. No change to the app.
 - **2.2.3:** Car tab: live track map and a live timing card with micro-sectors; tyre sets moved to the top.
 - **2.2.2:** larger base text and higher-contrast, taller shift bars.

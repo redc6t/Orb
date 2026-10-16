@@ -220,36 +220,139 @@
     document.getElementById('timeline-wrap').hidden = App.tab === 'garage';
     var c = ctx(); App.lastCtx = c;
     renderHeader(c); renderTimeline(c);
-    var v = V[App.tab](c), top = v.top || [];
-    var key = App.tab + ':' + top.map(function (p) { return p.id; }).join(',') + '/' + v.cols.map(function (col) { return col.map(function (p) { return p.id; }).join(','); }).join('|');
+    var v = V[App.tab](c), top = v.top || [], movable = !!CARD_TABS[App.tab];
+    if (movable) v.cols = arrangeCards(App.tab, v.cols);
+    var key = layoutKeyOf(App.tab, top.map(function (p) { return p.id; }), v.cols.map(function (col) { return col.map(function (p) { return p.id; }); }));
     if (force || key !== App.layoutKey) {
       App.layoutKey = key; App.dirty = {};
       viewEl.innerHTML = top.map(function (p) { return '<div class="toppanel" data-panel="' + p.id + '"></div>'; }).join('') +
-        '<div class="' + v.layout + '">' + v.cols.map(function (col) { return '<div class="col">' + col.map(function (p) { return '<div data-panel="' + p.id + '"></div>'; }).join('') + '</div>'; }).join('') + '</div>';
+        '<div class="' + v.layout + '">' + v.cols.map(function (col) { return '<div class="col">' + col.map(function (p) { return '<div data-panel="' + p.id + '"></div>'; }).join('') + '</div>'; }).join('') + '</div>' +
+        (movable ? '<div class="cards-foot tiny muted">Drag a card by its <span class="grip-ico">' + GRIP_SVG + '</span> to rearrange this page (saved in this browser). <a href="#" data-act="resetcards">Reset layout</a></div>' : '');
     }
     App.formSeq.changed = false;
-    [top].concat(v.cols).forEach(function (col) {
+    [top].concat(v.cols).forEach(function (col, ci) {
       col.forEach(function (p) {
         var el = viewEl.querySelector('[data-panel="' + p.id + '"]');
         if (!el) return;
         if (el.innerHTML && isEditing(el)) return;
         if (p.form && el.innerHTML && App.dirty[p.id] && Date.now() - App.dirty[p.id] < 60000) return;
-        if (el._html !== p.html) { el.innerHTML = p.html; el._html = p.html; if (window.PWTips) PWTips.apply(el); if (p.id === 'map') updateMapDot(); }
+        if (el._html !== p.html) { el.innerHTML = p.html; el._html = p.html; if (movable && ci > 0) addGrip(el); if (window.PWTips) PWTips.apply(el); if (p.id === 'map') updateMapDot(); }
       });
     });
     if (App.tab === 'race') fitFeed();
   }
 
   function fitFeed() {
-    var cols = viewEl.querySelectorAll('.race > .col'); if (cols.length < 3) return;
-    var feed = cols[2].querySelector('.feed'); if (!feed) return;
-    var a = cols[0].getBoundingClientRect(), b = cols[1].getBoundingClientRect(), c = cols[2].getBoundingClientRect();
-    if (c.top > a.top + 40 || window.innerWidth < 1400) { feed.style.maxHeight = ''; return; }   // stacked layout: leave it
+    var cols = [].slice.call(viewEl.querySelectorAll('.race > .col')); if (cols.length < 3) return;
+    var feed = viewEl.querySelector('.race .feed'); if (!feed) return;
+    var fc = feed.closest('.col'), others = cols.filter(function (x) { return x !== fc; }).map(function (x) { return x.getBoundingClientRect(); });
+    var c = fc.getBoundingClientRect(), a = cols[0].getBoundingClientRect();
+    if (cols[2].getBoundingClientRect().top > a.top + 40 || window.innerWidth < 1400) { feed.style.maxHeight = ''; return; }   // stacked layout: leave it
     var cap = window.innerHeight * 0.23;   // matches .feed max-height: only shrink to fit, never grow past it
-    var over = c.bottom - Math.max(a.bottom, b.bottom), h = Math.min(cap, Math.max(160, feed.clientHeight - over));
+    var over = c.bottom - Math.max(others[0].bottom, others[1].bottom), h = Math.min(cap, Math.max(160, feed.clientHeight - over));
     if (Math.abs(over) > 2) feed.style.maxHeight = h + 'px';
   }
   window.addEventListener('resize', function () { if (App.tab === 'race') fitFeed(); });
+
+  /* ------------------------------------------------------------ movable cards: drag the grip to rearrange a page (saved per browser) */
+  var CARD_TABS = { race: 1, car: 1 };
+  var GRIP_SVG = '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><g fill="currentColor"><circle cx="2" cy="2" r="1.3"/><circle cx="6" cy="2" r="1.3"/><circle cx="10" cy="2" r="1.3"/><circle cx="2" cy="6" r="1.3"/><circle cx="6" cy="6" r="1.3"/><circle cx="10" cy="6" r="1.3"/><circle cx="2" cy="10" r="1.3"/><circle cx="6" cy="10" r="1.3"/><circle cx="10" cy="10" r="1.3"/></g></svg>';
+  function layoutKeyOf(tab, topIds, colIds) { return tab + ':' + topIds.join(',') + '/' + colIds.map(function (ids) { return ids.join(','); }).join('|'); }
+  function loadCards(tab) { try { var v = JSON.parse(localStorage.getItem('pw2.cards.' + tab)); return Array.isArray(v) ? v : null; } catch (e) { return null; } }
+  function saveCards(tab, cols) { try { if (cols) localStorage.setItem('pw2.cards.' + tab, JSON.stringify(cols)); else localStorage.removeItem('pw2.cards.' + tab); } catch (e) { /* private mode */ } }
+  // insert item into list right after prev (when prev is there), otherwise at index i
+  function placeAfter(list, item, prev, i, idOf) {
+    var at = -1; if (prev != null) list.forEach(function (x, j) { if (idOf(x) === prev) at = j + 1; });
+    list.splice(at >= 0 ? at : Math.min(i, list.length), 0, item);
+  }
+  // the saved order wins; a card never placed by the user (e.g. a pit-stop card that just appeared) keeps its default column, next to its default neighbour
+  function arrangeCards(tab, cols) {
+    var saved = loadCards(tab);
+    if (!saved || saved.length !== cols.length) return cols;
+    var byId = {}, placed = {};
+    cols.forEach(function (col) { col.forEach(function (p) { byId[p.id] = p; }); });
+    var out = saved.map(function (ids) { return ids.filter(function (id) { if (byId[id] && !placed[id]) { placed[id] = 1; return true; } return false; }).map(function (id) { return byId[id]; }); });
+    cols.forEach(function (col, ci) { col.forEach(function (p, i) { if (!placed[p.id]) placeAfter(out[ci], p, i ? col[i - 1].id : null, i, function (x) { return x.id; }); }); });
+    return out;
+  }
+  // save the order now on screen, keeping where the user put cards that are hidden at the moment
+  function storeCards(tab, colIds) {
+    var old = loadCards(tab), seen = {};
+    colIds.forEach(function (ids) { ids.forEach(function (id) { seen[id] = 1; }); });
+    if (old && old.length === colIds.length) old.forEach(function (ids, ci) { ids.forEach(function (id, i) { if (!seen[id]) { seen[id] = 1; placeAfter(colIds[ci], id, i ? ids[i - 1] : null, i, function (x) { return x; }); } }); });
+    saveCards(tab, colIds);
+  }
+  function addGrip(el) {
+    var g = '<span class="grip" title="Drag to move this card">' + GRIP_SVG + '</span>', h = el.querySelector('.card > h3');
+    if (h) { h.classList.add('has-grip'); h.insertAdjacentHTML('beforeend', g); }
+    else { el.classList.add('grip-abs'); el.insertAdjacentHTML('afterbegin', g); }
+  }
+  function domCols(grid) { return [].slice.call(grid.children).filter(function (c) { return c.classList.contains('col'); }); }
+  // layout position (ignores the FLIP transforms still running, so the drop target does not jitter)
+  function layoutTop(child, col, colRect) { return colRect.top + (child.offsetParent === col.offsetParent ? child.offsetTop - col.offsetTop : child.offsetTop); }
+  var cardDrag = null;
+  viewEl.addEventListener('pointerdown', function (e) {
+    var g = e.target.closest('.grip'); if (!g || e.button !== 0 || !CARD_TABS[App.tab] || cardDrag) return;
+    var el = g.closest('[data-panel]'); if (!el || !el.parentNode.classList.contains('col')) return;
+    var r = el.getBoundingClientRect(), grid = el.parentNode.parentNode;
+    var ghost = el.cloneNode(true);
+    ghost.removeAttribute('data-panel'); ghost.querySelectorAll('[id]').forEach(function (x) { x.removeAttribute('id'); });
+    ghost.className = 'card-ghost'; ghost.style.cssText = 'left:' + r.left + 'px;top:' + r.top + 'px;width:' + r.width + 'px';
+    document.body.appendChild(ghost);
+    el.classList.add('card-ph'); grid.classList.add('cards-dragging'); document.body.classList.add('cards-grabbing');
+    cardDrag = { el: el, grid: grid, ghost: ghost, x0: e.clientX, y0: e.clientY, left: r.left, top: r.top, x: e.clientX, y: e.clientY, sy: window.scrollY };
+    App.dragging = true; e.preventDefault();
+    cardDrag.scroll = setInterval(function () {   // scroll the page while the card is held near the top or bottom edge
+      if (!cardDrag) return;
+      var y = cardDrag.y, H = window.innerHeight, v = y < 70 ? -(70 - y) / 3 : y > H - 70 ? (y - H + 70) / 3 : 0;
+      if (v) { window.scrollBy(0, v); cardMove(); }
+    }, 16);
+  });
+  function cardMove() {
+    var d = cardDrag, x = d.x, y = d.y;
+    d.ghost.style.transform = 'translate(' + (x - d.x0) + 'px,' + (y - d.y0) + 'px) rotate(1deg)';
+    var best = null, bd = Infinity;
+    domCols(d.grid).forEach(function (c) {
+      var r = c.getBoundingClientRect(), dx = Math.max(r.left - x, 0, x - r.right), dy = Math.max(r.top - y, 0, y - r.bottom), dd = dx * dx + dy * dy;
+      if (dd < bd) { bd = dd; best = c; }
+    });
+    if (!best) return;
+    var cr = best.getBoundingClientRect(), ref = null;
+    [].slice.call(best.children).some(function (k) {
+      if (k === d.el) return false;
+      if (layoutTop(k, best, cr) + k.offsetHeight / 2 > y) { ref = k; return true; }
+      return false;
+    });
+    if (d.el.parentNode === best && (d.el.nextSibling === ref || (ref === null && d.el === best.lastElementChild))) return;
+    // FLIP: remember where every card was, move the placeholder, then slide each card from its old spot to the new one
+    var cards = [].slice.call(d.grid.querySelectorAll('.col > [data-panel]')), before = cards.map(function (k) { return k.getBoundingClientRect(); });
+    best.insertBefore(d.el, ref);
+    cards.forEach(function (k, i) {
+      var a = before[i], b = k.getBoundingClientRect(), dx = a.left - b.left, dy = a.top - b.top;
+      if (!dx && !dy) return;
+      k.style.transition = 'none'; k.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+      k.getBoundingClientRect();
+      k.style.transition = 'transform 220ms cubic-bezier(.2,.8,.2,1)'; k.style.transform = '';
+    });
+  }
+  document.addEventListener('pointermove', function (e) { if (!cardDrag) return; cardDrag.x = e.clientX; cardDrag.y = e.clientY; cardMove(); });
+  function cardDrop() {
+    if (!cardDrag) return;
+    var d = cardDrag; cardDrag = null; clearInterval(d.scroll);
+    var r = d.el.getBoundingClientRect();
+    d.ghost.style.transition = 'transform 180ms ease, box-shadow 180ms ease';
+    d.ghost.style.transform = 'translate(' + (r.left - d.left) + 'px,' + (r.top - d.top) + 'px)';
+    setTimeout(function () {
+      d.ghost.remove(); d.el.classList.remove('card-ph'); d.grid.classList.remove('cards-dragging'); document.body.classList.remove('cards-grabbing');
+      var cols = domCols(d.grid).map(function (c) { return [].slice.call(c.children).map(function (k) { return k.getAttribute('data-panel'); }); });
+      var top = [].slice.call(viewEl.querySelectorAll('.toppanel')).map(function (k) { return k.getAttribute('data-panel'); });
+      storeCards(App.tab, cols.map(function (ids) { return ids.slice(); }));
+      App.layoutKey = layoutKeyOf(App.tab, top, cols);   // the DOM already matches: no rebuild
+      App.dragging = false; renderAll(false);
+    }, 180);
+  }
+  document.addEventListener('pointerup', cardDrop);
+  document.addEventListener('pointercancel', cardDrop);
 
   setInterval(function () { if (App.replay && App.replay.playing) stepReplay(1000 * App.replay.speed); if (App.tab !== 'setup' || App.state) renderAll(false); }, 1000);
 
@@ -292,6 +395,7 @@
   function checked(id) { var el = document.getElementById(id); return !!(el && el.checked); }
 
   var A = {
+    resetcards: function () { saveCards(App.tab, null); App.layoutKey = null; renderAll(true); },
     savemodel: function () {
       var s = App.state, d = E.derive(s, App.now()), tid = s.config.track.id || 'default';
       var fp = R.clone(s.config.car.fuelProfiles || {});

@@ -423,3 +423,19 @@ label.f[data-tip] { text-decoration: underline dotted #4a4d53; text-underline-of
 .vt-who { font-size: .86em; margin-top: 2px; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
 .vt-what { margin-top: 2px; }
 .vt-hs { margin-top: 4px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: .9em; }
+
+/* movable cards (Race and Car tabs): grip in the card header, live re-shuffle while dragging */
+.card h3.has-grip { justify-content: flex-start; }
+.card h3.has-grip > span:first-child { margin-right: auto; }
+.grip { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin: -5px -6px -5px 2px; border-radius: 5px; color: var(--dim); cursor: grab; touch-action: none; flex: none; }
+.grip:hover { color: var(--text2); background: var(--line); }
+.grip-abs { position: relative; }
+.grip-abs > .grip { position: absolute; top: 8px; right: 10px; z-index: 2; }
+.grip-ico { display: inline-flex; vertical-align: -2px; color: var(--sub); }
+.cards-foot { text-align: right; margin-top: 10px; }
+.cards-dragging > .col { min-height: 120px; outline: 1px dashed var(--line2); outline-offset: 4px; border-radius: 10px; }
+.card-ph { position: relative; }
+.card-ph > * { visibility: hidden; }
+.card-ph::after { content: ""; position: absolute; inset: 0; border: 2px dashed var(--cyan); border-radius: 10px; background: rgba(0, 188, 212, .06); }
+.card-ghost { position: fixed; z-index: 1000; pointer-events: none; opacity: .92; box-shadow: 0 18px 40px rgba(0, 0, 0, .55); border-radius: 10px; will-change: transform; }
+body.cards-grabbing, body.cards-grabbing * { cursor: grabbing !important; user-select: none; }
