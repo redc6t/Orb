@@ -1,0 +1,38 @@
+name: Rules profile request
+description: Ask for (or offer) a regulations profile for your series
+labels: ["rules-profile"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Profiles live in `rules/` as JSON. If you already wrote one, a pull request is even better: see [CONTRIBUTING.md](https://github.com/redc6t/PWSM_Pit_Wall_Stategy_Manager/blob/main/CONTRIBUTING.md#adding-a-rules-profile).
+  - type: input
+    id: series
+    attributes:
+      label: Series and event
+      placeholder: "Example Endurance Series, 12 h round"
+    validations:
+      required: true
+  - type: input
+    id: regs
+    attributes:
+      label: Regulations document
+      description: A link, or the document name, version and date.
+    validations:
+      required: true
+  - type: textarea
+    id: numbers
+    attributes:
+      label: Key numbers
+      description: Whatever you know so far.
+      placeholder: |
+        Maximum stint:
+        Minimum fuel stop time:
+        Mandatory stops:
+        Refuelling under SC / FCY:
+        Race clock under red flag:
+  - type: textarea
+    id: other
+    attributes:
+      label: Anything unusual
+      description: Rules the current profiles do not cover.

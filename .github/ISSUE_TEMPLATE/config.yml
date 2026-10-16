@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/redc6t/PWSM_Pit_Wall_Stategy_Manager/security/advisories/new
+    about: Please report security problems privately, not as a public issue.
+  - name: User manual
+    url: https://github.com/redc6t/PWSM_Pit_Wall_Stategy_Manager/blob/main/Pitwall_Strategy_Manager_User_Manual_v2.2.3.pdf
+    about: Every screen, the pit stop workflow, the fuel model and the planner explained.

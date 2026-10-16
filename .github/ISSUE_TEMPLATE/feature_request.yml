@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest an improvement or a new feature
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: situation
+    attributes:
+      label: The race situation
+      description: What were you trying to do on the pit wall, and what got in the way?
+      placeholder: "During a Safety Car at hour 4 we needed to know..."
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would help
+      description: Describe the change you would like. Sketches and screenshots are welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: How you work around it today
+  - type: dropdown
+    id: users
+    attributes:
+      label: Who would use it?
+      multiple: true
+      options:
+        - Race engineer
+        - Strategist / timing
+        - Refuel crew / mechanics
+        - Drivers
+        - Team manager
+        - Other

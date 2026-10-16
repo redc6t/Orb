@@ -1,5 +1,7 @@
 # Pitwall Strategy Manager
 
+*by Mullaloo Motorsport Engineering*
+
 **An offline, self-hosted pit wall for endurance racing.** One laptop runs a small server; the engineer works in a browser on that laptop, and any phone, tablet or TV on the same Wi-Fi sees the same screens, view-only. No internet, no cloud account, no subscription.
 
 ![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)
@@ -9,7 +11,7 @@
 
 ![The Race tab during a 36 h race: the call, fuel on board, the driver's stint, the next stop and the live track map](docs/screenshots/race.png)
 
-> **Free and open source.** Pitwall Strategy Manager is released under the [GNU GPL v3](LICENSE). Use it, fork it, rebrand it and change it for your own team, series or car. See [License](#license).
+> **Free and open source.** Pitwall Strategy Manager is released under the [GNU GPL v3](LICENSE). Use it at no cost, and customise it for your team, your car and your events. See [License](#license).
 
 ---
 
@@ -22,7 +24,7 @@
 - [Connecting devices](#connecting-devices)
 - [Who can change what](#who-can-change-what)
 - [Your data and backups](#your-data-and-backups)
-- [Make it your own](#make-it-your-own)
+- [Customise it for your team](#customise-it-for-your-team)
 - [Troubleshooting](#troubleshooting)
 - [Gotchas for first-time users](#gotchas-for-first-time-users)
 - [Documentation](#documentation)
@@ -43,7 +45,7 @@ Pitwall Strategy Manager answers, every second, the questions a pit wall asks du
 | **Who is fit to drive?** | Driver rotation, crew presence, rest and sleep, and alerts before anyone goes over their limits. |
 | **What happened?** | An append-only race log you can export, import on another laptop and replay through the whole app. |
 
-It works with nothing but a keyboard. Hook up a GPS lap timer and tyre/brake telemetry and laps, pit lane entries, flags and temperatures arrive by themselves.
+It works with nothing but a keyboard. Add the Mullaloo Motorsport Engineering in-car devices, the **PLTD** lap timer and the **BTTM** brake and tyre temperature monitor, and laps, pit lane entries, flags and temperatures arrive by themselves (see [Connecting devices](#connecting-devices)).
 
 ## Quick start
 
@@ -66,7 +68,7 @@ The demo builds a 36-hour race that has been running for 6 hours, with laps, sto
 
 1. Double-click `make-demo.bat` (it only replaces the DEMO weekend; your real weekends are not touched).
 2. Double-click `start-pitwall.bat`.
-3. Double-click `start-simulator.bat` (a fake GPS lap timer plus a fake tyre/brake sensor unit).
+3. Double-click `start-simulator.bat` (a simulated PLTD lap timer and BTTM temperature monitor, so no hardware is needed).
 4. When the call says **BOX**, press **BOX BOX** in Race control. The car pits at the end of the lap, and the Race tab switches to pit mode.
 
 From a terminal the same steps are `npm run demo`, `npm start` and `npm run sim`.
@@ -145,12 +147,16 @@ Every change is written to an append-only log. **Log** lets you search it, expor
 
 ## Connecting devices
 
-Everything can be typed in by hand. If the car carries telemetry, the app reads it directly:
+Everything can be typed in by hand. The app is built to work with two in-car devices from Mullaloo Motorsport Engineering. Both are fully original designs, electronics and code, made to be cost-effective, so entry-level drivers, club teams and lower categories can have data that is usually reserved for well-funded teams. The aim is to make it easier for new people to get into motorsport.
+
+- **PLTD** is the GPS lap timer and driver display. It times laps and micro-sectors, records the track outline and the pit lane, fuel bay and pit exit zones (geofences), and shows the pit board messages and flags you send from the pit wall on the driver's dash.
+- **[BTTM](https://github.com/redc6t/BTTM)** (Brake & Tyre Temperature Monitor) measures brake and tyre temperatures in real time. Sensor nodes at each corner report over a CAN bus to an ESP32-S3 hub, which provides a Wi-Fi web dashboard, a local display and data logging. Custom PCBs throughout.
+- **[CIRTS](https://github.com/redc6t/CIRTS)** (CAN Infrared Temperature Sensor) is the small ESP32-C3 infrared sensor node used at each corner of the BTTM network.
 
 | Source | How it connects | What it gives |
 |---|---|---|
-| **PLTD** GPS lap timer | WebSocket to the device, plus HTTP for lap times and the track map | Laps, micro-sectors, live position, pit lane geofences (pit in, fuel bay, pit out); pit board messages and flags are sent back to the driver's dash |
-| **BTTM** tyre/brake monitor | HTTP polled once a second | Brake and tyre temperatures and tyre pressures, with warning and critical alarms |
+| **PLTD** lap timer | WebSocket to the device, plus HTTP for lap times and the track map | Laps, micro-sectors, live position, pit lane geofences (pit in, fuel bay, pit out); pit board messages and flags are sent back to the driver's dash |
+| **BTTM** with CIRTS sensors | HTTP polled once a second | Brake and tyre temperatures and tyre pressures, with warning and critical alarms |
 | **Anything else** | JSON over UDP, port 47800, one object per datagram | Laps, car state, flags, fuel readings, impacts, car issues |
 
 UDP examples:
@@ -181,16 +187,14 @@ data/settings.json                  port, engineer laptops, last weekend (resume
 data/cars/*.json                    car library, including learned fuel burn
 data/events/<id>/events.jsonl       the race log: every change, append-only
 data/events/<id>/config.json        the weekend as created
-data/branding/logo.*                your logo, if you upload one
 ```
 
 Copy the `data` folder to a USB stick or a second laptop at least once per session. If the laptop dies, copy the folder (or import the weekend file from **Log**) on another machine, start the server and carry on.
 
-## Make it your own
+## Customise it for your team
 
-The app is written to be adapted. Fork it and change whatever your team needs:
+The app is written to adapt to how your team, your car and your events work:
 
-- **Branding:** the product, company and owner names live in `public/js/brand.js`; upload your logo in **Setup**, or replace `public/assets/`.
 - **Series rules:** each regulation set is a JSON file in `rules/` (two are included). Copy one, edit the stint limit, fuel stop minimum, mandatory stops and flag rules, and restart.
 - **Tracks:** track presets and the outline used by the map are in `lib/defaults.js` and `lib/tracks/`. With a PLTD, the device records its own reference lap and geofences at the track.
 - **Car:** tank sizes, fuel baseline per track, refuel method and pour rate are set in **Setup** and saved to the car library for next time.
@@ -239,7 +243,7 @@ The full [user manual (PDF)](Pitwall_Strategy_Manager_User_Manual_v2.2.3.pdf) co
 
 ## Release notes
 
-- **2.2.4:** new README with a guided tour, troubleshooting and first-time gotchas. No change to the app.
+- **2.2.4:** new README with a guided tour, troubleshooting and first-time gotchas; contributing guide, code of conduct, security policy, accessibility statement, and issue and pull request templates. No change to the app.
 - **2.2.3:** Car tab: live track map and a live timing card with micro-sectors; tyre sets moved to the top.
 - **2.2.2:** larger base text and higher-contrast, taller shift bars.
 - **2.2.1:** the track map moves to the top of the Race tab's right column; Race story becomes Race history.
@@ -253,8 +257,8 @@ The full history is in the git log.
 
 Pitwall Strategy Manager is **free and open source software**, released under the [GNU General Public License v3.0](LICENSE).
 
-You are welcome to take it and make it your own: run it at your events, fork it, rebrand it, add your series' rules, your tracks and your devices, and change anything else your team needs. There is no fee and no account.
+You are welcome to use it at your events and customise it for your needs: add your series' rules, your tracks and your car, and adjust it to the way your team runs its pit wall. There is no fee and no account.
 
 The GPL asks one thing in return: if you **distribute** a modified version, share its source code under the same license so the next team can build on it too. Running a modified copy on your own pit wall needs nothing more.
 
-Created by Pietro Gambarin, Mullaloo Motorsport Engineering. Contributions, bug reports and new rule profiles are welcome through GitHub issues and pull requests.
+Pitwall Strategy Manager is designed and developed by Pietro Gambarin, **Mullaloo Motorsport Engineering**, alongside the PLTD, [BTTM](https://github.com/redc6t/BTTM) and [CIRTS](https://github.com/redc6t/CIRTS) hardware. Contributions, bug reports and new rule profiles are welcome through GitHub issues and pull requests: see [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md). Report security problems privately as described in [SECURITY.md](SECURITY.md), and accessibility barriers as described in [ACCESSIBILITY.md](ACCESSIBILITY.md).

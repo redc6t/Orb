@@ -1,0 +1,83 @@
+name: Bug report
+description: Something in the app is wrong, broken or misleading
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. For a security problem, do not use this form: see [SECURITY.md](https://github.com/redc6t/PWSM_Pit_Wall_Stategy_Manager/blob/main/SECURITY.md).
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: From the README badge or `package.json`.
+      placeholder: "2.2.4"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where did it happen?
+      multiple: true
+      options:
+        - Setup
+        - Race tab / the call
+        - Pit mode / stop handshake
+        - Race Plan
+        - Fuel Plan / fuel model
+        - Scenarios
+        - Team
+        - Car
+        - Garage display
+        - Log / export / import / replay
+        - PLTD connection
+        - BTTM connection
+        - UDP input
+        - Server / startup
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you saw, and what you expected to see instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: If you can reproduce it with the demo (`make-demo.bat` + `start-simulator.bat`), say so.
+      placeholder: |
+        1. Run the demo
+        2. Press BOX BOX
+        3. ...
+  - type: dropdown
+    id: when
+    attributes:
+      label: When did it happen?
+      options:
+        - During a real race or session
+        - During testing or the demo
+    validations:
+      required: true
+  - type: input
+    id: rules
+    attributes:
+      label: Rules profile
+      description: The file in `rules/` the weekend uses, if relevant.
+      placeholder: "b4b-2026-03.json"
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Server OS and Node.js version (`node -v`), and the browser and device where you saw the problem.
+      placeholder: |
+        Server: Windows 11, Node 20.11
+        Client: Chrome 128 on the server laptop / Safari on iPad (view-only)
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console output, screenshots or weekend export
+      description: Paste the server console output, attach screenshots, or attach the weekend file from **Log > Export**. Remove anything you do not want to make public.
