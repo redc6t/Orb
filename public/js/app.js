@@ -5,7 +5,7 @@
   var MIN = 60000;
   var App = window.PWApp = {
     role: 'viewer', meta: null, config0: null, events: [], state: null, live: {}, devices: {}, offset: 0,
-    tab: (function () { var t = localStorage.getItem('pw2.tab'); return ['race', 'plan', 'fuel', 'plans', 'team', 'car', 'garage', 'log', 'setup'].indexOf(t) >= 0 ? t : 'race'; })(), whatIf: null, replay: null, logFilter: { type: 'nolaps' }, dirty: {}, formSeq: {}, ws: null, layoutKey: null
+    tab: (function () { var t = localStorage.getItem('pw2.tab'); return ['race', 'plan', 'fuel', 'plans', 'team', 'car', 'garage', 'log', 'setup'].indexOf(t) >= 0 ? t : 'race'; })(), whatIf: null, replay: null, logFilter: { type: 'nolaps' }, dirty: {}, formSeq: {}, ws: null, layoutKey: null, debrief: {}
   };
   var viewEl = document.getElementById('view');
 
@@ -80,7 +80,7 @@
     var fp = App.tab === 'fuel' && d.plan ? E.fuelPlan(s, d) : null;
     return { s: s, d: d, base: base, fp: fp, fuelSel: App.fuelSel, fuelEdit: App.fuelEdit || null, fpPreview: fp && !App.replay ? fuelPreview(s, now, d) : null, eng: App.role === 'engineer' && !App.replay, live: App.replay ? {} : App.live, devices: App.devices, now: now,
       whatIf: App.whatIf, whatIfOn: !!App.whatIf, replay: App.replay, events: App.replay ? App.events.filter(function (e) { return e.ts <= App.replay.t; }) : App.events,
-      scen: App.tab === 'plans' ? scenarios(s, now) : null, planEdit: App.planEdit || null, svcFix: App.svcFix || null,
+      scen: App.tab === 'plans' ? scenarios(s, now) : null, planEdit: App.planEdit || null, svcFix: App.svcFix || null, debrief: App.debrief,
       drop: App.tab === 'plan' && App.dropCache ? App.dropCache.val : null, allEvents: App.events, logFilter: App.logFilter, meta: App.meta, map: App.map, posHist: App.posHist };
   }
 
@@ -465,6 +465,7 @@
       var ts = +b.getAttribute('data-ts'), x = fuelStopAt(ts); if (!x || !x.st) return;
       setRunningPins(litresPins(x.d.plan.stops, x.st.k, null)); App.fuelEdit = null; App.dirty.fpstop = 0;
     },
+    debrief: function (b) { var k = b.getAttribute('data-k'); App.debrief[k] = !App.debrief[k]; renderAll(false); },
     svcfix: function (b) { App.svcFix = b.getAttribute('data-stop'); App.layoutKey = null; renderAll(true); },
     plansinit: function () { App.send('scenario.init', { plans: E.scenarioTemplates(App.state, App.now()) }); },
     planrun: function (b) { App.send('scenario.activate', { id: b.getAttribute('data-id') }); },

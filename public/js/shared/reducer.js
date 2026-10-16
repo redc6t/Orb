@@ -195,7 +195,7 @@
       }
       case 'lap': {
         s.laps.push({ n: p.n, ms: p.ms, ts: ts, pitted: !!p.pitted, delta: p.delta, src: e.src || null,
-          sessionId: s.activeSessionId, driverId: s.drivers.activeId, flag: s.flag.current, tyreSetId: s.tyres.mounted });
+          sessionId: s.activeSessionId, driverId: s.drivers.activeId, flag: s.flag.current, tyreSetId: s.tyres.mounted, peaks: p.peaks || null });
         break;
       }
       case 'stop.service': {

@@ -424,17 +424,23 @@
     if (!pl) return { id: 'stints', html: card('Stint table', '<div class="muted">No race session configured</div>') };
     var P = d.P, base = rs.startTs, rows = '';
     var lapsIn = function (a, b) { return s.laps.filter(function (l) { return l.sessionId === rs.id && l.ts > a && l.ts <= b; }).length; };
-    var stintRow = function (cls, n, drv, from, to, laps, fuel, note) {
-      return '<tr class="' + cls + '"><td class="num">' + n + '</td><td><span class="cdot" style="background:' + U.driverColour(s, drv) + '"></span> ' + esc(name(ctx, drv)) + (note ? ' <span class="tag">' + note + '</span>' : '') + '</td>' +
+    var stintRow = function (cls, n, drv, from, to, laps, fuel, note, extra) {
+      return '<tr class="' + cls + '"><td class="num">' + n + '</td><td><span class="cdot" style="background:' + U.driverColour(s, drv) + '"></span> ' + esc(name(ctx, drv)) + (note ? ' <span class="tag">' + note + '</span>' : '') + (extra || '') + '</td>' +
         '<td class="num">' + U.clock(from) + '</td><td class="num">' + U.clock(to) + '</td><td class="num">' + U.dur(from - base, true) + '</td><td class="num">' + U.mins(to - from) + '</td><td class="num">' + laps + '</td><td class="num">' + fuel + '</td></tr>';
     };
-    var n = 0;
+    var n = 0, open = ctx.debrief || {};
     if (rs.started) {
       var actual = s.drivers.stints.filter(function (x) { return x.sessionId === rs.id && x.endTs; });
       var stops = d.stops.list.filter(function (x) { return !x.open; });
       var items = actual.map(function (x) { return { t: x.startTs, k: 'stint', x: x }; }).concat(stops.map(function (x) { return { t: x.inTs, k: 'stop', x: x }; })).sort(function (a, b) { return a.t - b.t; });
       items.forEach(function (it) {
-        if (it.k === 'stint') { n++; rows += stintRow('past', n, it.x.driverId, it.x.startTs, it.x.endTs, lapsIn(it.x.startTs, it.x.endTs), '-', 'done'); }
+        if (it.k === 'stint') {
+          n++;
+          var key = String(it.x.startTs), on = !!open[key];
+          var tog = ' <button class="dbtog" data-act="debrief" data-k="' + key + '" aria-expanded="' + on + '">' + (on ? '&minus;' : '+') + ' auto-gen debrief</button>';
+          rows += stintRow('past', n, it.x.driverId, it.x.startTs, it.x.endTs, lapsIn(it.x.startTs, it.x.endTs), '-', 'done', tog);
+          if (on) rows += '<tr class="dbrow"><td></td><td colspan="7"><div class="debrief">' + stintDebrief(ctx, it.x, n, stops) + '</div></td></tr>';
+        }
         else {
           var x = it.x;
           rows += '<tr class="stoprow past"><td></td><td colspan="7">' + x.id + ' ' + stopType(x.type) + ' at ' + U.clock(x.inTs) + ' - lane ' + U.dur(x.laneMs) + (x.fuelMs != null ? ', fuel ' + U.dur(x.fuelMs) : '') + (x.added ? ', ' + x.added + ' L' : '') +
@@ -460,6 +466,113 @@
     var head = '<div class="chips-sum">' + chips.map(function (c) { return '<div class="sumchip"><span class="lbl">' + c[0] + '</span><span class="v">' + c[1] + '</span></div>'; }).join('') + (ctx.whatIfOn ? '<div class="sumchip"><span class="lbl">Scenario</span><span class="v warn-t">what-if</span></div>' : '') + '</div>';
     if (pl.warnings.length) head += '<div class="note warn" style="margin-bottom:8px">' + pl.warnings.map(esc).join('<br>') + '</div>';
     return { id: 'stints', html: card('Stint table', head + '<div class="scroll tall"><table><thead><tr><th class="num">#</th><th>Driver</th><th class="num">From</th><th class="num">To</th><th class="num">Race t</th><th class="num">Length</th><th class="num">Laps</th><th class="num">Fuel L</th></tr></thead><tbody>' + rows + '</tbody></table></div>', 'done, now and plan in one table') };
+  }
+
+  /* stint debrief: what the engineer watching it would tell you, built from laps, flags, issues, BTTM peaks and the stop that ended it */
+  var FLAG_WORDS = { SC: ['Safety Car', 'Safety Cars'], FCY: ['Full Course Yellow', 'Full Course Yellows'], RED: ['red flag', 'red flags'], YELLOW: ['local yellow', 'local yellows'], 'DOUBLE YELLOW': ['double yellow', 'double yellows'] };
+  var CORNER = ['fl', 'fr', 'rl', 'rr'];
+  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
+  function numWord(n) { return ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'][n] || String(n); }
+  function avg(a) { return a.reduce(function (x, y) { return x + y; }, 0) / a.length; }
+  function secs(ms) { return (ms / 1000).toFixed(1) + ' s'; }
+  function stintDebrief(ctx, st, n, stops) {
+    var s = ctx.s, d = ctx.d, a = st.startTs, b = st.endTs, who = esc(name(ctx, st.driverId)), first = esc(U.short(name(ctx, st.driverId)));
+    var inside = function (ts) { return ts > a && ts <= b; };
+    var cls = {}; d.laps.forEach(function (l) { cls[l.ts] = l.cls; });
+    var laps = s.laps.filter(function (l) { return l.sessionId === st.sessionId && inside(l.ts); }).map(function (l) {
+      return { n: l.n, ms: l.ms, peaks: l.peaks, cls: cls[l.ts] || (l.pitted ? 'pit' : l.flag !== 'GREEN' ? 'sc' : 'green') };
+    });
+    var p = [];
+
+    // opening line
+    p.push(who + ' was in the car for ' + U.mins(b - a) + ' (' + U.clock(a) + ' to ' + U.clock(b) + '), stint ' + n + ', ' + plural(laps.length, 'lap') + ' on the board.');
+
+    // pace
+    var clean = laps.filter(function (l) { return l.cls === 'green' || l.cls === 'push' || l.cls === 'slow'; });
+    var timed = laps.filter(function (l) { return l.cls !== 'pit'; });
+    if (clean.length) {
+      var av = avg(clean.map(function (l) { return l.ms; }));
+      var best = timed.reduce(function (m, l) { return !m || l.ms < m.ms ? l : m; }, null);
+      var worst = clean.reduce(function (m, l) { return !m || l.ms > m.ms ? l : m; }, null);
+      var core = clean.filter(function (l) { return l.cls !== 'slow'; }).map(function (l) { return l.ms; });
+      var sd = core.length > 3 ? Math.sqrt(avg(core.map(function (x) { var dv = x - avg(core); return dv * dv; }))) : null;
+      var t = 'On green-flag running the average was <b>' + U.lap(av) + '</b>, best lap a <b>' + U.lap(best.ms) + '</b> on lap ' + best.n + ' and the worst a <b>' + U.lap(worst.ms) + '</b> on lap ' + worst.n + '.';
+      if (sd != null) t += sd < 600 ? ' Very consistent, laps within about &plusmn;' + secs(sd) + ' of each other.' : sd < 1200 ? ' Reasonably tidy, about &plusmn;' + secs(sd) + ' lap to lap.' : ' Pace was up and down, about &plusmn;' + secs(sd) + ' lap to lap, so traffic or a scruffy patch in there.';
+      if (core.length >= 12) {
+        var k = Math.min(5, Math.floor(core.length / 3)), early = avg(core.slice(0, k)), late = avg(core.slice(-k)), dl = late - early;
+        t += Math.abs(dl) < 300 ? ' Pace held from start to finish, no real drop-off.' : dl > 0 ? ' The last few laps were ' + secs(dl) + ' slower than the opening ones, tyres or fatigue starting to show.' : ' Got quicker as it went on, the last few laps ' + secs(-dl) + ' up on the opening ones.';
+      }
+      var bestEver = d.bestLapMs;
+      if (bestEver && best.ms === bestEver) t += ' That ' + U.lap(best.ms) + ' is still the fastest lap of the race.';
+      p.push(t);
+    } else if (laps.length) p.push('No clean green-flag laps to judge pace on in this one.');
+
+    // flags
+    var hist = s.flag.history, fl = {}, flagMs = 0;
+    hist.forEach(function (h, i) {
+      if (h.flag === 'GREEN') return;
+      var from = h.ts, to = i + 1 < hist.length ? hist[i + 1].ts : (b > ctx.now ? ctx.now : b);
+      var ov = Math.min(to, b) - Math.max(from, a);
+      if (ov <= 0) return;
+      var f = fl[h.flag] || (fl[h.flag] = { n: 0, ms: 0 }); f.n++; f.ms += ov; flagMs += ov;
+    });
+    var scLaps = laps.filter(function (l) { return l.cls === 'sc'; }).length, keys = Object.keys(fl);
+    if (keys.length) {
+      p.push('Flags: ' + keys.map(function (f) { var w = FLAG_WORDS[f] || [f.toLowerCase(), f.toLowerCase() + 's']; return numWord(fl[f].n) + ' ' + (fl[f].n === 1 ? w[0] : w[1]) + ' (' + U.mins(fl[f].ms) + ')'; }).join(', ') +
+        ', ' + U.mins(flagMs) + ' neutralised in all' + (scLaps ? ' and ' + plural(scLaps, 'lap') + ' run behind it' : '') + '.');
+    } else p.push('Green all the way, no Safety Cars or flags in this stint.');
+
+    // incidents
+    var issues = s.issues.filter(function (x) { return inside(x.ts) && x.src !== 'BTTM'; });
+    var pens = s.penalties.filter(function (x) { return inside(x.ts); });
+    var alarms = {}; s.bttmAlarms.filter(function (x) { return inside(x.ts); }).forEach(function (x) {
+      var k = x.corner + ' ' + x.kind, m = alarms[k] || (alarms[k] = { n: 0, max: 0, crit: false }); m.n++; m.max = Math.max(m.max, x.value || 0); m.crit = m.crit || x.level === 'crit';
+    });
+    var msgs = s.pitmsgs.filter(function (x) { return inside(x.ts); }).length;
+    var inc = [];
+    issues.forEach(function (x) { inc.push(esc(x.text || x.cat) + ' <span class="tiny muted">(' + esc(x.cat) + ', ' + U.clock(x.ts) + ')</span>'); });
+    pens.forEach(function (x) { inc.push('<span class="warn-t">' + esc(x.kind) + '</span>' + (x.reason ? ': ' + esc(x.reason) : '') + ' <span class="tiny muted">(' + U.clock(x.ts) + ')</span>'); });
+    Object.keys(alarms).forEach(function (k) { var m = alarms[k]; inc.push('BTTM ' + k.toUpperCase() + ' alarm' + (m.n > 1 ? ' x' + m.n : '') + ', up to ' + Math.round(m.max) + (k.indexOf('press') >= 0 ? ' psi' : '&deg;C') + (m.crit ? ' <span class="crit-t">critical</span>' : '')); });
+    if (inc.length) p.push('Incidents, ' + inc.length + ' logged: ' + inc.join('; ') + '.');
+    else p.push('Nothing logged against the car or the driver, a clean stint.');
+    if (msgs) p.push((msgs === 1 ? 'One pit board message' : msgs + ' pit board messages') + ' went out to ' + first + ' during the run.');
+
+    // BTTM peaks per corner
+    var th = (ctx.live && ctx.live.bttm && ctx.live.bttm.live && ctx.live.bttm.live.thresh) || { br: [100, 300, 500, 700], ty: [40, 70, 100, 130] };
+    var peak = { br: {}, ty: {} };
+    laps.forEach(function (l) {
+      if (!l.peaks) return;
+      ['br', 'ty'].forEach(function (k) { CORNER.forEach(function (c) { var v = l.peaks[k] && l.peaks[k][c]; if (v != null && (!peak[k][c] || v > peak[k][c].v)) peak[k][c] = { v: v, lap: l.n }; }); });
+    });
+    var temps = function (k, what) {
+      var have = CORNER.filter(function (c) { return peak[k][c]; });
+      if (!have.length) return '';
+      var hot = have.reduce(function (m, c) { return !m || peak[k][c].v > peak[k][m].v ? c : m; }, null);
+      var t = th[k], band = function (v) { return v > t[3] ? 'crit-t' : v > t[2] ? 'warn-t' : ''; };
+      var line = what + ' peaked at ' + have.map(function (c) { var v = peak[k][c].v, bc = band(v); return c.toUpperCase() + ' <b' + (bc ? ' class="' + bc + '"' : '') + '>' + v + '&deg;C</b>'; }).join(', ') +
+        ', hottest ' + hot.toUpperCase() + ' on lap ' + peak[k][hot].lap + '.';
+      var hv = peak[k][hot].v;
+      if (hv > t[3]) line += ' That is over the top band, have a look at the ' + (k === 'br' ? 'pads and discs' : 'tyre') + ' on that corner.';
+      else if (hv > t[2]) line += ' Into the warning band but not critical.';
+      else line += ' All inside the working window.';
+      var f = ['fl', 'fr'].filter(function (c) { return peak[k][c]; }), r = ['rl', 'rr'].filter(function (c) { return peak[k][c]; });
+      if (k === 'br' && f.length && r.length) {
+        var bias = avg(f.map(function (c) { return peak.br[c].v; })) - avg(r.map(function (c) { return peak.br[c].v; }));
+        if (bias > 250) line += ' Fronts doing most of the work, about ' + Math.round(bias) + '&deg; hotter than the rears.';
+      }
+      return line;
+    };
+    var tb = temps('br', 'Brakes'), tt = temps('ty', 'Tyres');
+    if (tb || tt) p.push([tb, tt].filter(Boolean).join(' '));
+    else p.push('No BTTM temperatures recorded for this stint.');
+
+    // how it ended
+    var stop = stops.filter(function (x) { return x.inTs <= b + 5000 && x.inTs >= b - 10 * MIN; }).pop();
+    if (stop) {
+      p.push('Boxed at ' + U.clock(stop.inTs) + ' for stop ' + stop.id + ' (' + stopType(stop.type).toLowerCase() + '): ' + U.dur(stop.laneMs) + ' in the lane' + (stop.added ? ', ' + stop.added + ' L in' : '') +
+        (stop.driverIn && stop.driverIn !== stop.driverOut ? ', handed over to ' + esc(name(ctx, stop.driverIn)) : ', ' + first + ' stayed in') + '.');
+    }
+    return p.map(function (x) { return '<p>' + x + '</p>'; }).join('');
   }
 
   function panelLaps(ctx) {

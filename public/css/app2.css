@@ -191,6 +191,14 @@ tr.current td { background: #12262b; }
 tr.past td { color: var(--sub); }
 tr.stoprow td { font-size: .86em; color: var(--text2); background: #141518; }
 tr.stoprow.past td { color: var(--sub); }
+/* stint debrief: a quiet text toggle on each finished stint, the engineer's recap opens in a row below */
+.dbtog { background: none; border: 0; padding: 0 2px; margin-left: 4px; color: var(--cyan); font-size: .78em; cursor: pointer; white-space: nowrap; }
+.dbtog:hover { text-decoration: underline; }
+tr.dbrow td { background: var(--well); border-bottom: 1px solid var(--line2); }
+.debrief { border-left: 2px solid var(--cyan); padding: 4px 4px 4px 12px; color: var(--text2); font-size: .95em; line-height: 1.5; max-width: min(80ch, calc(100vw - 110px)); position: sticky; left: 6px; white-space: normal; }
+.debrief p + p { margin-top: 6px; }
+.debrief b { color: var(--text); font-family: var(--mono); font-weight: 600; }
+.debrief b.warn-t { color: var(--amber); } .debrief b.crit-t { color: var(--red); }
 .scroll { overflow-x: auto; } .tall { max-height: 62vh; overflow-y: auto; }
 .lc { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; }
 .lc-push { background: var(--purple); } .lc-green { background: #6b7079; } .lc-slow { background: var(--yellow); } .lc-sc { background: var(--orange); } .lc-pit { background: var(--pits); }

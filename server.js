@@ -58,7 +58,9 @@ function configureDevices() {
 }
 const sessionActive = () => !!(store.state && store.state.activeSessionId);
 [pltd, bttm, udp].forEach(a => a.on('status', () => broadcast({ t: 'devices', devices: devices() })));
-pltd.on('lap', l => { if (sessionActive()) append('lap', l, 'pltd', 'pltd'); });
+// each lap carries the BTTM peaks seen during it, so stint debriefs survive replay
+const withPeaks = l => { const pk = bttm.takePeaks(); return pk ? Object.assign({}, l, { peaks: pk }) : l; };
+pltd.on('lap', l => { if (sessionActive()) append('lap', withPeaks(l), 'pltd', 'pltd'); });
 pltd.on('carstate', cs => { if (store.state && store.state.carState.current !== cs) append('carstate', { cs }, 'pltd', 'pltd'); });
 pltd.on('carstate-initial', cs => { if (store.state && sessionActive() && store.state.carState.current !== cs && cs !== 'RUNNING') append('carstate', { cs }, 'pltd', 'pltd'); });
 pltd.on('flagstate', f => {
@@ -91,7 +93,7 @@ udp.on('msg', (m, ip) => {
   if (!store.state) return;
   const by = 'udp:' + ip;
   switch (m.t) {
-    case 'lap': if (sessionActive()) append('lap', { n: m.n, ms: m.ms, pitted: !!m.pitted }, by, 'udp'); break;
+    case 'lap': if (sessionActive()) append('lap', withPeaks({ n: m.n, ms: m.ms, pitted: !!m.pitted }), by, 'udp'); break;
     case 'carstate': if (store.state.carState.current !== m.cs) append('carstate', { cs: m.cs }, by, 'udp'); break;
     case 'flag': if (store.state.flag.current !== m.flag) append('flag.set', { flag: m.flag }, by, 'udp'); break;
     case 'fuel': append('fuel.check', { litres: +m.litres, weight: m.weight != null ? m.weight : 1, note: 'udp' }, by, 'udp'); break;

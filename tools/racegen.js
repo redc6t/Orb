@@ -15,6 +15,17 @@ function generate(config, opts) {
   const P = E.params(s);
   const emit = (ts, type, payload, src) => { const e = { seq: ++seq, ts: Math.round(ts), type, payload: payload || {}, by: src || 'sim', src: src || null }; events.push(e); R.apply(s, e); return e; };
   const cap = P.capacity;
+  // BTTM peaks per lap from their own generator, so the race itself stays the same for a given seed
+  const rt = rng((o.seed || 7) * 31 + 1);
+  let stintLaps = 0;
+  const peaks = sc => {
+    stintLaps++;
+    const heat = Math.min(1, stintLaps / 40), slow = sc ? 0.6 : 1, r = (a, b) => Math.round(a + rt() * b);
+    const br = { fl: r(560, 60), fr: r(545, 60), rl: r(380, 50), rr: r(370, 50) }, ty = { fl: r(86, 6), fr: r(88, 6), rl: r(74, 5), rr: r(75, 5) };
+    Object.keys(br).forEach(c => { br[c] = Math.round(br[c] * slow + 40 * heat); ty[c] = Math.round(ty[c] * (sc ? 0.85 : 1) + 6 * heat); });
+    if (!sc && rt() < 0.012) br.fl = r(705, 40);   // the odd FL lock-up / brake spike
+    return { br, ty };
+  };
   let minTrue = cap;
   let t = o.startTs, fuel = cap, lap = 0, pittedNext = false, scUntil = 0, nextSc = o.startTs + o.scEveryH * 3600e3 * (0.6 + rnd() * 0.6);
   emit(t, 'session.start', { sessionId: 'race', startFuelL: cap, driverId: s.drivers.queue[0], tyreSetId: config.tyres.startSetId });
@@ -31,7 +42,7 @@ function generate(config, opts) {
     const stopPlan = box ? d.nextStop : null;
     if (!stopPlan) {
       t += ms; fuel -= (sc ? o.trueLph * 0.6 : o.trueLph) * ms / 3600e3; lap++;
-      emit(t, 'lap', { n: lap, ms: Math.round(ms + (pittedNext ? pittedNext : 0)), pitted: !!pittedNext }, 'pltd');
+      emit(t, 'lap', { n: lap, ms: Math.round(ms + (pittedNext ? pittedNext : 0)), pitted: !!pittedNext, peaks: peaks(sc) }, 'pltd');
       pittedNext = false;
       continue;
     }
@@ -60,7 +71,8 @@ function generate(config, opts) {
     t += 3e3; emit(t, 'carstate', { cs: 'RUNNING' }, 'pltd');
     // the rest of the lap after pit exit
     const rest = ms * 0.25; t += rest; fuel -= o.trueLph * rest / 3600e3; lap++;
-    emit(t, 'lap', { n: lap, ms: Math.round(t - lapStart), pitted: true }, 'pltd');
+    if (stopPlan.change) stintLaps = 0;
+    emit(t, 'lap', { n: lap, ms: Math.round(t - lapStart), pitted: true, peaks: peaks(false) }, 'pltd');
   }
   return { events, state: s, trueFuel: fuel, minTrueFuel: minTrue };
 }
