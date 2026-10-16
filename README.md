@@ -66,14 +66,14 @@ npm start
 
 The demo builds a 36-hour race that has been running for 6 hours, with laps, stops, a Safety Car, car issues and a full crew. A simulator then plays the car: it laps, obeys the pit board, and drives the pit lane when you call it in.
 
-1. Double-click `make-demo.bat` (it only replaces the DEMO weekend; your real weekends are not touched).
+1. Double-click `make-demo.bat` (it only replaces the DEMO weekend; your real weekends are not touched). It first stops any pit wall server or simulator still running in the background, so the new demo is not hidden behind an old one.
 2. Double-click `start-pitwall.bat`.
 3. Double-click `start-simulator.bat` (a simulated PLTD lap timer and BTTM temperature monitor, so no hardware is needed).
 4. When the call says **BOX**, press **BOX BOX** in Race control. The car pits at the end of the lap, and the Race tab switches to pit mode.
 
 From a terminal the same steps are `npm run demo`, `npm start` and `npm run sim`.
 
-> The demo is built relative to the moment you run it. If you come back a day later the clocks look odd: stop the server and run `make-demo.bat` again.
+> The demo is built relative to the moment you run it. If you come back a day later the clocks look odd: run `make-demo.bat` again.
 
 ## A tour of the app
 
@@ -222,7 +222,8 @@ npm test
 | The fuel estimate drifts | No fuel measurement for a long time. Log a gauge reading, or tick **Filled to brim** at the next fuel stop. |
 | A handshake step stays amber | The geofence saw it and you have not confirmed it. Press the step's button, or leave it: it becomes AUTO once the car moves on. |
 | Simulator says "address in use" | Another simulator is still running. Close it, or start it with `--pltd` / `--bttm` on other ports and update **Setup**. |
-| Demo clocks look wrong | The demo was built a while ago. Stop the server and run `make-demo.bat` again. |
+| Demo clocks look wrong | The demo was built a while ago. Run `make-demo.bat` again. |
+| The page shows an old or mixed-up weekend after a restart, or the console says `EADDRINUSE` | An earlier server is still running in the background (closing its window or the app that started it does not always stop it). Double-click `stop-pitwall.bat`, then `start-pitwall.bat` again. |
 
 ## Gotchas for first-time users
 
@@ -232,7 +233,7 @@ npm test
 - **Tag roles honestly.** The app only assigns people to refuel duties if they are tagged with that role and available. It never fills a gap silently: an empty slot shows **UNASSIGNED** with the reason.
 - **Durations always carry units.** `1h 55m` is a duration, `16:40` is a clock time. Switch to 12-hour clocks in **Setup** if you prefer.
 - **Rules are data, not PDFs.** There is no importer for organiser PDFs. Copy a JSON profile in `rules/` and edit it to match your series' regulations; check the numbers before race day.
-- **One server at a time.** Two copies of the app (or the old 1.x version) fight over port 8080 and the `data` folder. Close one first.
+- **One server at a time.** Two copies of the app (or the old 1.x version) fight over port 8080 and the `data` folder. Close one first, or double-click `stop-pitwall.bat` to stop any that are left running.
 - **The race clock keeps running under a red flag** (a profile setting). Change `clock.stopsOnRed` in your rules file if your series stops it.
 - **Replay has no map.** GPS positions are live only; they are not written to the log.
 - **Back up the `data` folder.** It is the whole race. Copy it to a USB stick at every driver change if you can.
@@ -243,6 +244,7 @@ The full [user manual (PDF)](Pitwall_Strategy_Manager_User_Manual_v2.2.3.pdf) co
 
 ## Release notes
 
+- **2.2.6:** new `stop-pitwall.bat` stops a pit wall server or simulator left running in the background (it only touches Node.js processes on the pit wall ports). `make-demo.bat` runs it first, so a stale server can no longer show an old weekend over the fresh demo.
 - **2.2.5:** movable cards on the Race and Car tabs: drag a card by the 9-dot grip in its header and the other cards slide out of the way live. The layout is saved in that browser; Reset layout at the bottom of the page restores the default. Cards that appear during a stop (pit gate, fuelling, pit timers) slot in next to where they normally sit.
 - **2.2.4:** new README with a guided tour, troubleshooting and first-time gotchas; contributing guide, code of conduct, security policy, accessibility statement, and issue and pull request templates. No change to the app.
 - **2.2.3:** Car tab: live track map and a live timing card with micro-sectors; tyre sets moved to the top.
