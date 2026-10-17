@@ -1,9 +1,9 @@
 'use strict';
-// Fake PLTD + BTTM on this machine so the Pit Wall can be exercised without the car. Track: Collie Motorplex long circuit.
-//   node tools/simulate.js [--lap 92] [--fuelmin 8] [--pltd 8081] [--bttm 8082] [--startLap N]
-// Point the weekend devices at PLTD 127.0.0.1:8081 and BTTM 127.0.0.1:8082 (the demo does this).
+// Fake Agile + Sentinel on this machine so the Pit Wall can be exercised without the car. Track: Collie Motorplex long circuit.
+//   node tools/simulate.js [--lap 92] [--fuelmin 8] [--agile 8081] [--sentinel 8082] [--startLap N]
+// Point the weekend devices at Agile 127.0.0.1:8081 and Sentinel 127.0.0.1:8082 (the demo does this).
 // The simulated driver obeys the pit board: any message containing BOX pits at the end of the lap.
-// Raising SAFETY CAR / YELLOW / RED from the Pit Wall slows the car (flags mirror to the PLTD).
+// Raising SAFETY CAR / YELLOW / RED from the Pit Wall slows the car (flags mirror to Agile).
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -12,7 +12,8 @@ const { WebSocketServer } = require('ws');
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 let demo = {}; try { demo = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'data', 'demo.json'), 'utf8')); } catch (e) { /* no demo */ }
 const LAP_S = +arg('lap', demo.lapS || 92), FUEL_MIN = +arg('fuelmin', demo.fuelMin || 8);
-const PLTD_PORT = +arg('pltd', 8081), BTTM_PORT = +arg('bttm', 8082);
+// --pltd / --bttm are the pre-rename flags, still accepted
+const AGILE_PORT = +arg('agile', arg('pltd', 8081)), SENTINEL_PORT = +arg('sentinel', arg('bttm', 8082));
 
 // ------------------------------------------------------------------ car model
 const car = { lap: +arg('startLap', demo.startLap || 0), lapStart: Date.now(), cs: 'RUNNING', boxReq: false, pit: null, flags: { yellow: false, sc: false, red: false },
@@ -133,8 +134,8 @@ function carPos() {
   return at((Date.now() - car.posStart) / car.curLapMs);
 }
 
-// ------------------------------------------------------------------ fake PLTD
-const pltd = http.createServer((req, res) => {
+// ------------------------------------------------------------------ fake Agile
+const agile = http.createServer((req, res) => {
   if (req.url.startsWith('/refpath')) { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify(TRACK.map(p => ({ lat: +p[0].toFixed(6), lon: +p[1].toFixed(6) })))); }
   if (req.url.startsWith('/geozones')) { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ zones: ZONES })); }
   if (req.url.startsWith('/sf/get')) { const p = COLLIE.sf; res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ valid: true, lat: p[0], lon: p[1] })); }
@@ -148,11 +149,11 @@ const pltd = http.createServer((req, res) => {
       synth: { lap_m: Math.round(COLLIE.lengthKm * 1000) }, geo_active: 'Collie Motorplex Long (sim)', lap_pitted: car.lapHadPit, last_lap: { n: car.lastLap.n, ms: car.lastLap.ms, delta: car.lastLap.delta, promoted: false, sc: 9 } }));
   }
   if (req.url.startsWith('/pitstate')) { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify(Object.assign({ t: 'flagstate' }, car.flags))); }
-  res.writeHead(200, { 'Content-Type': 'text/plain' }); res.end('PLTD simulator');
+  res.writeHead(200, { 'Content-Type': 'text/plain' }); res.end('Agile simulator');
 });
-wss = new WebSocketServer({ server: pltd, path: '/ws' });
+wss = new WebSocketServer({ server: agile, path: '/ws' });
 wss.on('connection', ws => {
-  console.log('PLTD sim: Pit Wall connected');
+  console.log('Agile sim: Pit Wall connected');
   ws.on('message', raw => {
     let m; try { m = JSON.parse(raw.toString()); } catch (e) { return; }
     if (m.t === 'pitstate') ws.send(JSON.stringify(Object.assign({ t: 'flagstate' }, car.flags)));
@@ -174,7 +175,7 @@ wss.on('connection', ws => {
     }
   });
 });
-pltd.listen(PLTD_PORT, '127.0.0.1', () => console.log('PLTD sim  ws://127.0.0.1:' + PLTD_PORT + '/ws  (lap ' + LAP_S + ' s, fuel stop ' + FUEL_MIN + ' min, starting lap ' + car.lap + ')'));
+agile.listen(AGILE_PORT, '127.0.0.1', () => console.log('Agile sim  ws://127.0.0.1:' + AGILE_PORT + '/ws  (lap ' + LAP_S + ' s, fuel stop ' + FUEL_MIN + ' min, starting lap ' + car.lap + ')'));
 setInterval(tick, 100);
 let pitStatus = null;
 const PITWALL = arg('pitwall', 'http://127.0.0.1:' + (process.env.PORT || 8080));
@@ -183,9 +184,9 @@ setInterval(() => {
   http.get(PITWALL + '/api/sim/stop', r => { let b = ''; r.on('data', c => b += c); r.on('end', () => { try { pitStatus = JSON.parse(b); } catch (e) { /* ignore */ } }); }).on('error', () => {});
 }, 1000);
 
-// ------------------------------------------------------------------ fake BTTM
+// ------------------------------------------------------------------ fake Sentinel
 const bt = { brake: [320, 330, 210, 220], tyre: [78, 80, 66, 68], spikeUntil: 0, nextSpike: Date.now() + (6 + Math.random() * 10) * 60000 };
-function bttmTick() {
+function sentinelTick() {
   const moving = !car.pit;
   for (let i = 0; i < 4; i++) {
     const tgtB = moving ? (i < 2 ? 420 : 280) + 140 * Math.sin(Date.now() / 7000 + i) : 120;
@@ -193,11 +194,11 @@ function bttmTick() {
     const tgtT = moving ? (i < 2 ? 84 : 72) : 55;
     bt.tyre[i] += (tgtT - bt.tyre[i]) * 0.05 + (Math.random() - 0.5);
   }
-  if (Date.now() > bt.nextSpike && moving) { bt.spikeUntil = Date.now() + 8000; bt.nextSpike = Date.now() + (15 + Math.random() * 20) * 60000; console.log('BTTM sim: FL brake spike'); }
+  if (Date.now() > bt.nextSpike && moving) { bt.spikeUntil = Date.now() + 8000; bt.nextSpike = Date.now() + (15 + Math.random() * 20) * 60000; console.log('Sentinel sim: FL brake spike'); }
   if (Date.now() < bt.spikeUntil) bt.brake[0] = 735 + Math.random() * 20;
 }
-setInterval(bttmTick, 500);
-const bttm = http.createServer((req, res) => {
+setInterval(sentinelTick, 500);
+const sentinel = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'application/json' });
   if (req.url.startsWith('/config')) return res.end(JSON.stringify({ br_t1: 100, br_t2: 300, br_t3: 500, br_t4: 700, ty_t1: 40, ty_t2: 70, ty_t3: 100, ty_t4: 130, pr_t1: 20, pr_t2: 26, pr_t3: 29, pr_t4: 32 }));
   const c = ['fl', 'fr', 'rl', 'rr'], o = { sats: 14, speed: '120.0', lat: '-33.36', lon: '116.15', tpms_trusted: true };
@@ -207,4 +208,4 @@ const bttm = http.createServer((req, res) => {
   });
   res.end(JSON.stringify(o));
 });
-bttm.listen(BTTM_PORT, '127.0.0.1', () => console.log('BTTM sim  http://127.0.0.1:' + BTTM_PORT + '/data'));
+sentinel.listen(SENTINEL_PORT, '127.0.0.1', () => console.log('Sentinel sim  http://127.0.0.1:' + SENTINEL_PORT + '/data'));

@@ -849,7 +849,7 @@
     return out;
   }
   // Gates: every step of a stop has up to two signals and is a HANDSHAKE when both agree:
-  //   GEO = a PLTD geofence saw the car do it, ENG = the engineer confirmed it on the pit wall.
+  //   GEO = an Agile geofence saw the car do it, ENG = the engineer confirmed it on the pit wall.
   //   Pit in            GEO pit-entry geofence        ENG PIT IN                (car is in the pit lane)
   //   Driver change     no geofence                   ENG DRIVER CHANGE DONE
   //   Fuelling started  GEO car in the fuel zone      ENG FUEL ON               (crew pouring; starts the fuelling clock if the geofence missed it)

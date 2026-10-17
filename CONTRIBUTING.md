@@ -30,14 +30,14 @@ npm start
 npm run sim
 ```
 
-`npm run demo` builds the DEMO weekend, `npm start` runs the server on `http://localhost:8080` and `npm run sim` plays a simulated PLTD lap timer and BTTM temperature monitor, so no hardware is needed.
+`npm run demo` builds the DEMO weekend, `npm start` runs the server on `http://localhost:8080` and `npm run sim` plays a simulated Agile lap timer and Sentinel brake and tyre monitor, so no hardware is needed.
 
 ## Project layout
 
 | Path | What it holds |
 |---|---|
 | `server.js` | The HTTP and WebSocket server |
-| `lib/` | Storage, defaults, track presets and the device adapters (PLTD, BTTM, UDP) |
+| `lib/` | Storage, defaults, track presets and the device adapters (Agile, Sentinel, UDP) |
 | `public/js/shared/` | The strategy engine and the state reducer. They run identically on the server and in every browser. |
 | `public/js/`, `public/css/` | The browser UI |
 | `rules/` | Series regulations, one JSON file per profile |

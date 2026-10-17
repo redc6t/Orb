@@ -48,7 +48,7 @@
   U.STATUS_LABEL = { available: 'Available', driving: 'Driving', resting: 'Resting', sleeping: 'Sleeping', offline: 'Offline', flag: 'Flag duty', unavailable: 'Unavailable', mechanic: 'Available - in the garage', refuel: 'Available - refuel crew for the next stop' };
   U.presence = function (st) { return '<span class="presence" title="' + U.esc(U.STATUS_LABEL[st] || st) + '">' + (P[st] || P.offline) + '</span>'; };
 
-  // BTTM colour band
+  // Sentinel colour band
   U.band = function (v, t) { if (v == null || !t) return ''; if (v > t[3]) return 'b4'; if (v > t[2]) return 'b3'; if (v > t[1]) return 'b2'; if (v > t[0]) return 'b1'; return 'b0'; };
 
   // toasts + sound

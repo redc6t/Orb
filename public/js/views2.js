@@ -97,7 +97,7 @@
 
   function panelNext(ctx) {
     var d = ctx.d, s = ctx.s, ns = d.nextStop, P = d.P;
-    var manual = ctx.eng && d.session.running && !(ctx.devices.pltd && ctx.devices.pltd.status === 'connected') ? manualStates(ctx) : '';
+    var manual = ctx.eng && d.session.running && !(ctx.devices.agile && ctx.devices.agile.status === 'connected') ? manualStates(ctx) : '';
     if (!ns) return { id: 'next', html: card('Next stop', '<div class="muted">No further stops planned.</div>' + manual) };
     var total = d.plan.stops.length, si = d.stops;
     var h = '<div class="ns-head"><span class="what ' + (ns.add ? 'purple-t' : '') + '">' + stopType(ns.type) + '</span><span class="when">' + U.clock(ns.ts) + '</span></div>' +
@@ -118,8 +118,8 @@
 
   function manualStates(ctx) {
     var cs = ctx.s.carState.current;
-    var pltdOn = ctx.devices.pltd && ctx.devices.pltd.status === 'connected';
-    return '<div class="sep"></div><span class="lbl">Manual car state ' + (pltdOn ? '(override if a geofence is missed)' : '(PLTD offline)') + '</span><div class="seg" style="margin-top:4px">' + [['PIT ENTRY', 'Pit in'], ['FUELLING', 'Fuel on'], ['PITS', 'Fuel off'], ['PIT EXIT', 'Pit out'], ['RUNNING', 'Running']].map(function (b) {
+    var agileOn = ctx.devices.agile && ctx.devices.agile.status === 'connected';
+    return '<div class="sep"></div><span class="lbl">Manual car state ' + (agileOn ? '(override if a geofence is missed)' : '(Agile offline)') + '</span><div class="seg" style="margin-top:4px">' + [['PIT ENTRY', 'Pit in'], ['FUELLING', 'Fuel on'], ['PITS', 'Fuel off'], ['PIT EXIT', 'Pit out'], ['RUNNING', 'Running']].map(function (b) {
       return '<button class="btn sm' + (cs === b[0] ? ' active' : '') + '" data-act="carstate" data-cs="' + b[0] + '">' + b[1] + '</button>';
     }).join('') + '</div>' + (ctx.d.session.running ? ' <button class="btn sm" data-act="manuallap" style="margin-top:6px">Manual lap (S/F now)</button>' : '');
   }
@@ -144,53 +144,53 @@
     return { id: 'pittimers', html: card('Pit lane', h, U.clock(t.inTs, true)) };
   }
 
-  /* ---- stop gates: each step is a handshake between the PLTD geofence (GEO) and the engineer (ENG);
+  /* ---- stop gates: each step is a handshake between the Agile geofence (GEO) and the engineer (ENG);
      a step the engineer has not confirmed is applied from the plan (AUTO) only once the car has moved past it */
   var STEP_NAME = { pitin: 'Pit in', driver: 'Driver change', fuelon: 'Fuelling started', fuel: 'Fuel completed', pitout: 'Pit out' };
   var STEP_GEO = { pitin: 'pit-entry geofence (car in the pit lane)', fuelon: 'fuel-zone geofence (car in the fuel bay)', fuel: 'car left the fuel bay', pitout: 'pit-exit geofence (car leaving the pit lane)' };
   var STEP_ENG = { pitin: 'PIT IN', driver: 'DRIVER CHANGE DONE', fuelon: 'FUEL ON', fuel: 'FUEL STOP COMPLETED', pitout: 'PIT OUT' };
   V.STEP_GEO = STEP_GEO; V.STEP_ENG = STEP_ENG;
   // the two signals of one step, as chips
-  function hsMarks(x, pltdOn) {
+  function hsMarks(x, agileOn) {
     var geo = !x.hasGeo ? '<span class="hs na" title="No geofence for this step - the engineer confirms it">GEO n/a</span>'
       : x.geoTs ? '<span class="hs on" title="' + esc('Geofence: ' + STEP_GEO[x.id]) + '">GEO ' + U.clock(x.geoTs, true) + '</span>'
-        : '<span class="hs ' + (pltdOn ? 'wait' : 'off') + '" title="' + esc('Geofence: ' + STEP_GEO[x.id]) + '">GEO ' + (pltdOn ? '...' : 'offline') + '</span>';
+        : '<span class="hs ' + (agileOn ? 'wait' : 'off') + '" title="' + esc('Geofence: ' + STEP_GEO[x.id]) + '">GEO ' + (agileOn ? '...' : 'offline') + '</span>';
     var eng = x.engTs ? '<span class="hs on" title="Confirmed by the engineer">ENG ' + U.clock(x.engTs, true) + '</span>'
       : x.by === 'auto' ? '<span class="hs auto" title="Applied from the plan because the car moved past this step">AUTO ' + U.clock(x.ackTs, true) + '</span>'
         : '<span class="hs wait" title="' + esc('Engineer: ' + STEP_ENG[x.id]) + '">ENG ...</span>';
     return '<span class="hs-marks">' + geo + eng + '</span>';
   }
-  function hsStatus(x, pltdOn) {
-    if (x.mode === 'eng' && !pltdOn) return '<span class="ok-t">CONFIRMED (PLTD offline)</span>';
+  function hsStatus(x, agileOn) {
+    if (x.mode === 'eng' && !agileOn) return '<span class="ok-t">CONFIRMED (Agile offline)</span>';
     return { hs: '<span class="ok-t">HANDSHAKE</span>', ok: '<span class="ok-t">CONFIRMED</span>', eng: '<span class="info-t">waiting for the geofence</span>',
       geo: '<span class="warn-t">geofence seen - confirm it</span>', auto: '<span class="muted">AUTO from the plan</span>', skip: '<span class="muted">not needed - no fuel</span>', none: '' }[x.mode] || '';
   }
   V.hsMarks = hsMarks; V.hsStatus = hsStatus;
   function stopDue(d) { return d.session.running && d.nextStop && ['box', 'boxin', 'notify', 'opp'].indexOf(d.call.code) >= 0; }
   function panelGate(ctx) {
-    var d = ctx.d, g = d.gates, s = ctx.s, P = d.P, pltdOn = ctx.devices.pltd && ctx.devices.pltd.status === 'connected';
+    var d = ctx.d, g = d.gates, s = ctx.s, P = d.P, agileOn = ctx.devices.agile && ctx.devices.agile.status === 'connected';
     if (!g) {     // a stop is due but the car is not in yet: the engineer can open it by hand
       var ns = d.nextStop;
       var h0 = '<div class="small">Stop ' + ns.k + ' ' + stopType(ns.type) + ' due ' + U.clock(ns.ts) + (ns.add ? ', ' + (ns.brim ? 'brim ' : '') + ns.add + ' L' : '') + (ns.change ? ', ' + esc(name(ctx, ns.driverOut)) + ' out / ' + esc(name(ctx, ns.driverIn)) + ' in' : '') + '.</div>' +
-        '<div class="tiny muted" style="margin-top:4px">The PLTD pit-entry geofence opens the stop by itself' + (pltdOn ? '' : ' (PLTD offline: press Pit in when the car enters the pit lane)') + '.</div>';
+        '<div class="tiny muted" style="margin-top:4px">The Agile pit-entry geofence opens the stop by itself' + (agileOn ? '' : ' (Agile offline: press Pit in when the car enters the pit lane)') + '.</div>';
       if (ctx.eng) h0 += '<div class="row" style="margin-top:8px"><button class="btn primary" data-act="gatecmd" data-gate="pitin">PIT IN</button></div>';
       return { id: 'gate', html: card('Stop gates', h0, 'engineer controls each step'), form: true };
     }
     var st = g.stop, pl = g.planned || {};
     var h = '<div class="small">Stop ' + st.id + ' opened by the ' + (st.src === 'manual' ? 'engineer' : 'pit-entry geofence') + ' at ' + U.clock(st.inTs, true) + '. Planned: ' + stopType(pl.type || 'stop') + (pl.add ? ', ' + (pl.brim ? 'brim ' : '') + pl.add + ' L (' + (pl.cans || '-') + ' cans)' : ', no fuel') + (pl.change ? ', ' + esc(name(ctx, pl.driverIn)) + ' in' : '') + '.</div>';
-    h += '<div class="hsrows">' + g.list.map(function (x) { return gateRow(ctx, g, x, pltdOn); }).join('') + '</div>';
+    h += '<div class="hsrows">' + g.list.map(function (x) { return gateRow(ctx, g, x, agileOn); }).join('') + '</div>';
     if (g.done) h += '<div class="small ok-t" style="margin-top:6px">Stop ' + st.id + ' complete - the car has left the pit lane.</div>';
     else if (g.allSteps) h += '<div class="small warn-t" style="margin-top:6px">All steps confirmed - waiting for the pit-exit geofence.</div>';
-    if (g.stuckInFuel) h += '<div class="note warn" style="margin-top:6px">No fuel was recorded, but the PLTD still shows the car in the fuel bay. The stop closes when the car crosses the pit exit; if it has already left and the geofence missed it, use <b>Override car state</b> in the Pit lane card.</div>';
+    if (g.stuckInFuel) h += '<div class="note warn" style="margin-top:6px">No fuel was recorded, but Agile still shows the car in the fuel bay. The stop closes when the car crosses the pit exit; if it has already left and the geofence missed it, use <b>Override car state</b> in the Pit lane card.</div>';
     if (ctx.eng && g.list[0].state !== 'done') h += '<div class="row" style="margin-top:8px"><button class="btn danger sm" data-act="stopvoid" data-stop="' + st.id + '">Not a stop (false trigger)</button></div>';
-    h += '<div class="tiny muted" style="margin-top:6px">Each step has two signals: <b>GEO</b> = the PLTD geofence saw the car do it, <b>ENG</b> = you confirmed it. Both = <span class="ok-t">HANDSHAKE</span>. ' +
+    h += '<div class="tiny muted" style="margin-top:6px">Each step has two signals: <b>GEO</b> = the Agile geofence saw the car do it, <b>ENG</b> = you confirmed it. Both = <span class="ok-t">HANDSHAKE</span>. ' +
       'PIT IN / PIT OUT: the car is in / leaving the pit lane. FUEL ON: the crew has started pouring (starts the fuelling clock if the geofence missed it). FUEL STOP COMPLETED: pouring finished, litres recorded. ' +
       'A step you have not confirmed is applied from the plan (AUTO) only once the car has moved past it.</div>';
     return { id: 'gate', html: card('Stop ' + st.id + ' handshake', h, 'GEO = geofence, ENG = engineer'), form: true };
   }
 
   // one handshake row: step name, GEO/ENG chips, status and the engineer's control for that step
-  function gateRow(ctx, g, x, pltdOn) {
+  function gateRow(ctx, g, x, agileOn) {
     var s = ctx.s, st = g.stop, pl = g.planned || {}, done = x.state === 'done';
     var ctl = '';
     if (x.id === 'driver') {
@@ -207,11 +207,11 @@
     else if (!done && x.engTs == null && ctx.eng) ctl = '<button class="btn sm' + (x.mode === 'geo' || (g.current && g.current.id === x.id) ? ' primary' : '') + '" data-act="gatecmd" data-gate="' + x.id + '" data-stop="' + st.id + '">' + STEP_ENG[x.id] + '</button>';
     else if (x.id === 'fuelon' && done) ctl = '<span class="muted small">' + (st.fuelInTs ? 'clock from ' + U.clock(st.fuelInTs, true) : '') + '</span>';
     var cls = 'hsrow m-' + x.mode + (g.current && g.current.id === x.id ? ' cur' : '');
-    return '<div class="' + cls + '"><span class="hs-n">' + STEP_NAME[x.id] + '</span>' + (x.state === 'skip' ? '<span class="hs-marks"></span>' : hsMarks(x, pltdOn)) + '<span class="hs-st">' + hsStatus(x, pltdOn) + '</span><span class="hs-ctl">' + ctl + '</span></div>';
+    return '<div class="' + cls + '"><span class="hs-n">' + STEP_NAME[x.id] + '</span>' + (x.state === 'skip' ? '<span class="hs-marks"></span>' : hsMarks(x, agileOn)) + '<span class="hs-st">' + hsStatus(x, agileOn) + '</span><span class="hs-ctl">' + ctl + '</span></div>';
   }
 
   function panelGateFuel(ctx) {
-    var d = ctx.d, s = ctx.s, P = d.P, g = d.gates, st = g.stop, pl = g.planned || {}, pltdOn = ctx.devices.pltd && ctx.devices.pltd.status === 'connected';
+    var d = ctx.d, s = ctx.s, P = d.P, g = d.gates, st = g.stop, pl = g.planned || {}, agileOn = ctx.devices.agile && ctx.devices.agile.status === 'connected';
     var sets = Object.keys(s.tyres.sets).map(function (k) { return s.tyres.sets[k]; });
     var nx = s.issues.filter(function (i) { return i.nextStop && (i.status === 'open' || i.status === 'next-stop'); });
     var prev = ctx.svcFix === st.id && st.service ? st.service : null;
@@ -268,9 +268,9 @@
   function panelMap(ctx) {
     var m = ctx.map, hist = ctx.posHist || [], tr = ctx.s.config.track || {};
     if (ctx.replay) return { id: 'map', html: card('Track', '<div class="muted small">Live only - positions are not stored in the race log.</div>') };
-    // source of the outline: the PLTD reference lap if it has one, otherwise the track preset (e.g. Collie long circuit)
-    var src = m && m.path.length ? 'pltd' : (tr.outline && tr.outline.length ? 'preset' : 'trail');
-    var path = src === 'pltd' ? m.path : src === 'preset' ? tr.outline : [];
+    // source of the outline: the Agile reference lap if it has one, otherwise the track preset (e.g. Collie long circuit)
+    var src = m && m.path.length ? 'agile' : (tr.outline && tr.outline.length ? 'preset' : 'trail');
+    var path = src === 'agile' ? m.path : src === 'preset' ? tr.outline : [];
     var zones = m ? m.zones : [];
     var sf = (m && m.sf) || tr.sf || null;
     var pts = path.slice();
@@ -278,7 +278,7 @@
     if (sf) pts.push(sf);
     if (tr.pit) pts = pts.concat(tr.pit.pits, tr.pit.fuel);
     if (src === 'trail') pts = pts.concat(hist.map(function (p) { return [p.lat, p.lon]; }));
-    if (pts.length < 3) return { id: 'map', html: card('Track', '<div class="muted small">Waiting for PLTD position. The outline appears once the PLTD has recorded its reference lap.</div>') };
+    if (pts.length < 3) return { id: 'map', html: card('Track', '<div class="muted small">Waiting for Agile position. The outline appears once Agile has recorded its reference lap.</div>') };
     var pr = V.mapProjection(pts); window.PWMapProj = pr;
     var poly = function (arr) { return arr.map(function (p) { var q = pr.f(p[0], p[1]); return q[0].toFixed(1) + ',' + q[1].toFixed(1); }).join(' '); };
     var svg = '<svg viewBox="0 0 ' + pr.W + ' ' + pr.H + '" class="minimap" role="img" aria-label="Track map">';
@@ -302,7 +302,7 @@
     }
     if (tr.sfLine && path.length) svg += '<polyline points="' + poly(tr.sfLine) + '" stroke="#fff" stroke-width="2"><title>Start / finish line</title></polyline>';
     if (path.length) { var loop = poly(path.concat([path[0]])); svg += '<polyline points="' + loop + '" fill="none" stroke="#2c2f34" stroke-width="9" stroke-linejoin="round"/><polyline points="' + loop + '" fill="none" stroke="#6a6f78" stroke-width="2" stroke-linejoin="round"/>'; }
-    // turn numbers: only where the preset turn sits on the drawn outline (always true for the preset; true for the PLTD path when it matches)
+    // turn numbers: only where the preset turn sits on the drawn outline (always true for the preset; true for the Agile path when it matches)
     if (tr.turns && path.length) {
       var cxy = pr.f(pts.reduce(function (a, p) { return a + p[0]; }, 0) / pts.length, pts.reduce(function (a, p) { return a + p[1]; }, 0) / pts.length);
       tr.turns.forEach(function (t) {
@@ -315,20 +315,20 @@
     }
     if (sf) { var q2 = pr.f(sf[0], sf[1]); svg += '<rect x="' + (q2[0] - 4) + '" y="' + (q2[1] - 4) + '" width="8" height="8" fill="#fff"><title>Start / finish</title></rect>'; }
     svg += '<polyline id="mm-trail" points="" fill="none" stroke="#9aa0aa" stroke-opacity="0.5" stroke-width="3" stroke-linecap="round"/><circle id="mm-car" cx="-20" cy="-20" r="7" fill="#00C846" stroke="#000" stroke-width="2"/></svg>';
-    var hint = src === 'pltd' ? 'PLTD reference lap' : src === 'preset' ? esc(tr.name || 'track') + ' layout' : 'live trail';
-    var foot = src === 'preset' ? '<div class="tiny muted">' + esc(tr.layout || '') + '. Replaced by the PLTD reference lap once recorded.</div>' : '';
+    var hint = src === 'agile' ? 'Agile reference lap' : src === 'preset' ? esc(tr.name || 'track') + ' layout' : 'live trail';
+    var foot = src === 'preset' ? '<div class="tiny muted">' + esc(tr.layout || '') + '. Replaced by the Agile reference lap once recorded.</div>' : '';
     return { id: 'map', html: card('Track', svg + '<div class="tiny muted" id="mm-info" style="margin-top:4px">-</div>' + foot, hint) };
   }
 
   function panelTelemetry(ctx) {
-    var d = ctx.d, pl = ctx.live.pltd || {}, lv = pl.live || {}, b = ctx.live.bttm || {}, bl = b.live;
+    var d = ctx.d, pl = ctx.live.agile || {}, lv = pl.live || {}, b = ctx.live.sentinel || {}, bl = b.live;
     var h = '<div class="strip">' +
       '<div><span class="lbl">Last</span><span class="v">' + U.lap(d.lastLap && d.lastLap.ms) + '</span></div>' +
       '<div><span class="lbl">Best</span><span class="v">' + U.lap(d.bestLapMs) + '</span></div>' +
       '<div data-tip="kpi:Ref pace"><span class="lbl">Ref pace</span><span class="v">' + U.lap(d.refLap.ms) + '</span></div>' +
       '<div data-tip="kpi:Delta"><span class="lbl">Delta</span><span class="v' + (lv.v && lv.d > 500 ? ' warn-t' : '') + '">' + (lv.v ? (lv.d > 0 ? '+' : '') + (lv.d / 1000).toFixed(2) : '-') + '</span></div>' +
       '<div><span class="lbl">Speed</span><span class="v">' + (lv.spd != null ? Math.round(lv.spd) : '-') + '</span></div></div>';
-    // micro-sectors from the PLTD (count set by its recon lap): green faster, red slower, purple best, grey not yet run
+    // micro-sectors from Agile (count set by its recon lap): green faster, red slower, purple best, grey not yet run
     var sx = pl.sectors;
     if (sx && sx.n) {
       var cells = '';
@@ -338,7 +338,7 @@
       }
       var sum = 0, n = 0; sx.cells.forEach(function (c) { if (c.done) { sum += c.d; n++; } });
       h += '<div class="sep"></div><div class="row tiny muted" style="margin-bottom:4px"><span>Micro-sectors</span><span class="spacer"></span><span>' + (sx.cur != null ? 'sector ' + (sx.cur + 1) + ' of ' + sx.n : sx.n + ' sectors') + (n ? ' | this lap ' + (sum > 0 ? '+' : '') + (sum / 1000).toFixed(2) + ' s' : '') + '</span></div><div class="msecs">' + cells + '</div>';
-    } else h += '<div class="tiny muted" style="margin-top:6px">Micro-sectors appear once the PLTD has its recon lap.</div>';
+    } else h += '<div class="tiny muted" style="margin-top:6px">Micro-sectors appear once Agile has its recon lap.</div>';
     if (bl) {
       var t = bl.thresh || {};
       var cls = function (v, th) { if (v == null || !th) return ''; return v > th[3] ? 'over' : v > th[2] ? 'hot' : v <= th[0] ? 'cold' : ''; };
@@ -350,9 +350,9 @@
       };
       h += '<div class="sep"></div><div class="corners">' + ['fl', 'fr', 'rl', 'rr'].map(corner).join('') + '</div>';
       var age = Date.now() - bl.ts;
-      h += '<div class="tiny muted" style="margin-top:4px">Brake / tyre C. Grey = in range, amber = red band, flashing red = over the top band.' + (age > 3000 ? ' <span class="warn-t">BTTM data ' + Math.round(age / 1000) + ' s old</span>' : '') + '</div>';
-    } else h += '<div class="tiny muted" style="margin-top:8px">BTTM ' + esc(b.status || 'disabled') + '</div>';
-    return { id: 'telemetry', html: card('Car feed summary', h, 'PLTD timing, BTTM corners') };
+      h += '<div class="tiny muted" style="margin-top:4px">Brake / tyre C. Grey = in range, amber = red band, flashing red = over the top band.' + (age > 3000 ? ' <span class="warn-t">Sentinel data ' + Math.round(age / 1000) + ' s old</span>' : '') + '</div>';
+    } else h += '<div class="tiny muted" style="margin-top:8px">Sentinel ' + esc(b.status || 'disabled') + '</div>';
+    return { id: 'telemetry', html: card('Car feed summary', h, 'Agile timing, Sentinel corners') };
   }
 
   function panelControl(ctx) {
@@ -468,7 +468,7 @@
     return { id: 'stints', html: card('Stint table', head + '<div class="scroll tall"><table><thead><tr><th class="num">#</th><th>Driver</th><th class="num">From</th><th class="num">To</th><th class="num">Race t</th><th class="num">Length</th><th class="num">Laps</th><th class="num">Fuel L</th></tr></thead><tbody>' + rows + '</tbody></table></div>', 'done, now and plan in one table') };
   }
 
-  /* stint debrief: what the engineer watching it would tell you, built from laps, flags, issues, BTTM peaks and the stop that ended it */
+  /* stint debrief: what the engineer watching it would tell you, built from laps, flags, issues, Sentinel peaks and the stop that ended it */
   var FLAG_WORDS = { SC: ['Safety Car', 'Safety Cars'], FCY: ['Full Course Yellow', 'Full Course Yellows'], RED: ['red flag', 'red flags'], YELLOW: ['local yellow', 'local yellows'], 'DOUBLE YELLOW': ['double yellow', 'double yellows'] };
   var CORNER = ['fl', 'fr', 'rl', 'rr'];
   function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
@@ -523,22 +523,22 @@
     } else p.push('Green all the way, no Safety Cars or flags in this stint.');
 
     // incidents
-    var issues = s.issues.filter(function (x) { return inside(x.ts) && x.src !== 'BTTM'; });
+    var issues = s.issues.filter(function (x) { return inside(x.ts) && x.src !== 'Sentinel'; });
     var pens = s.penalties.filter(function (x) { return inside(x.ts); });
-    var alarms = {}; s.bttmAlarms.filter(function (x) { return inside(x.ts); }).forEach(function (x) {
+    var alarms = {}; s.sentinelAlarms.filter(function (x) { return inside(x.ts); }).forEach(function (x) {
       var k = x.corner + ' ' + x.kind, m = alarms[k] || (alarms[k] = { n: 0, max: 0, crit: false }); m.n++; m.max = Math.max(m.max, x.value || 0); m.crit = m.crit || x.level === 'crit';
     });
     var msgs = s.pitmsgs.filter(function (x) { return inside(x.ts); }).length;
     var inc = [];
     issues.forEach(function (x) { inc.push(esc(x.text || x.cat) + ' <span class="tiny muted">(' + esc(x.cat) + ', ' + U.clock(x.ts) + ')</span>'); });
     pens.forEach(function (x) { inc.push('<span class="warn-t">' + esc(x.kind) + '</span>' + (x.reason ? ': ' + esc(x.reason) : '') + ' <span class="tiny muted">(' + U.clock(x.ts) + ')</span>'); });
-    Object.keys(alarms).forEach(function (k) { var m = alarms[k]; inc.push('BTTM ' + k.toUpperCase() + ' alarm' + (m.n > 1 ? ' x' + m.n : '') + ', up to ' + Math.round(m.max) + (k.indexOf('press') >= 0 ? ' psi' : '&deg;C') + (m.crit ? ' <span class="crit-t">critical</span>' : '')); });
+    Object.keys(alarms).forEach(function (k) { var m = alarms[k]; inc.push('Sentinel ' + k.toUpperCase() + ' alarm' + (m.n > 1 ? ' x' + m.n : '') + ', up to ' + Math.round(m.max) + (k.indexOf('press') >= 0 ? ' psi' : '&deg;C') + (m.crit ? ' <span class="crit-t">critical</span>' : '')); });
     if (inc.length) p.push('Incidents, ' + inc.length + ' logged: ' + inc.join('; ') + '.');
     else p.push('Nothing logged against the car or the driver, a clean stint.');
     if (msgs) p.push((msgs === 1 ? 'One pit board message' : msgs + ' pit board messages') + ' went out to ' + first + ' during the run.');
 
-    // BTTM peaks per corner
-    var th = (ctx.live && ctx.live.bttm && ctx.live.bttm.live && ctx.live.bttm.live.thresh) || { br: [100, 300, 500, 700], ty: [40, 70, 100, 130] };
+    // Sentinel peaks per corner
+    var th = (ctx.live && ctx.live.sentinel && ctx.live.sentinel.live && ctx.live.sentinel.live.thresh) || { br: [100, 300, 500, 700], ty: [40, 70, 100, 130] };
     var peak = { br: {}, ty: {} };
     laps.forEach(function (l) {
       if (!l.peaks) return;
@@ -564,7 +564,7 @@
     };
     var tb = temps('br', 'Brakes'), tt = temps('ty', 'Tyres');
     if (tb || tt) p.push([tb, tt].filter(Boolean).join(' '));
-    else p.push('No BTTM temperatures recorded for this stint.');
+    else p.push('No Sentinel temperatures recorded for this stint.');
 
     // how it ended
     var stop = stops.filter(function (x) { return x.inTs <= b + 5000 && x.inTs >= b - 10 * MIN; }).pop();
@@ -753,7 +753,7 @@
 
   // the stop step by step: when, who, what - and for the stop in progress, the live GEO / ENG handshake of each step
   function panelFuelSteps(ctx, f) {
-    var d = ctx.d, fp = ctx.fp, pltdOn = ctx.devices.pltd && ctx.devices.pltd.status === 'connected';
+    var d = ctx.d, fp = ctx.fp, agileOn = ctx.devices.agile && ctx.devices.agile.status === 'connected';
     if (!f) return { id: 'fpsteps', html: card('Stop procedure', '<div class="muted">-</div>') };
     if (f.done) return { id: 'fpsteps', html: card('Stop procedure', '<div class="small muted">F' + f.n + ' is done (' + esc(f.id) + '). Pick a planned stop on the timeline to see its procedure and crew.</div>') };
     var g = d.gates && f.live ? d.gates : null, gs = {};
@@ -777,7 +777,7 @@
     rows.push({ t: tm.pitOut, step: 'pitout', title: 'Pit out', who: [['Engineer', eng]], what: 'The car is leaving the pit lane. Stationary ~' + U.mins(f.statMs) + '.' });
     var h = '<div class="vt">' + rows.map(function (r) {
       var x = r.step && gs[r.step], hs = '';
-      if (x) hs = '<div class="vt-hs">' + (x.state === 'skip' ? '' : hsMarks(x, pltdOn)) + ' ' + hsStatus(x, pltdOn) + '</div>';
+      if (x) hs = '<div class="vt-hs">' + (x.state === 'skip' ? '' : hsMarks(x, agileOn)) + ' ' + hsStatus(x, agileOn) + '</div>';
       else if (r.step) hs = '<div class="vt-hs"><span class="hs-marks">' + (r.step === 'driver' ? '<span class="hs na">GEO n/a</span>' : '<span class="hs pre" title="' + esc(STEP_GEO[r.step]) + '">GEO</span>') + '<span class="hs pre">ENG ' + STEP_ENG[r.step] + '</span></span>' + (r.step !== 'driver' ? ' <span class="tiny muted">' + esc(STEP_GEO[r.step]) + '</span>' : '') + '</div>';
       var cls = 'vt-row' + (r.step ? ' gate' : '') + (x ? ' m-' + x.mode : '') + (g && g.current && x && g.current.id === x.id ? ' cur' : '');
       return '<div class="' + cls + '"><span class="vt-t mono">' + U.clock(r.t) + '</span><div class="vt-title">' + esc(r.title) + '</div>' +
@@ -849,14 +849,14 @@
   }
 
   /* ================================================================== CAR */
-  V.car = function (ctx) { return { layout: 'grid2', cols: [[panelTyres(ctx), panelIssues(ctx), panelPenalties(ctx)], [panelMap(ctx), panelPltd(ctx), panelBttmDetail(ctx)]] }; };
+  V.car = function (ctx) { return { layout: 'grid2', cols: [[panelTyres(ctx), panelIssues(ctx), panelPenalties(ctx)], [panelMap(ctx), panelAgile(ctx), panelSentinelDetail(ctx)]] }; };
 
-  // PLTD live timing: running lap, prediction, delta and the micro-sector breakdown for this lap and the last one
-  function panelPltd(ctx) {
-    var d = ctx.d, pl = ctx.live.pltd || {}, lv = pl.live || {}, sx = pl.sectors, on = pl.status === 'connected';
+  // Agile live timing: running lap, prediction, delta and the micro-sector breakdown for this lap and the last one
+  function panelAgile(ctx) {
+    var d = ctx.d, pl = ctx.live.agile || {}, lv = pl.live || {}, sx = pl.sectors, on = pl.status === 'connected';
     var sgn = function (ms) { return ms == null ? '-' : (ms > 0 ? '+' : '') + (ms / 1000).toFixed(2); };
     var dcls = function (ms) { return ms == null ? '' : ms > 0 ? ' crit-t' : ' ok-t'; };
-    var h = '<div class="strip pltd-strip">' +
+    var h = '<div class="strip agile-strip">' +
       '<div><span class="lbl">Lap</span><span class="v">' + (lv.lap != null ? lv.lap : '-') + '</span></div>' +
       '<div><span class="lbl">Running</span><span class="v">' + U.lap(lv.el) + '</span></div>' +
       '<div><span class="lbl">Predicted</span><span class="v">' + U.lap(lv.est) + '</span></div>' +
@@ -876,10 +876,10 @@
       h += '<div class="sep"></div><div class="row tiny muted" style="margin-bottom:4px"><span>Micro-sectors vs reference</span><span class="spacer"></span><span>' + (sx.cur != null ? 'sector ' + (sx.cur + 1) + ' of ' + sx.n : sx.n + ' sectors') +
         (n ? ' | this lap <span class="' + dcls(sum).trim() + '">' + sgn(sum) + ' s</span>' : '') + (last.length ? ' | last lap ' + sgn(lsum) + ' s' : '') + '</span></div><div class="mscs">' + cells + '</div>' +
         '<div class="tiny muted" style="margin-top:4px"><span class="ok-t">green</span> faster, <span class="crit-t">red</span> slower, <span style="color:#8B5CF6">purple</span> best, grey not yet run. Hover a sector for its last-lap delta.</div>';
-    } else h += '<div class="tiny muted" style="margin-top:6px">Micro-sectors appear once the PLTD has its recon lap.</div>';
+    } else h += '<div class="tiny muted" style="margin-top:6px">Micro-sectors appear once Agile has its recon lap.</div>';
     var age = lv.ts ? Date.now() - lv.ts : null;
-    var hint = on ? (age != null && age > 3000 ? 'data ' + Math.round(age / 1000) + ' s old' : 'live, 10 Hz') : 'PLTD ' + (pl.status || 'disabled');
-    return { id: 'pltd', html: card('Live timing (PLTD)', h, hint) };
+    var hint = on ? (age != null && age > 3000 ? 'data ' + Math.round(age / 1000) + ' s old' : 'live, 10 Hz') : 'Agile ' + (pl.status || 'disabled');
+    return { id: 'agile', html: card('Live timing (Agile)', h, hint) };
   }
 
   function issueRow(ctx, i) {
@@ -897,7 +897,7 @@
     var form = ctx.eng ? '<div class="row" style="margin-bottom:10px"><input id="ci-text" placeholder="Describe the issue" style="flex:2;min-width:160px"><select id="ci-cat">' + ['brakes', 'tyres', 'engine', 'gearbox', 'suspension', 'body', 'impact', 'electrical', 'fuel', 'cooling', 'driver', 'other'].map(function (c) { return '<option>' + c + '</option>'; }).join('') + '</select><select id="ci-sev"><option value="warn">Warning</option><option value="crit">Critical</option><option value="info">Info</option></select><label class="chk"><input id="ci-next" type="checkbox" checked> Next stop</label><button class="btn sm" data-act="addissue" data-p="ci">Log</button></div>' : '';
     var body = form + (open.map(function (i) { return issueRow(ctx, i); }).join('') || '<div class="muted small">No open issues</div>');
     if (done.length) body += '<details style="margin-top:6px"><summary>' + done.length + ' resolved</summary>' + done.map(function (i) { return issueRow(ctx, i); }).join('') + '</details>';
-    return { id: 'issues', html: card('Car status log', body, 'manual, BTTM and IMU'), form: true };
+    return { id: 'issues', html: card('Car status log', body, 'manual, Sentinel and IMU'), form: true };
   }
 
   function panelTyres(ctx) {
@@ -912,18 +912,18 @@
     return { id: 'tyres', html: card('Tyre sets', '<div class="scroll"><table><thead><tr><th>Set</th><th class="num">On car</th><th class="num">Laps</th><th class="num">Tread FL/FR/RL/RR</th><th>Life</th>' + (ctx.eng ? '<th></th>' : '') + '</tr></thead><tbody>' + rows + '</tbody></table></div><div class="tiny muted" style="margin-top:6px">Life = (min tread - ' + P.minDepth + ') / (' + P.newDepth + ' - ' + P.minDepth + ' mm). Regs min treadwear ' + ((ctx.s.config.rules.tyres || {}).minTreadwear || '-') + '.</div>') };
   }
 
-  function panelBttmDetail(ctx) {
-    var b = ctx.live.bttm || {}, lv = b.live, h;
-    if (!lv) h = '<div class="muted small">BTTM ' + esc(b.status || 'disabled') + (b.host ? ' at ' + esc(b.host) : '') + '</div>';
+  function panelSentinelDetail(ctx) {
+    var b = ctx.live.sentinel || {}, lv = b.live, h;
+    if (!lv) h = '<div class="muted small">Sentinel ' + esc(b.status || 'disabled') + (b.host ? ' at ' + esc(b.host) : '') + '</div>';
     else {
       var t = lv.thresh || {};
       h = '<table><thead><tr><th></th><th class="num">Brake C</th><th class="num">Tyre C</th><th class="num">TPMS psi</th><th class="num">TPMS C</th></tr></thead><tbody>' + ['fl', 'fr', 'rl', 'rr'].map(function (c) {
         return '<tr><td><b>' + c.toUpperCase() + '</b></td><td class="num ' + U.band(lv.brake[c], t.br) + '">' + (lv.brake[c] == null ? '---' : Math.round(lv.brake[c])) + '</td><td class="num ' + U.band(lv.tyre[c], t.ty) + '">' + (lv.tyre[c] == null ? '---' : Math.round(lv.tyre[c])) + '</td><td class="num">' + (lv.press[c] == null ? '--' : lv.press[c].toFixed(1)) + '</td><td class="num">' + (lv.tpmsTemp[c] == null ? '--' : lv.tpmsTemp[c]) + '</td></tr>';
-      }).join('') + '</tbody></table><div class="tiny muted" style="margin-top:6px">Full BTTM bands - brake ' + (t.br || []).join('/') + ', tyre ' + (t.ty || []).join('/') + ' C. TPMS ' + (lv.tpmsTrusted ? 'trusted' : 'not trusted') + '.</div>';
+      }).join('') + '</tbody></table><div class="tiny muted" style="margin-top:6px">Full Sentinel bands - brake ' + (t.br || []).join('/') + ', tyre ' + (t.ty || []).join('/') + ' C. TPMS ' + (lv.tpmsTrusted ? 'trusted' : 'not trusted') + '.</div>';
     }
-    var a = ctx.s.bttmAlarms.slice(-10).reverse();
+    var a = ctx.s.sentinelAlarms.slice(-10).reverse();
     h += '<div class="sep"></div><span class="lbl">Alarms</span>' + (a.length ? '<table><tbody>' + a.map(function (x) { return '<tr><td class="num">' + U.clock(x.ts, true) + '</td><td>' + x.corner.toUpperCase() + ' ' + x.kind + '</td><td class="num">' + Math.round(x.value) + '</td><td class="' + (x.level === 'crit' ? 'crit-t' : 'warn-t') + '">' + x.level + '</td></tr>'; }).join('') + '</tbody></table>' : '<div class="small muted">None</div>');
-    return { id: 'bttm', html: card('Brakes, tyres & TPMS (BTTM)', h, 'red band = warning, flashing band = critical + car issue') };
+    return { id: 'sentinel', html: card('Brakes, tyres & TPMS (Sentinel)', h, 'red band = warning, flashing band = critical + car issue') };
   }
 
   function panelPenalties(ctx) {
@@ -1067,7 +1067,7 @@
       case 'crew.status': return name(ctx, p.memberId) + ' now ' + (U.STATUS_LABEL[p.status] || p.status) + (p.reason ? ' (' + p.reason + ')' : '');
       case 'driver.queue': return 'Rotation: ' + (p.order || []).map(function (id) { return U.short(name(ctx, id)); }).join(', ');
       case 'driver.set': return 'Driver in car: ' + name(ctx, p.driverId);
-      case 'bttm.alarm': return 'BTTM ' + p.corner + ' ' + p.kind + ' ' + Math.round(p.value) + ' (' + p.level + ')';
+      case 'sentinel.alarm': return 'Sentinel ' + p.corner + ' ' + p.kind + ' ' + Math.round(p.value) + ' (' + p.level + ')';
       case 'penalty.add': return 'Penalty ' + p.kind + (p.minutes ? ' ' + p.minutes + ' min' : '') + ' - ' + name(ctx, p.driverId);
       case 'tyre.mount': return 'Tyres fitted ' + p.setId;
       case 'tyre.measure': return 'Tread ' + p.setId + ': ' + (p.depths || []).join('/');
@@ -1087,7 +1087,7 @@
     var rows = list.slice(-(f.limit || 300)).reverse().map(function (e) {
       return '<tr><td class="num">' + e.seq + '</td><td class="num">' + U.clock(e.ts, true) + '</td><td class="num">' + (rs && e.ts >= rs.startTs ? U.dur(e.ts - rs.startTs) : '') + '</td><td class="small">' + esc(e.type) + '</td><td>' + esc(V.summarise(ctx, e)) + '</td><td class="small muted">' + esc(e.by || '') + '</td></tr>';
     }).join('');
-    var types = ['all', 'nolaps', 'alert', 'lap', 'carstate', 'flag', 'stop', 'fuel', 'issue', 'crew', 'driver', 'pitmsg', 'bttm', 'penalty', 'tyre', 'setup', 'session', 'note'];
+    var types = ['all', 'nolaps', 'alert', 'lap', 'carstate', 'flag', 'stop', 'fuel', 'issue', 'crew', 'driver', 'pitmsg', 'sentinel', 'penalty', 'tyre', 'setup', 'session', 'note'];
     var head = '<div class="row" style="margin-bottom:8px"><select id="lg-type">' + types.map(function (t) { return '<option' + ((f.type || 'nolaps') === t ? ' selected' : '') + '>' + t + '</option>'; }).join('') + '</select><input id="lg-q" placeholder="Search" value="' + esc(f.q || '') + '" style="flex:1"><button class="btn sm" data-act="logfilter">Filter</button><span class="tiny muted">' + list.length + ' events</span></div>';
     return { id: 'log', html: card('Event log', head + '<div class="scroll" style="max-height:72vh;overflow-y:auto"><table><thead><tr><th class="num">#</th><th class="num">Time</th><th class="num">Race</th><th>Type</th><th>Event</th><th>By</th></tr></thead><tbody>' + rows + '</tbody></table></div>', 'append-only'), form: true };
   }

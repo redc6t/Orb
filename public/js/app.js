@@ -46,7 +46,7 @@
         if (msg.e.type === 'setup.update' && App.state) U.setClock24(String((App.state.config.ui || {}).clock24) !== 'false');
         App.formSeq.changed = true;
         scheduleRender();
-      } else if (msg.t === 'live') { App.live = { pltd: msg.pltd, bttm: msg.bttm }; App.devices.pltd = msg.pltd; updateMapDot(); }
+      } else if (msg.t === 'live') { App.live = { agile: msg.agile, sentinel: msg.sentinel }; App.devices.agile = msg.agile; updateMapDot(); }
       else if (msg.t === 'map') { App.map = msg.map; }
       else if (msg.t === 'devices') { App.devices = msg.devices; renderHeader(); }
       else if (msg.t === 'tick') { App.offset = msg.now - Date.now(); }
@@ -143,7 +143,7 @@
     role.className = 'role-badge role-' + App.role;
     var dv = App.devices || {};
     var st = function (x) { return !x || x.status === 'disabled' ? 'off' : (x.status === 'connected' || x.status === 'listening') ? 'ok' : (x.status === 'stale' || x.status === 'connecting') ? 'warn' : 'bad'; };
-    document.getElementById('hdr-devices').innerHTML = [['PLTD', dv.pltd], ['BTTM', dv.bttm], ['UDP', dv.udp]].map(function (x) {
+    document.getElementById('hdr-devices').innerHTML = [['Agile', dv.agile], ['Sentinel', dv.sentinel], ['UDP', dv.udp]].map(function (x) {
       return '<span class="dev" title="' + U.esc(x[0] + ': ' + ((x[1] && x[1].status) || 'disabled') + (x[1] && x[1].host ? ' ' + x[1].host : '')) + '"><span class="dot ' + st(x[1]) + '"></span>' + x[0] + '</span>';
     }).join('');
     if (!s) { document.getElementById('hdr-team').textContent = window.PWBrand.product; document.getElementById('hdr-car').textContent = ''; return; }
@@ -258,7 +258,10 @@
   var CARD_TABS = { race: 1, car: 1 };
   var GRIP_SVG = '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><g fill="currentColor"><circle cx="2" cy="2" r="1.3"/><circle cx="6" cy="2" r="1.3"/><circle cx="10" cy="2" r="1.3"/><circle cx="2" cy="6" r="1.3"/><circle cx="6" cy="6" r="1.3"/><circle cx="10" cy="6" r="1.3"/><circle cx="2" cy="10" r="1.3"/><circle cx="6" cy="10" r="1.3"/><circle cx="10" cy="10" r="1.3"/></g></svg>';
   function layoutKeyOf(tab, topIds, colIds) { return tab + ':' + topIds.join(',') + '/' + colIds.map(function (ids) { return ids.join(','); }).join('|'); }
-  function loadCards(tab) { try { var v = JSON.parse(localStorage.getItem('pw2.cards.' + tab)); return Array.isArray(v) ? v : null; } catch (e) { return null; } }
+  // layouts saved before the device rename (2.2.9) still name the cards 'pltd' / 'bttm'
+  var OLD_CARD = { pltd: 'agile', bttm: 'sentinel' };
+  function renameCards(v) { return Array.isArray(v) ? v.map(renameCards) : (OLD_CARD[v] || v); }
+  function loadCards(tab) { try { var v = JSON.parse(localStorage.getItem('pw2.cards.' + tab)); return Array.isArray(v) ? renameCards(v) : null; } catch (e) { return null; } }
   function saveCards(tab, cols) { try { if (cols) localStorage.setItem('pw2.cards.' + tab, JSON.stringify(cols)); else localStorage.removeItem('pw2.cards.' + tab); } catch (e) { /* private mode */ } }
   // insert item into list right after prev (when prev is there), otherwise at index i
   function placeAfter(list, item, prev, i, idOf) {
@@ -359,8 +362,8 @@
   /* ------------------------------------------------------------ mini map live dot */
   App.posHist = [];
   function updateMapDot() {
-    var lp = App.live.pltd || {}, lb = (App.live.bttm || {}).live || {};
-    var pos = lp.pos && Date.now() - lp.pos.ts < 3000 ? lp.pos : (lb.lat ? { lat: lb.lat, lon: lb.lon, ts: lb.ts, src: 'BTTM' } : lp.pos);
+    var lp = App.live.agile || {}, lb = (App.live.sentinel || {}).live || {};
+    var pos = lp.pos && Date.now() - lp.pos.ts < 3000 ? lp.pos : (lb.lat ? { lat: lb.lat, lon: lb.lon, ts: lb.ts, src: 'Sentinel' } : lp.pos);
     if (!pos) return;
     var last = App.posHist[App.posHist.length - 1];
     if (!last || last.ts !== pos.ts) { App.posHist.push(pos); if (App.posHist.length > 600) App.posHist.shift(); }
@@ -373,7 +376,7 @@
     var tr = App.posHist.slice(-40).filter(function (p) { return Date.now() - p.ts < 25000; }).map(function (p) { var z = pr.f(p.lat, p.lon); return z[0].toFixed(1) + ',' + z[1].toFixed(1); }).join(' ');
     document.getElementById('mm-trail').setAttribute('points', tr);
     var info = document.getElementById('mm-info');
-    if (info) info.textContent = (stale ? 'Position ' + Math.round((Date.now() - pos.ts) / 1000) + ' s old' : (pos.src === 'BTTM' ? 'BTTM GNSS' : 'PLTD GNSS')) + (pos.sats != null ? ' | ' + pos.sats + ' sats' : '') + (pos.spd != null ? ' | ' + Math.round(pos.spd) + ' km/h' : '');
+    if (info) info.textContent = (stale ? 'Position ' + Math.round((Date.now() - pos.ts) / 1000) + ' s old' : (pos.src === 'Sentinel' ? 'Sentinel GNSS' : 'Agile GNSS')) + (pos.sats != null ? ' | ' + pos.sats + ' sats' : '') + (pos.spd != null ? ' | ' + Math.round(pos.spd) + ' km/h' : '');
   }
 
   /* ------------------------------------------------------------ replay */

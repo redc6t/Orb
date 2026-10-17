@@ -13,6 +13,31 @@
 
   function clone(o) { return o === undefined ? undefined : JSON.parse(JSON.stringify(o)); }
 
+  // Device rename (2.2.9): PLTD -> Agile, BTTM -> Sentinel. Weekends saved before it use the old
+  // keys; these shims map them on load so old config.json / events.jsonl files keep working.
+  var OLD_DEVICE = { pltd: 'agile', bttm: 'sentinel' };
+  var OLD_SRC = { pltd: 'agile', 'pltd-est': 'agile-est', bttm: 'sentinel', BTTM: 'Sentinel' };
+  function migrateDevices(dv) {
+    if (!dv || typeof dv !== 'object') return dv;
+    Object.keys(OLD_DEVICE).forEach(function (o) {
+      var n = OLD_DEVICE[o];
+      if (dv[o] !== undefined) { if (dv[n] === undefined) dv[n] = dv[o]; delete dv[o]; }
+    });
+    return dv;
+  }
+  function migrateConfig(cfg) { if (cfg && cfg.devices) migrateDevices(cfg.devices); return cfg; }
+  function migrateEvent(e) {
+    if (!e) return e;
+    if (OLD_SRC[e.src]) e.src = OLD_SRC[e.src];
+    if (e.type === 'bttm.alarm') e.type = 'sentinel.alarm';
+    var p = e.payload;
+    if (p) {
+      if (OLD_SRC[p.src]) p.src = OLD_SRC[p.src];
+      if (p.patch && p.patch.devices) migrateDevices(p.patch.devices);
+    }
+    return e;
+  }
+
   function merge(target, patch) {
     Object.keys(patch || {}).forEach(function (k) {
       var v = patch[k];
@@ -51,7 +76,7 @@
       alerts: [],
       notes: [],
       penalties: [],
-      bttmAlarms: [],
+      sentinelAlarms: [],
       acks: {},
       gates: {},                     // 'P3:entry' -> {ts, by:'human'|'auto'}
       scenarios: { active: 'A', plans: {}, order: [] }
@@ -175,8 +200,8 @@
         var st = s.openStopId ? findStop(s, s.openStopId) : null;
         if (PIT_STATES.indexOf(cs) >= 0 && !st) st = openStop(s, ts, e.src);
         if (st) {
-          // geofence side of the stop handshake: only states reported by the car (PLTD / UDP), not engineer overrides
-          if (e.src === 'pltd' || e.src === 'udp') {
+          // geofence side of the stop handshake: only states reported by the car (Agile / UDP), not engineer overrides
+          if (e.src === 'agile' || e.src === 'udp') {
             var geo = st.geo || (st.geo = {});
             if (PIT_STATES.indexOf(cs) >= 0 && !geo.entry) geo.entry = ts;     // any pit state proves the car is in the lane
             if (cs === 'FUELLING' && !geo.fuelIn) geo.fuelIn = ts;
@@ -353,7 +378,7 @@
       case 'scenario.set': { var sp = s.scenarios.plans[p.id]; if (sp) sp.cur = clone(p.def); break; }
       case 'scenario.reset': { var rp = s.scenarios.plans[p.id]; if (rp) rp.cur = clone(rp.orig); break; }
       case 'scenario.activate': { if (s.scenarios.plans[p.id] || p.id === 'A') s.scenarios.active = p.id; break; }
-      case 'bttm.alarm': s.bttmAlarms.push({ ts: ts, corner: p.corner, kind: p.kind, value: p.value, level: p.level }); break;
+      case 'sentinel.alarm': s.sentinelAlarms.push({ ts: ts, corner: p.corner, kind: p.kind, value: p.value, level: p.level }); break;
       default: break;
     }
     return s;
@@ -368,5 +393,5 @@
     return s;
   }
 
-  return { initialState: initialState, apply: apply, reduce: reduce, merge: merge, clone: clone, PIT_STATES: PIT_STATES, activeSession: activeSession };
+  return { initialState: initialState, apply: apply, reduce: reduce, merge: merge, clone: clone, migrateConfig: migrateConfig, migrateEvent: migrateEvent, PIT_STATES: PIT_STATES, activeSession: activeSession };
 });

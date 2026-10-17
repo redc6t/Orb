@@ -70,7 +70,7 @@
 
     h += '<div class="section-title" style="margin-top:14px">Event</div><div class="fgrid">' + inp('name', 'Event name') + inp('date', 'Date', 'date') +
       sel('track.id', 'Track', trackOpts, ' data-rerender="track"') + (trackId === 'custom' || !m.tracks.some(function (t) { return t.id === trackId; }) ? inp('track.name', 'Track name') : '') +
-      inp('track.lapLengthKm', 'Lap length (km)', 'number', ' step="0.001" placeholder="auto from PLTD"') + inp('track.pitLaneS', 'Pit lane transit (s)', 'number', ' step="1"') +
+      inp('track.lapLengthKm', 'Lap length (km)', 'number', ' step="0.001" placeholder="auto from Agile"') + inp('track.pitLaneS', 'Pit lane transit (s)', 'number', ' step="1"') +
       sel('race.format', 'Race format', fmtOpts, ' data-rerender="format"') +
       (c.race.mode === 'time' ? inp('race.durationMin', 'Race length (min)', 'number') : c.race.mode === 'laps' ? inp('race.laps', 'Race laps', 'number') : inp('race.distanceKm', 'Race distance (km)', 'number')) +
       inp('race.expectedLapS', 'Expected lap (s)', 'number', ' step="0.1"') + '</div>';
@@ -117,10 +117,10 @@
       inp('strategy.stintSafetyMin', 'Stint safety margin (min)', 'number') +
       sel('ui.clock24', 'Clock format', [['true', '24 hour (13:00)'], ['false', '12 hour (1:00 pm)']]) + '</div>';
     h += '<div class="row" style="margin-top:6px">' + inp('strategy.fillToBrim', 'Fill to brim at fuel stops (more margin, calibrates the model)', 'checkbox') + '</div>';
-    h += '<div class="fgrid" style="margin-top:10px">' + inp('devices.pltd.enabled', 'PLTD lap timer', 'checkbox') + inp('devices.pltd.host', 'PLTD IP') +
-      inp('devices.bttm.enabled', 'BTTM', 'checkbox') + inp('devices.bttm.host', 'BTTM IP') + inp('devices.bttm.pollMs', 'BTTM poll (ms)', 'number') +
+    h += '<div class="fgrid" style="margin-top:10px">' + inp('devices.agile.enabled', 'Agile lap timer', 'checkbox') + inp('devices.agile.host', 'Agile IP') +
+      inp('devices.sentinel.enabled', 'Sentinel', 'checkbox') + inp('devices.sentinel.host', 'Sentinel IP') + inp('devices.sentinel.pollMs', 'Sentinel poll (ms)', 'number') +
       inp('devices.udp.enabled', 'UDP input', 'checkbox') + inp('devices.udp.port', 'UDP port', 'number') + '</div>';
-    h += '<div class="small muted" style="margin-top:6px">The laptop must be on the same network as the devices (VDG / MME_AP, 192.168.0.x). PLTD: WebSocket ws://IP/ws. BTTM: HTTP /data.</div>';
+    h += '<div class="small muted" style="margin-top:6px">The laptop must be on the same network as the devices (VDG / MME_AP, 192.168.0.x). Agile: WebSocket ws://IP/ws. Sentinel: HTTP /data.</div>';
     if (eng) h += '<div class="section-title" style="margin-top:14px">Branding</div><div class="row"><img src="/branding/logo?v=' + Date.now() + '" style="width:48px;height:48px;border-radius:8px;background:#0e0e0e;object-fit:contain"><label class="f" style="flex:1">Logo (default: ' + esc(window.PWBrand.line) + ' - upload PNG/SVG to replace)<input id="su-logo" type="file" accept="image/png,image/svg+xml,image/jpeg"></label><button class="btn sm" data-sact="logoreset" style="align-self:flex-end">Use default logo</button></div>';
     h += '</div>';
 

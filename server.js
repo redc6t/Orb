@@ -11,8 +11,8 @@ const { WebSocketServer } = require('ws');
 const Store = require('./lib/store');
 const D = require('./lib/defaults');
 const E = require('./public/js/shared/engine.js');
-const PltdAdapter = require('./lib/adapters/pltd');
-const BttmAdapter = require('./lib/adapters/bttm');
+const AgileAdapter = require('./lib/adapters/agile');
+const SentinelAdapter = require('./lib/adapters/sentinel');
 const UdpAdapter = require('./lib/adapters/udp');
 const BRAND = require('./public/js/brand.js');
 
@@ -50,43 +50,43 @@ function append(type, payload, by, src) {
 }
 
 // ------------------------------------------------------------------ adapters
-const pltd = new PltdAdapter(), bttm = new BttmAdapter(), udp = new UdpAdapter();
-function devices() { return { pltd: pltd.snapshot(), bttm: { status: bttm.status, host: bttm.host }, udp: udp.snapshot() }; }
+const agile = new AgileAdapter(), sentinel = new SentinelAdapter(), udp = new UdpAdapter();
+function devices() { return { agile: agile.snapshot(), sentinel: { status: sentinel.status, host: sentinel.host }, udp: udp.snapshot() }; }
 function configureDevices() {
   const dv = (store.state && store.state.config.devices) || {};
-  pltd.configure(dv.pltd); bttm.configure(dv.bttm); udp.configure(dv.udp);
+  agile.configure(dv.agile); sentinel.configure(dv.sentinel); udp.configure(dv.udp);
 }
 const sessionActive = () => !!(store.state && store.state.activeSessionId);
-[pltd, bttm, udp].forEach(a => a.on('status', () => broadcast({ t: 'devices', devices: devices() })));
-// each lap carries the BTTM peaks seen during it, so stint debriefs survive replay
-const withPeaks = l => { const pk = bttm.takePeaks(); return pk ? Object.assign({}, l, { peaks: pk }) : l; };
-pltd.on('lap', l => { if (sessionActive()) append('lap', withPeaks(l), 'pltd', 'pltd'); });
-pltd.on('carstate', cs => { if (store.state && store.state.carState.current !== cs) append('carstate', { cs }, 'pltd', 'pltd'); });
-pltd.on('carstate-initial', cs => { if (store.state && sessionActive() && store.state.carState.current !== cs && cs !== 'RUNNING') append('carstate', { cs }, 'pltd', 'pltd'); });
-pltd.on('flagstate', f => {
+[agile, sentinel, udp].forEach(a => a.on('status', () => broadcast({ t: 'devices', devices: devices() })));
+// each lap carries the Sentinel peaks seen during it, so stint debriefs survive replay
+const withPeaks = l => { const pk = sentinel.takePeaks(); return pk ? Object.assign({}, l, { peaks: pk }) : l; };
+agile.on('lap', l => { if (sessionActive()) append('lap', withPeaks(l), 'agile', 'agile'); });
+agile.on('carstate', cs => { if (store.state && store.state.carState.current !== cs) append('carstate', { cs }, 'agile', 'agile'); });
+agile.on('carstate-initial', cs => { if (store.state && sessionActive() && store.state.carState.current !== cs && cs !== 'RUNNING') append('carstate', { cs }, 'agile', 'agile'); });
+agile.on('flagstate', f => {
   if (!store.state) return;
-  if (pltd.flagSentAt && Date.now() - pltd.flagSentAt < 2500) return;   // echo of our own flag change, still settling
-  const want = PltdAdapter.flagFromState(f), cur = store.state.flag.current;
+  if (agile.flagSentAt && Date.now() - agile.flagSentAt < 2500) return;   // echo of our own flag change, still settling
+  const want = AgileAdapter.flagFromState(f), cur = store.state.flag.current;
   const same = (cur === 'DOUBLE YELLOW' && want === 'YELLOW') || (cur === 'FCY' && want === 'SC') || cur === want;
-  if (!same && sessionActive()) append('flag.set', { flag: want }, 'pltd', 'pltd');
+  if (!same && sessionActive()) append('flag.set', { flag: want }, 'agile', 'agile');
 });
-pltd.on('pitshown', id => append('pitmsg.shown', { id }, 'pltd', 'pltd'));
-pltd.on('pitack', a => append('pitmsg.ack', a, 'pltd', 'pltd'));
-pltd.on('note', t => append('note', { text: t }, 'pltd', 'pltd'));
-pltd.on('info', info => broadcast({ t: 'devices', devices: devices() }));
-pltd.on('map', m => broadcast({ t: 'map', map: m }));
-const bttmIssueAt = {};
-bttm.on('alarm', a => {
+agile.on('pitshown', id => append('pitmsg.shown', { id }, 'agile', 'agile'));
+agile.on('pitack', a => append('pitmsg.ack', a, 'agile', 'agile'));
+agile.on('note', t => append('note', { text: t }, 'agile', 'agile'));
+agile.on('info', info => broadcast({ t: 'devices', devices: devices() }));
+agile.on('map', m => broadcast({ t: 'map', map: m }));
+const sentinelIssueAt = {};
+sentinel.on('alarm', a => {
   if (!sessionActive()) return;
-  append('bttm.alarm', a, 'bttm', 'bttm');
+  append('sentinel.alarm', a, 'sentinel', 'sentinel');
   const dv = store.state.config.devices || {};
   const key = a.kind + a.corner;
-  if (a.level === 'crit' && (dv.bttm || {}).autoIssues !== false && Date.now() - (bttmIssueAt[key] || 0) > 600000) {
-    bttmIssueAt[key] = Date.now();
+  if (a.level === 'crit' && (dv.sentinel || {}).autoIssues !== false && Date.now() - (sentinelIssueAt[key] || 0) > 600000) {
+    sentinelIssueAt[key] = Date.now();
     const what = { brake: 'brake temp', tyre: 'tyre temp', press: 'tyre pressure' }[a.kind];
     const unit = a.kind === 'press' ? ' psi' : ' C';
-    append('issue.add', { cat: a.kind === 'brake' ? 'brakes' : 'tyres', sev: 'crit', corner: a.corner, nextStop: true, src: 'BTTM',
-      text: a.corner.toUpperCase() + ' ' + what + ' ' + Math.round(a.value) + unit + ' (above BTTM top band)' }, 'bttm', 'bttm');
+    append('issue.add', { cat: a.kind === 'brake' ? 'brakes' : 'tyres', sev: 'crit', corner: a.corner, nextStop: true, src: 'Sentinel',
+      text: a.corner.toUpperCase() + ' ' + what + ' ' + Math.round(a.value) + unit + ' (above Sentinel top band)' }, 'sentinel', 'sentinel');
   }
 });
 udp.on('msg', (m, ip) => {
@@ -126,7 +126,7 @@ setInterval(() => {
   } catch (e) { console.error('derive error', e); }
   broadcast({ t: 'tick', now: Date.now() });
 }, 1000);
-setInterval(() => broadcast({ t: 'live', pltd: pltd.snapshot(), bttm: bttm.snapshot() }), 250);
+setInterval(() => broadcast({ t: 'live', agile: agile.snapshot(), sentinel: sentinel.snapshot() }), 250);
 
 // ------------------------------------------------------------------ HTTP
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml',
@@ -239,7 +239,7 @@ const server = http.createServer(async (req, res) => {
 const wss = new WebSocketServer({ server, path: '/ws' });
 wss.on('connection', (ws, req) => {
   const role = isEngineer(req) ? 'engineer' : 'viewer';
-  ws.send(JSON.stringify({ t: 'init', role, meta: meta(req), eventId: store.eventId, config0: store.config0, events: store.events, devices: devices(), map: pltd.map, now: Date.now() }));
+  ws.send(JSON.stringify({ t: 'init', role, meta: meta(req), eventId: store.eventId, config0: store.config0, events: store.events, devices: devices(), map: agile.map, now: Date.now() }));
   ws.on('message', raw => {
     let m; try { m = JSON.parse(raw.toString()); } catch (e) { return; }
     if (m.t !== 'action') return;
@@ -251,22 +251,22 @@ wss.on('connection', (ws, req) => {
     if (m.type === 'pitmsg.send') {
       p.text = String(p.text || '').toUpperCase().slice(0, 16);
       if (!p.text) return;
-      const ok = p.kind === 'flag' ? pltd.send({ t: 'pitflag', name: p.text, on: !!p.on }) : pltd.pitMessage(p.text, p.pri);
+      const ok = p.kind === 'flag' ? agile.send({ t: 'pitflag', name: p.text, on: !!p.on }) : agile.pitMessage(p.text, p.pri);
       p.delivered = ok;
-      if (!ok) ws.send(JSON.stringify({ t: 'error', msg: 'PLTD not connected - message logged but not delivered' }));
+      if (!ok) ws.send(JSON.stringify({ t: 'error', msg: 'Agile not connected - message logged but not delivered' }));
     }
     append(m.type, p, 'engineer');
-    if (m.type === 'flag.set') pltd.setFlag(p.flag);
+    if (m.type === 'flag.set') agile.setFlag(p.flag);
     if (m.type === 'setup.update' && p.patch && p.patch.devices) configureDevices();
     if (m.type === 'setup.update' && p.saveCar && store.state.config.car) store.saveCar(store.state.config.car);
   });
 });
 
 // ------------------------------------------------------------------ gate buttons (the engineer is the gate controller)
-// With the PLTD connected the geofences drive the car state and the buttons confirm the steps.
-// With the PLTD offline the buttons also set the car state, so the stop timers still work.
+// With Agile connected the geofences drive the car state and the buttons confirm the steps.
+// With Agile offline the buttons also set the car state, so the stop timers still work.
 function gateCmd(p, ws) {
-  const st = store.state, pltdOn = pltd.snapshot().status === 'connected';
+  const st = store.state, agileOn = agile.snapshot().status === 'connected';
   if (!st.activeSessionId) return ws.send(JSON.stringify({ t: 'error', msg: 'No session running' }));
   if (p.gate === 'pitin') {
     if (!st.openStopId) append('carstate', { cs: 'PIT ENTRY' }, 'engineer', 'manual');
@@ -275,15 +275,15 @@ function gateCmd(p, ws) {
   } else if (p.gate === 'driver') {
     append('gate.ack', { stopId: p.stopId, gate: 'driver', driverIn: p.driverIn || null }, 'engineer');
   } else if (p.gate === 'fuelon') {
-    // the engineer's half of the fuelling handshake; with the PLTD offline it also sets the car state so the timers run
-    if (!pltdOn && st.carState.current !== 'FUELLING') append('carstate', { cs: 'FUELLING' }, 'engineer', 'manual');
+    // the engineer's half of the fuelling handshake; with Agile offline it also sets the car state so the timers run
+    if (!agileOn && st.carState.current !== 'FUELLING') append('carstate', { cs: 'FUELLING' }, 'engineer', 'manual');
     append('gate.ack', { stopId: p.stopId, gate: 'fuelon' }, 'engineer');
   } else if (p.gate === 'fuel') {
     append('stop.service', Object.assign({}, p.service || {}, { stopId: p.stopId }), 'engineer');
-    if (!pltdOn && store.state.carState.current === 'FUELLING') append('carstate', { cs: 'PITS' }, 'engineer', 'manual');
+    if (!agileOn && store.state.carState.current === 'FUELLING') append('carstate', { cs: 'PITS' }, 'engineer', 'manual');
   } else if (p.gate === 'pitout') {
     append('gate.ack', { stopId: p.stopId, gate: 'pitout' }, 'engineer');
-    if ((!pltdOn || p.force) && store.state.openStopId) append('carstate', { cs: 'PIT EXIT' }, 'engineer', 'manual');
+    if ((!agileOn || p.force) && store.state.openStopId) append('carstate', { cs: 'PIT EXIT' }, 'engineer', 'manual');
   }
 }
 

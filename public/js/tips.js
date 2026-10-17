@@ -43,11 +43,11 @@
     'strategy.stintSafetyMin': { d: 'Margin kept below the max stint so a slow in-lap or traffic does not break the limit.', up: 'Safer, slightly shorter stints.', down: 'Stints run closer to the limit.' },
     'strategy.fillToBrim': { d: 'Fill the tank to full at every fuel stop. Costs no time when pouring fits inside the minimum stop, adds margin, and each brim fill calibrates the fuel model.' },
     'ui.clock24': { d: 'How clock times are shown everywhere: 24 hour (13:00, 00:00) or 12 hour with am/pm (1:00 pm). Durations always show units (1h 55m).' },
-    'devices.pltd.enabled': { d: 'Connect to the PLTD lap timer (laps, car state from geofences, pit board, flags, map).' },
-    'devices.pltd.host': { d: 'PLTD IP address (shown on its screen; DHCP from the VDG). Add :port only for the simulator.' },
-    'devices.bttm.enabled': { d: 'Poll the BTTM for brake/tyre temperatures, TPMS and alarms.' },
-    'devices.bttm.host': { d: 'BTTM IP address (shown on its screen).' },
-    'devices.bttm.pollMs': { d: 'How often the BTTM is polled.', up: 'Less load on the BTTM, slower updates.', down: 'Faster updates, more load on the BTTM web server.' },
+    'devices.agile.enabled': { d: 'Connect to the Agile lap timer (laps, car state from geofences, pit board, flags, map).' },
+    'devices.agile.host': { d: 'Agile IP address (shown on its screen; DHCP from the VDG). Add :port only for the simulator.' },
+    'devices.sentinel.enabled': { d: 'Poll Sentinel for brake/tyre temperatures, TPMS and alarms.' },
+    'devices.sentinel.host': { d: 'Sentinel IP address (shown on its screen).' },
+    'devices.sentinel.pollMs': { d: 'How often Sentinel is polled.', up: 'Less load on Sentinel, slower updates.', down: 'Faster updates, more load on the Sentinel web server.' },
     'devices.udp.enabled': { d: 'Listen for JSON over UDP (simulator, future IMU impact node, other devices).' },
     'devices.udp.port': { d: 'UDP port to listen on.' },
     '#su-logo': { d: 'Logo shown in the header and on every device. The Mullaloo Motorsport Engineering logo is built in; upload a PNG/SVG only to replace it (kept for every weekend).' },
@@ -64,8 +64,8 @@
     '#ss-fuel': { d: 'Fuel in the car at the green flag. Starting anchor for the fuel estimate.', up: 'First stop later.', down: 'First stop earlier.' },
     '#ss-driver': { d: 'Driver starting the session.' },
     '#ss-tyre': { d: 'Tyre set fitted for the start.' },
-    '#pm-text': { d: 'Custom pit board text sent to the PLTD display (16 characters maximum, firmware limit).' },
-    '#pm-pri': { d: 'High priority messages stay up until the driver acknowledges them on the PLTD.' },
+    '#pm-text': { d: 'Custom pit board text sent to the Agile display (16 characters maximum, firmware limit).' },
+    '#pm-pri': { d: 'High priority messages stay up until the driver acknowledges them on Agile.' },
     '#ondeck-sel': { d: 'Driver to put next in the rotation. The planner and prepare-alerts follow it.' },
     // ---------------- strategy what-if
     '#wi-lap': { d: 'Change in lap time vs the current pace, e.g. +5 s for rain.', up: 'Slower laps: fewer laps per stint; burn per hour drops once laps are much slower.', down: 'Faster laps: more laps per stint.' },
@@ -94,9 +94,9 @@
     'kpi:Stationary': { d: 'Planned time stopped in the box (fuel minimum, swap, mandatory minimum).' },
     'kpi:Window': { d: 'Earliest time you can stop and still reach the next fuel stop after filling, to the latest before reserve or the stint limit.' },
     'kpi:Ref pace': { d: 'Median of recent clean green laps. Used for laps-to-go and per-lap fuel.' },
-    'kpi:Delta': { d: 'Live delta from the PLTD against its reference lap. Red = slower.' },
+    'kpi:Delta': { d: 'Live delta from Agile against its reference lap. Red = slower.' },
     'kpi:In pit lane': { d: 'Time since pit entry. Mandatory stops are timed entry to exit.' },
-    'kpi:Fuelling': { d: 'Time in the fuel zone (PLTD geofence). Must reach the regulation minimum.' }
+    'kpi:Fuelling': { d: 'Time in the fuel zone (Agile geofence). Must reach the regulation minimum.' }
   };
 
   function keyFor(el) {

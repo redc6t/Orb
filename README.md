@@ -45,7 +45,7 @@ Pitwall Strategy Manager answers, every second, the questions a pit wall asks du
 | **Who is fit to drive?** | Driver rotation, crew presence, rest and sleep, and alerts before anyone goes over their limits. |
 | **What happened?** | An append-only race log you can export, import on another laptop and replay through the whole app. |
 
-It works with nothing but a keyboard. Add the Mullaloo Motorsport Engineering in-car devices, the **PLTD** lap timer and the **BTTM** brake and tyre temperature monitor, and laps, pit lane entries, flags and temperatures arrive by themselves (see [Connecting devices](#connecting-devices)).
+It works with nothing but a keyboard. Add the Mullaloo Motorsport Engineering in-car devices, the **[Agile](https://github.com/redc6t/Agile)** lap timer and the **[Sentinel](https://github.com/redc6t/Sentinel)** brake and tyre temperature and pressure monitor, and laps, pit lane entries, flags and temperatures arrive by themselves (see [Connecting devices](#connecting-devices)).
 
 ## Quick start
 
@@ -68,7 +68,7 @@ The demo builds a 36-hour race that has been running for 6 hours, with laps, sto
 
 1. Double-click `make-demo.bat` (it only replaces the DEMO weekend; your real weekends are not touched). It first stops any pit wall server or simulator still running in the background, so the new demo is not hidden behind an old one.
 2. Double-click `start-pitwall.bat`.
-3. Double-click `start-simulator.bat` (a simulated PLTD lap timer and BTTM temperature monitor, so no hardware is needed).
+3. Double-click `start-simulator.bat` (a simulated Agile lap timer and Sentinel brake and tyre monitor, so no hardware is needed).
 4. When the call says **BOX**, press **BOX BOX** in Race control. The car pits at the end of the lap, and the Race tab switches to pit mode.
 
 From a terminal the same steps are `npm run demo`, `npm start` and `npm run sim`.
@@ -151,14 +151,14 @@ Every change is written to an append-only log. **Log** lets you search it, expor
 
 Everything can be typed in by hand. The app is built to work with two in-car devices from Mullaloo Motorsport Engineering. Both are fully original designs, electronics and code, made to be cost-effective, so entry-level drivers, club teams and lower categories can have data that is usually reserved for well-funded teams. The aim is to make it easier for new people to get into motorsport.
 
-- **PLTD** is the GPS lap timer and driver display. It times laps and micro-sectors, records the track outline and the pit lane, fuel bay and pit exit zones (geofences), and shows the pit board messages and flags you send from the pit wall on the driver's dash.
-- **[BTTM](https://github.com/redc6t/BTTM)** (Brake & Tyre Temperature Monitor) measures brake and tyre temperatures in real time. Sensor nodes at each corner report over a CAN bus to an ESP32-S3 hub, which provides a Wi-Fi web dashboard, a local display and data logging. Custom PCBs throughout.
-- **[CIRTS](https://github.com/redc6t/CIRTS)** (CAN Infrared Temperature Sensor) is the small ESP32-C3 infrared sensor node used at each corner of the BTTM network.
+- **[Agile](https://github.com/redc6t/Agile)** (Predictive Lap Timer with micro-sector analysis) is the GPS lap timer and driver display. It times laps and micro-sectors, records the track outline and the pit lane, fuel bay and pit exit zones (geofences), and shows the pit board messages and flags you send from the pit wall on the driver's dash.
+- **[Sentinel](https://github.com/redc6t/Sentinel)** (Brake & Tyre Temperature & Pressure Monitor) measures brake and tyre temperatures and tyre pressures in real time. Sensor nodes at each corner report over a CAN bus to an ESP32-S3 hub, which provides a Wi-Fi web dashboard, a local display and data logging. Custom PCBs throughout.
+- **[CIRTS](https://github.com/redc6t/CIRTS)** (CAN Infrared Temperature Sensor) is the small ESP32-C3 infrared sensor node used at each corner of the Sentinel network.
 
 | Source | How it connects | What it gives |
 |---|---|---|
-| **PLTD** lap timer | WebSocket to the device, plus HTTP for lap times and the track map | Laps, micro-sectors, live position, pit lane geofences (pit in, fuel bay, pit out); pit board messages and flags are sent back to the driver's dash |
-| **BTTM** with CIRTS sensors | HTTP polled once a second | Brake and tyre temperatures and tyre pressures, with warning and critical alarms |
+| **Agile** lap timer | WebSocket to the device, plus HTTP for lap times and the track map | Laps, micro-sectors, live position, pit lane geofences (pit in, fuel bay, pit out); pit board messages and flags are sent back to the driver's dash |
+| **Sentinel** with CIRTS sensors | HTTP polled once a second | Brake and tyre temperatures and tyre pressures, with warning and critical alarms |
 | **Anything else** | JSON over UDP, port 47800, one object per datagram | Laps, car state, flags, fuel readings, impacts, car issues |
 
 UDP examples:
@@ -198,7 +198,7 @@ Copy the `data` folder to a USB stick or a second laptop at least once per sessi
 The app is written to adapt to how your team, your car and your events work:
 
 - **Series rules:** each regulation set is a JSON file in `rules/` (two are included). Copy one, edit the stint limit, fuel stop minimum, mandatory stops and flag rules, and restart.
-- **Tracks:** track presets and the outline used by the map are in `lib/defaults.js` and `lib/tracks/`. With a PLTD, the device records its own reference lap and geofences at the track.
+- **Tracks:** track presets and the outline used by the map are in `lib/defaults.js` and `lib/tracks/`. With Agile, the device records its own reference lap and geofences at the track.
 - **Car:** tank sizes, fuel baseline per track, refuel method and pour rate are set in **Setup** and saved to the car library for next time.
 - **Tooltips:** hover any field for an explanation; the texts are in `public/js/tips.js`.
 - **Code:** the strategy engine and the state reducer in `public/js/shared/` run identically on the server and in every browser. `npm test` runs pre-race plans and full simulated races against both included rule sets.
@@ -218,13 +218,13 @@ npm test
 | Changes are not accepted | Replay is running (press **Back to live**) or the device is view-only. |
 | Cards are in odd places, or one seems missing | The cards were rearranged in this browser. Press **Reset layout** at the bottom of the Race or Car tab. A card that only shows during a stop comes back at the next stop. |
 | Race tab columns are stacked | The window is narrower than about 1400 px. Maximise the browser or zoom out (Ctrl and minus). |
-| PLTD or BTTM light is red | Wrong IP, the laptop is not on the car network, or the device is off. Check the IP on the device screen and in **Setup**. |
-| PLTD light is amber ("stale") | Connected, but no data for 3 s: weak Wi-Fi or a busy device. |
-| No track map or micro-sectors | The PLTD has not recorded its reference lap yet; it does so after the first clean lap. A live trail is drawn meanwhile. |
+| Agile or Sentinel light is red | Wrong IP, the laptop is not on the car network, or the device is off. Check the IP on the device screen and in **Setup**. |
+| Agile light is amber ("stale") | Connected, but no data for 3 s: weak Wi-Fi or a busy device. |
+| No track map or micro-sectors | Agile has not recorded its reference lap yet; it does so after the first clean lap. A live trail is drawn meanwhile. |
 | A refuel role shows **UNASSIGNED** | Nobody tagged with that role is available. Press **FIX** for one-click options, or tag more people in **Setup**. |
 | The fuel estimate drifts | No fuel measurement for a long time. Log a gauge reading, or tick **Filled to brim** at the next fuel stop. |
 | A handshake step stays amber | The geofence saw it and you have not confirmed it. Press the step's button, or leave it: it becomes AUTO once the car moves on. |
-| Simulator says "address in use" | Another simulator is still running. Close it, or start it with `--pltd` / `--bttm` on other ports and update **Setup**. |
+| Simulator says "address in use" | Another simulator is still running. Close it, or start it with `--agile` / `--sentinel` on other ports (the old `--pltd` / `--bttm` still work) and update **Setup**. |
 | Demo clocks look wrong | The demo was built a while ago. Run `make-demo.bat` again. |
 | The page shows an old or mixed-up weekend after a restart, or the console says `EADDRINUSE` | An earlier server is still running in the background (closing its window or the app that started it does not always stop it). Double-click `stop-pitwall.bat`, then `start-pitwall.bat` again. |
 
@@ -247,8 +247,9 @@ The full [user manual (PDF)](Pitwall_Strategy_Manager_User_Manual_v2.2.3.pdf) co
 
 ## Release notes
 
+- **2.2.9:** the in-car devices are renamed: the PLTD lap timer is now **Agile** and the BTTM monitor is now **Sentinel**, in the app, the Setup tab and the docs. Weekends, settings and card layouts saved with the old names load and connect as before (each weekend is moved to the new names the first time it opens), and the simulator still accepts `--pltd` / `--bttm`. Nothing changes on the devices.
 - **2.2.8:** simulator: sending BOX again while the driver is already called in no longer restarts his 20 s turn-in delay, so resending the pit board can no longer make him miss pit entry and run another lap.
-- **2.2.7:** Race Plan: every finished stint in the stint table gets a **+ auto-gen debrief** toggle. It opens a written recap of the stint as the engineer would give it: laps and time in the car, average, best and worst green-flag lap, consistency and drop-off, Safety Cars and flags, logged incidents, penalties and BTTM alarms, peak brake and tyre temperature per corner, and the stop that ended it. Laps now carry the BTTM peaks seen during them, so the debrief also works in replay; the demo race includes them.
+- **2.2.7:** Race Plan: every finished stint in the stint table gets a **+ auto-gen debrief** toggle. It opens a written recap of the stint as the engineer would give it: laps and time in the car, average, best and worst green-flag lap, consistency and drop-off, Safety Cars and flags, logged incidents, penalties and Sentinel alarms, peak brake and tyre temperature per corner, and the stop that ended it. Laps now carry the Sentinel peaks seen during them, so the debrief also works in replay; the demo race includes them.
 - **2.2.6:** new `stop-pitwall.bat` stops a pit wall server or simulator left running in the background (it only touches Node.js processes on the pit wall ports). `make-demo.bat` runs it first, so a stale server can no longer show an old weekend over the fresh demo.
 - **2.2.5:** movable cards on the Race and Car tabs: drag a card by the 9-dot grip in its header and the other cards slide out of the way live. The layout is saved in that browser; Reset layout at the bottom of the page restores the default. Cards that appear during a stop (pit gate, fuelling, pit timers) slot in next to where they normally sit.
 - **2.2.4:** new README with a guided tour, troubleshooting and first-time gotchas; contributing guide, code of conduct, security policy, accessibility statement, and issue and pull request templates. No change to the app.
@@ -269,4 +270,4 @@ You are welcome to use it at your events and customise it for your needs: add yo
 
 The GPL asks one thing in return: if you **distribute** a modified version, share its source code under the same license so the next team can build on it too. Running a modified copy on your own pit wall needs nothing more.
 
-Pitwall Strategy Manager is designed and developed by Pietro Gambarin, **Mullaloo Motorsport Engineering**, alongside the PLTD, [BTTM](https://github.com/redc6t/BTTM) and [CIRTS](https://github.com/redc6t/CIRTS) hardware. Contributions, bug reports and new rule profiles are welcome through GitHub issues and pull requests: see [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md). Report security problems privately as described in [SECURITY.md](SECURITY.md), and accessibility barriers as described in [ACCESSIBILITY.md](ACCESSIBILITY.md).
+Pitwall Strategy Manager is designed and developed by Pietro Gambarin, **Mullaloo Motorsport Engineering**, alongside the [Agile](https://github.com/redc6t/Agile), [Sentinel](https://github.com/redc6t/Sentinel) and [CIRTS](https://github.com/redc6t/CIRTS) hardware. Contributions, bug reports and new rule profiles are welcome through GitHub issues and pull requests: see [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md). Report security problems privately as described in [SECURITY.md](SECURITY.md), and accessibility barriers as described in [ACCESSIBILITY.md](ACCESSIBILITY.md).

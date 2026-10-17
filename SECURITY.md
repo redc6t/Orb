@@ -16,7 +16,7 @@ Pitwall Strategy Manager is designed for a **closed, trusted local network** at 
 
 - The server listens on the local network (port 8080 by default) so phones, tablets and TVs can view it. It has **no user accounts and no passwords**.
 - Only the laptop running the server (`localhost`) and the addresses listed in `engineerHosts` in `data/settings.json` can change the race. Every other client is view-only and the server rejects its changes.
-- Device data (PLTD over WebSocket and HTTP, BTTM over HTTP, other sources over UDP port 47800) is accepted from the local network without authentication.
+- Device data (Agile over WebSocket and HTTP, Sentinel over HTTP, other sources over UDP port 47800) is accepted from the local network without authentication.
 - All data is stored as plain files in the `data` folder.
 
 **Do not expose the server to the internet** (port forwarding, public cloud hosts, tunnels). It is not built for that.

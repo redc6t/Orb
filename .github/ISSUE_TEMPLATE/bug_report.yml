@@ -30,8 +30,8 @@ body:
         - Car
         - Garage display
         - Log / export / import / replay
-        - PLTD connection
-        - BTTM connection
+        - Agile connection
+        - Sentinel connection
         - UDP input
         - Server / startup
         - Other

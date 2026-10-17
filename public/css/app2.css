@@ -1,5 +1,5 @@
 /* Pitwall Strategy Manager - Mullaloo Motorsport Engineering
-   Design rules (ISA-101 style, adapted to the PLTD/BTTM dark theme):
+   Design rules (ISA-101 style, adapted to Agile/Sentinel dark theme):
    - neutral greys for structure and normal values; colour only for state (warn / critical / fuel / flag)
    - one big coloured element per screen at most: the call
    - bars with limits instead of bare numbers where a limit exists
@@ -56,7 +56,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .role-engineer { color: var(--cyan); border-color: #0f5965; }
 .icon-btn { background: var(--well); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; font-size: .72em; color: var(--sub); cursor: pointer; }
 
-/* car state chip (PLTD colours, used only here and on the map) */
+/* car state chip (Agile colours, used only here and on the map) */
 .cs { padding: 2px 9px; border-radius: 4px; font-weight: 700; font-size: .82em; display: inline-block; white-space: nowrap; }
 .cs-RUNNING { color: var(--text2); border: 1px solid var(--line2); } .cs-PITENTRY { background: #3d2600; color: #FFA500; }
 .cs-PITS { background: #0b2b3a; color: var(--pits); } .cs-PITEXIT { background: #3a3200; color: var(--yellow); }
@@ -167,7 +167,7 @@ svg.minimap text.turn { fill: #9aa0aa; font-size: 9px; font-weight: 700; font-fa
 .t.cold { color: var(--dim); } .t.hot { color: var(--amber); } .t.over { color: var(--red); }
 @media (prefers-reduced-motion: no-preference) { .t.over { animation: blink .8s steps(2) infinite; } }
 @keyframes blink { 50% { opacity: .3; } }
-/* BTTM full colour bands for the detailed Car tab */
+/* Sentinel full colour bands for the detailed Car tab */
 .b0 { color: #2196F3; } .b1 { color: var(--green); } .b2 { color: var(--yellow); } .b3, .b4 { color: var(--red); }
 
 /* ---------------- feed */
@@ -328,8 +328,8 @@ label.f[data-tip] { text-decoration: underline dotted #4a4d53; text-underline-of
 .msecs { display: flex; gap: 2px; flex-wrap: wrap; }
 .msec { flex: 1 0 10px; min-width: 8px; height: 12px; border-radius: 2px; }
 .msec.cur { outline: 2px solid #fff; outline-offset: -1px; }
-.pltd-strip { grid-template-columns: repeat(4, 1fr); row-gap: 10px; }
-.pltd-strip .v { font-size: 1.35em; }
+.agile-strip { grid-template-columns: repeat(4, 1fr); row-gap: 10px; }
+.agile-strip .v { font-size: 1.35em; }
 .mscs { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 3px; }
 .msc { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 2px 0; border-radius: 3px; }
 .msc .bar { display: block; width: 100%; height: 16px; border-radius: 2px; }

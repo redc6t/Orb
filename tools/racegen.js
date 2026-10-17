@@ -15,7 +15,7 @@ function generate(config, opts) {
   const P = E.params(s);
   const emit = (ts, type, payload, src) => { const e = { seq: ++seq, ts: Math.round(ts), type, payload: payload || {}, by: src || 'sim', src: src || null }; events.push(e); R.apply(s, e); return e; };
   const cap = P.capacity;
-  // BTTM peaks per lap from their own generator, so the race itself stays the same for a given seed
+  // Sentinel peaks per lap from their own generator, so the race itself stays the same for a given seed
   const rt = rng((o.seed || 7) * 31 + 1);
   let stintLaps = 0;
   const peaks = sc => {
@@ -42,7 +42,7 @@ function generate(config, opts) {
     const stopPlan = box ? d.nextStop : null;
     if (!stopPlan) {
       t += ms; fuel -= (sc ? o.trueLph * 0.6 : o.trueLph) * ms / 3600e3; lap++;
-      emit(t, 'lap', { n: lap, ms: Math.round(ms + (pittedNext ? pittedNext : 0)), pitted: !!pittedNext, peaks: peaks(sc) }, 'pltd');
+      emit(t, 'lap', { n: lap, ms: Math.round(ms + (pittedNext ? pittedNext : 0)), pitted: !!pittedNext, peaks: peaks(sc) }, 'agile');
       pittedNext = false;
       continue;
     }
@@ -50,29 +50,29 @@ function generate(config, opts) {
     const inMs = ms * 0.8;
     t += inMs; fuel -= o.trueLph * inMs / 3600e3;
     const lapStart = t - inMs;
-    emit(t, 'carstate', { cs: 'PIT ENTRY' }, 'pltd');
-    t += 25e3; emit(t, 'carstate', { cs: 'PITS' }, 'pltd');
+    emit(t, 'carstate', { cs: 'PIT ENTRY' }, 'agile');
+    t += 25e3; emit(t, 'carstate', { cs: 'PITS' }, 'agile');
     const space = cap - fuel;
     let add = 0;
     if (stopPlan.add > 0) {
       add = stopPlan.brim ? space : Math.min(stopPlan.add, space);
-      t += 10e3; emit(t, 'carstate', { cs: 'FUELLING' }, 'pltd');
+      t += 10e3; emit(t, 'carstate', { cs: 'FUELLING' }, 'agile');
       const fuelMs = Math.max(P.fuelMinMs + 15e3, (add / 25 + 1) * 60e3);
       t += fuelMs;
       fuel += add;
-      emit(t, 'carstate', { cs: 'PITS' }, 'pltd');
+      emit(t, 'carstate', { cs: 'PITS' }, 'agile');
     } else {
       t += Math.max(P.mandMinMs + 10e3, 40e3);
     }
     const brim = stopPlan.brim || (add > 0 && add >= space - 0.5);
     emit(t, 'stop.service', { fuelAdded: Math.round(add * 10) / 10, brimmed: brim, capacityL: cap, driverIn: stopPlan.driverIn, cans: stopPlan.cans }, 'engineer');
     if (stopPlan.change) t += 30e3;
-    t += 20e3; emit(t, 'carstate', { cs: 'PIT EXIT' }, 'pltd');
-    t += 3e3; emit(t, 'carstate', { cs: 'RUNNING' }, 'pltd');
+    t += 20e3; emit(t, 'carstate', { cs: 'PIT EXIT' }, 'agile');
+    t += 3e3; emit(t, 'carstate', { cs: 'RUNNING' }, 'agile');
     // the rest of the lap after pit exit
     const rest = ms * 0.25; t += rest; fuel -= o.trueLph * rest / 3600e3; lap++;
     if (stopPlan.change) stintLaps = 0;
-    emit(t, 'lap', { n: lap, ms: Math.round(t - lapStart), pitted: true, peaks: peaks(false) }, 'pltd');
+    emit(t, 'lap', { n: lap, ms: Math.round(t - lapStart), pitted: true, peaks: peaks(false) }, 'agile');
   }
   return { events, state: s, trueFuel: fuel, minTrueFuel: minTrue };
 }

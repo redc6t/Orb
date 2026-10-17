@@ -2,7 +2,7 @@
 rem Stops any pit wall server or simulator still running in the background
 rem (for example one left over from a closed window or a Claude session).
 rem Only Node.js processes holding the pit wall ports are stopped:
-rem   TCP 8080 server, 8081 PLTD sim, 8082 BTTM sim, UDP 47800 telemetry.
+rem   TCP 8080 server, 8081 Agile sim, 8082 Sentinel sim, UDP 47800 telemetry.
 rem   stop-pitwall.bat [nopause]
 cd /d "%~dp0"
 echo Looking for a pit wall server or simulator still running...

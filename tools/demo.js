@@ -2,7 +2,7 @@
 // Builds a demo weekend so every panel has data:
 //   BEERS 36h at Collie, team Mitsukitty, Lancer, 6 drivers + 2 engineers, practice done, race running for 6 h.
 //   node tools/demo.js [--hours 6]   then   npm start   and   npm run sim
-// Devices point at the local simulator (PLTD 127.0.0.1:8081, BTTM 127.0.0.1:8082).
+// Devices point at the local simulator (Agile 127.0.0.1:8081, Sentinel 127.0.0.1:8082).
 const path = require('path');
 const fs = require('fs');
 const Store = require('../lib/store');
@@ -38,7 +38,7 @@ cfg.car.tanks.confirmed = true;
 cfg.sessions[0].plannedStart = new Date(pracStart).toISOString();
 cfg.sessions[1].plannedStart = new Date(pracStart + 90 * 60e3).toISOString();
 cfg.crewPolicy.shiftH = 6;
-cfg.devices = { pltd: { enabled: true, host: '127.0.0.1:8081' }, bttm: { enabled: true, host: '127.0.0.1:8082', pollMs: 1000 }, udp: { enabled: true, port: 47800 } };
+cfg.devices = { agile: { enabled: true, host: '127.0.0.1:8081' }, sentinel: { enabled: true, host: '127.0.0.1:8082', pollMs: 1000 }, udp: { enabled: true, port: 47800 } };
 
 // --- practice: 12 laps, a fuel check, then the race generated closed-loop by the engine
 const events = [];
@@ -47,7 +47,7 @@ const push = (ts, type, payload, by) => { events.push({ seq: ++seq, ts: Math.rou
 push(pracStart - 600e3, 'note', { text: 'Demo weekend generated' });
 push(pracStart, 'session.start', { sessionId: 'prac', startFuelL: 40, driverId: 'd1', tyreSetId: 'T1' });
 let t = pracStart;
-for (let i = 1; i <= 12; i++) { t += (93 + Math.random() * 3) * 1000; push(t, 'lap', { n: i, ms: Math.round((93 + Math.random() * 3) * 1000), pitted: false }, 'pltd'); }
+for (let i = 1; i <= 12; i++) { t += (93 + Math.random() * 3) * 1000; push(t, 'lap', { n: i, ms: Math.round((93 + Math.random() * 3) * 1000), pitted: false }, 'agile'); }
 push(t + 60e3, 'session.end', { sessionId: 'prac' });
 push(t + 5 * 60e3, 'fuel.check', { litres: 34, weight: 0.5, note: 'after practice' });
 push(t + 6 * 60e3, 'tyre.measure', { setId: 'T1', depths: [6.9, 6.9, 7.0, 7.0], note: 'after practice' });
