@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting. For a security problem, do not use this form: see [SECURITY.md](https://github.com/redc6t/PWSM_Pit_Wall_Stategy_Manager/blob/main/SECURITY.md).
+        Thanks for reporting. For a security problem, do not use this form: see [SECURITY.md](https://github.com/redc6t/Orb/blob/main/SECURITY.md).
   - type: input
     id: version
     attributes:

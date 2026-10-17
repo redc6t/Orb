@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Profiles live in `rules/` as JSON. If you already wrote one, a pull request is even better: see [CONTRIBUTING.md](https://github.com/redc6t/PWSM_Pit_Wall_Stategy_Manager/blob/main/CONTRIBUTING.md#adding-a-rules-profile).
+        Profiles live in `rules/` as JSON. If you already wrote one, a pull request is even better: see [CONTRIBUTING.md](https://github.com/redc6t/Orb/blob/main/CONTRIBUTING.md#adding-a-rules-profile).
   - type: input
     id: series
     attributes:

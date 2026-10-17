@@ -1,9 +1,9 @@
 'use strict';
-// Fake Agile + Sentinel on this machine so the Pit Wall can be exercised without the car. Track: Collie Motorplex long circuit.
-//   node tools/simulate.js [--lap 92] [--fuelmin 8] [--agile 8081] [--sentinel 8082] [--startLap N]
+// Fake Agile + Sentinel on this machine so Orb can be exercised without the car. Track: Collie Motorplex long circuit.
+//   node tools/simulate.js [--lap 92] [--fuelmin 8] [--agile 8081] [--sentinel 8082] [--startLap N] [--orb http://127.0.0.1:8080]
 // Point the weekend devices at Agile 127.0.0.1:8081 and Sentinel 127.0.0.1:8082 (the demo does this).
 // The simulated driver obeys the pit board: any message containing BOX pits at the end of the lap.
-// Raising SAFETY CAR / YELLOW / RED from the Pit Wall slows the car (flags mirror to Agile).
+// Raising SAFETY CAR / YELLOW / RED from Orb slows the car (flags mirror to Agile).
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -47,7 +47,7 @@ function setCs(cs) { if (car.cs !== cs) { car.cs = cs; console.log(new Date().to
 function tick() {
   const now = Date.now(), fr = (now - car.posStart) / car.curLapMs;
   if (car.pit) {
-    // the simulated crew follows the Pit Wall: start pouring on FUEL ON, fuel only if planned or recorded, stop fuelling when the engineer
+    // the simulated crew follows Orb: start pouring on FUEL ON, fuel only if planned or recorded, stop fuelling when the engineer
     // presses FUEL STOP COMPLETED, leave when he presses PIT OUT; untouched stops use default timings
     const p = car.pit, t = now - p.t0, gs = pitStatus || {};
     if (p.phase === 'entry') { setCs('PIT ENTRY'); p.laneIdx = LANE_BOX * Math.min(1, t / 25000); if (t >= 25000) { p.phase = 'box'; p.at = now; } }
@@ -153,7 +153,7 @@ const agile = http.createServer((req, res) => {
 });
 wss = new WebSocketServer({ server: agile, path: '/ws' });
 wss.on('connection', ws => {
-  console.log('Agile sim: Pit Wall connected');
+  console.log('Agile sim: Orb connected');
   ws.on('message', raw => {
     let m; try { m = JSON.parse(raw.toString()); } catch (e) { return; }
     if (m.t === 'pitstate') ws.send(JSON.stringify(Object.assign({ t: 'flagstate' }, car.flags)));
@@ -178,10 +178,11 @@ wss.on('connection', ws => {
 agile.listen(AGILE_PORT, '127.0.0.1', () => console.log('Agile sim  ws://127.0.0.1:' + AGILE_PORT + '/ws  (lap ' + LAP_S + ' s, fuel stop ' + FUEL_MIN + ' min, starting lap ' + car.lap + ')'));
 setInterval(tick, 100);
 let pitStatus = null;
-const PITWALL = arg('pitwall', 'http://127.0.0.1:' + (process.env.PORT || 8080));
+// --pitwall is the pre-2.2.10 name of --orb, still accepted
+const ORB = arg('orb', arg('pitwall', null)) || ('http://127.0.0.1:' + (process.env.PORT || 8080));
 setInterval(() => {
   if (!car.pit && !car.boxReq) { pitStatus = null; return; }
-  http.get(PITWALL + '/api/sim/stop', r => { let b = ''; r.on('data', c => b += c); r.on('end', () => { try { pitStatus = JSON.parse(b); } catch (e) { /* ignore */ } }); }).on('error', () => {});
+  http.get(ORB + '/api/sim/stop', r => { let b = ''; r.on('data', c => b += c); r.on('end', () => { try { pitStatus = JSON.parse(b); } catch (e) { /* ignore */ } }); }).on('error', () => {});
 }, 1000);
 
 // ------------------------------------------------------------------ fake Sentinel

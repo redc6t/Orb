@@ -1,4 +1,4 @@
-/* Pit Wall UI helpers */
+/* Orb UI helpers */
 (function () {
   'use strict';
   var U = {};

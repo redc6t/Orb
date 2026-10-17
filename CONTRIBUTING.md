@@ -1,6 +1,6 @@
-# Contributing to Pitwall Strategy Manager
+# Contributing to Orb - Pit Wall Strategy Manager
 
-Thanks for helping. Pitwall Strategy Manager is built for club and endurance teams, and the most useful contributions come from people who have used it on a real pit wall: bug reports from a race weekend, new series rule profiles, track presets and fixes.
+Thanks for helping. Orb is built for club and endurance teams, and the most useful contributions come from people who have used it on a real pit wall: bug reports from a race weekend, new series rule profiles, track presets and fixes.
 
 By taking part you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
@@ -8,9 +8,9 @@ By taking part you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 | You have... | Do this |
 |---|---|
-| Found a bug | Open a [bug report](https://github.com/redc6t/PWSM_Pit_Wall_Stategy_Manager/issues/new?template=bug_report.yml). Attach the weekend export from **Log** if you can. |
-| An idea or a missing feature | Open a [feature request](https://github.com/redc6t/PWSM_Pit_Wall_Stategy_Manager/issues/new?template=feature_request.yml) and describe the race situation it would help with. |
-| A rules profile for your series | Open a [rules profile request](https://github.com/redc6t/PWSM_Pit_Wall_Stategy_Manager/issues/new?template=rules_profile.yml), or send the JSON file as a pull request. |
+| Found a bug | Open a [bug report](https://github.com/redc6t/Orb/issues/new?template=bug_report.yml). Attach the weekend export from **Log** if you can. |
+| An idea or a missing feature | Open a [feature request](https://github.com/redc6t/Orb/issues/new?template=feature_request.yml) and describe the race situation it would help with. |
+| A rules profile for your series | Open a [rules profile request](https://github.com/redc6t/Orb/issues/new?template=rules_profile.yml), or send the JSON file as a pull request. |
 | A security problem | Do **not** open a public issue. See [SECURITY.md](SECURITY.md). |
 | An accessibility barrier | Open an issue and see [ACCESSIBILITY.md](ACCESSIBILITY.md). |
 
@@ -23,8 +23,8 @@ For anything larger than a small fix, open an issue first so we can agree on the
 You need [Node.js 18 or newer](https://nodejs.org). There is no build step and the only dependency (`ws`) is already in the repo.
 
 ```bash
-git clone https://github.com/redc6t/PWSM_Pit_Wall_Stategy_Manager.git
-cd PWSM_Pit_Wall_Stategy_Manager
+git clone https://github.com/redc6t/Orb.git
+cd Orb
 npm run demo
 npm start
 npm run sim
@@ -71,4 +71,4 @@ npm run sim
 
 ## License
 
-Pitwall Strategy Manager is released under the [GNU GPL v3](LICENSE). By submitting a contribution you agree that it is licensed under the same terms.
+Orb is released under the [GNU GPL v3](LICENSE). By submitting a contribution you agree that it is licensed under the same terms.

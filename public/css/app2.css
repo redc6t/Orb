@@ -1,4 +1,4 @@
-/* Pitwall Strategy Manager - Mullaloo Motorsport Engineering
+/* Orb - Pit Wall Strategy Manager - Mullaloo Motorsport Engineering
    Design rules (ISA-101 style, adapted to Agile/Sentinel dark theme):
    - neutral greys for structure and normal values; colour only for state (warn / critical / fuel / flag)
    - one big coloured element per screen at most: the call

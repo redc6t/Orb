@@ -1,9 +1,9 @@
 @echo off
 cd /d "%~dp0"
-call stop-pitwall.bat nopause
+call stop-orb.bat nopause
 echo.
 echo This replaces the DEMO weekend (your real weekends are not touched).
 node tools\demo.js
 echo.
-echo Now run start-pitwall.bat, then start-simulator.bat
+echo Now run start-orb.bat, then start-simulator.bat
 pause

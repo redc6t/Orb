@@ -1,5 +1,5 @@
 'use strict';
-/* Mullaloo Motorsport Engineering - Pit Wall server
+/* Mullaloo Motorsport Engineering - Orb server
  * node server.js  ->  http://localhost:8080 (engineer)  |  http://<laptop-ip>:8080 (view-only devices)
  * Fully offline: no CDN, no cloud. Only dependency: ws.
  */
@@ -19,7 +19,7 @@ const BRAND = require('./public/js/brand.js');
 const VERSION = require('./package.json').version;
 const ROOT = __dirname;
 const PUBLIC = path.join(ROOT, 'public');
-const DATA = process.env.PITWALL_DATA || path.join(ROOT, 'data');
+const DATA = process.env.ORB_DATA || process.env.PITWALL_DATA || path.join(ROOT, 'data');
 const store = new Store(DATA);
 const PORT = +process.env.PORT || store.settings.port || 8080;
 
@@ -33,7 +33,7 @@ function refreshIPs() {
 refreshIPs(); setInterval(refreshIPs, 30000);
 function clientIP(req) { return String(req.socket.remoteAddress || '').replace(/^::ffff:/, ''); }
 // Only the host laptop (any of its own addresses) or explicitly listed hosts may change anything.
-function isEngineer(req) { const ip = clientIP(req); if (process.env.PITWALL_ENGINEER === 'loopback') return ip === '127.0.0.1' || ip === '::1'; return localIPs.has(ip) || (store.settings.engineerHosts || []).includes(ip); }
+function isEngineer(req) { const ip = clientIP(req); if ((process.env.ORB_ENGINEER || process.env.PITWALL_ENGINEER) === 'loopback') return ip === '127.0.0.1' || ip === '::1'; return localIPs.has(ip) || (store.settings.engineerHosts || []).includes(ip); }
 
 // ------------------------------------------------------------------ actions
 const ACTIONS = new Set(['setup.update', 'session.start', 'session.end', 'flag.set', 'carstate', 'lap', 'stop.service', 'fuel.check', 'fuel.refuel',
@@ -184,7 +184,7 @@ const server = http.createServer(async (req, res) => {
       const id = url.searchParams.get('id') || store.eventId;
       if (!id) return send(res, 404, { error: 'no event' });
       const b = store.bundle(id);
-      const name = String((b.config && b.config.name) || id).replace(/[^a-z0-9]+/gi, '_') + '.pitwall.json';
+      const name = String((b.config && b.config.name) || id).replace(/[^a-z0-9]+/gi, '_') + '.orb.json';
       return send(res, 200, JSON.stringify(b), 'application/json', { 'Content-Disposition': 'attachment; filename="' + name + '"' });
     }
     if (p === '/api/log.csv') {

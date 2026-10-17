@@ -13,7 +13,7 @@ const { generate } = require('./racegen');
 
 const arg = (k, d) => { const i = process.argv.indexOf('--' + k); return i > 0 ? process.argv[i + 1] : d; };
 const HOURS = +arg('hours', 6);
-const DATA = process.env.PITWALL_DATA || path.join(__dirname, '..', 'data');
+const DATA = process.env.ORB_DATA || process.env.PITWALL_DATA || path.join(__dirname, '..', 'data');
 const store = new Store(DATA);
 
 // Team Mitsukitty. Fuel operator = fire attendant + jerry can holder (refueller) + refueller assistant.

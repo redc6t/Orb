@@ -1,10 +1,10 @@
-/* Mullaloo Motorsport Engineering - Pit Wall
+/* Mullaloo Motorsport Engineering - Orb
  * Strategy engine. Pure function of (state, now, whatIf). No I/O.
  * Units: time in ms (absolute epoch unless named *Ms durations), fuel in litres, rates in L/h.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.PWEngine = factory();
+  else root.OrbEngine = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 

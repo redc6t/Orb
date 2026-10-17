@@ -1,7 +1,7 @@
 /* Race weekend setup: first-run form, later edits are logged as setup.update events. */
 (function () {
   'use strict';
-  var U = window.U, R = window.PWReducer;
+  var U = window.U, R = window.OrbReducer;
   var esc = U.esc;
   var ROLES = ['driver', 'mechanic', 'refueller', 'assistant', 'cutoff', 'pump', 'fire', 'raceceiver', 'engineer', 'timing', 'other'];
   var S = { draft: null, mode: 'new', app: null, baseline: null, saveCar: true };
@@ -121,7 +121,7 @@
       inp('devices.sentinel.enabled', 'Sentinel', 'checkbox') + inp('devices.sentinel.host', 'Sentinel IP') + inp('devices.sentinel.pollMs', 'Sentinel poll (ms)', 'number') +
       inp('devices.udp.enabled', 'UDP input', 'checkbox') + inp('devices.udp.port', 'UDP port', 'number') + '</div>';
     h += '<div class="small muted" style="margin-top:6px">The laptop must be on the same network as the devices (VDG / MME_AP, 192.168.0.x). Agile: WebSocket ws://IP/ws. Sentinel: HTTP /data.</div>';
-    if (eng) h += '<div class="section-title" style="margin-top:14px">Branding</div><div class="row"><img src="/branding/logo?v=' + Date.now() + '" style="width:48px;height:48px;border-radius:8px;background:#0e0e0e;object-fit:contain"><label class="f" style="flex:1">Logo (default: ' + esc(window.PWBrand.line) + ' - upload PNG/SVG to replace)<input id="su-logo" type="file" accept="image/png,image/svg+xml,image/jpeg"></label><button class="btn sm" data-sact="logoreset" style="align-self:flex-end">Use default logo</button></div>';
+    if (eng) h += '<div class="section-title" style="margin-top:14px">Branding</div><div class="row"><img src="/branding/logo?v=' + Date.now() + '" style="width:48px;height:48px;border-radius:8px;background:#0e0e0e;object-fit:contain"><label class="f" style="flex:1">Logo (default: ' + esc(window.OrbBrand.line) + ' - upload PNG/SVG to replace)<input id="su-logo" type="file" accept="image/png,image/svg+xml,image/jpeg"></label><button class="btn sm" data-sact="logoreset" style="align-self:flex-end">Use default logo</button></div>';
     h += '</div>';
 
     var w = warnings();
@@ -259,5 +259,5 @@
     U.toast('Setup saved: ' + Object.keys(patch).join(', '), 'info');
   }
 
-  window.PWSetup = S;
+  window.OrbSetup = S;
 })();

@@ -1,6 +1,6 @@
 # Accessibility
 
-Pitwall Strategy Manager is used by engineers, crew and drivers who are tired, in bright sun or a dark garage, wearing gloves or a helmet, and reading screens from across a garage. We want it to work for as many people as possible, including people with disabilities.
+Orb is used by engineers, crew and drivers who are tired, in bright sun or a dark garage, wearing gloves or a helmet, and reading screens from across a garage. We want it to work for as many people as possible, including people with disabilities.
 
 ## Our commitment
 
@@ -40,7 +40,7 @@ Pitwall Strategy Manager is used by engineers, crew and drivers who are tired, i
 
 If something stops you, or someone on your team, from using the app, please tell us:
 
-1. Open an [issue](https://github.com/redc6t/PWSM_Pit_Wall_Stategy_Manager/issues/new?template=bug_report.yml) and put **Accessibility** at the start of the title.
+1. Open an [issue](https://github.com/redc6t/Orb/issues/new?template=bug_report.yml) and put **Accessibility** at the start of the title.
 2. Describe what you were trying to do, which screen you were on, and what got in the way.
 3. Include your browser, device and any assistive technology you use (screen reader, magnifier, switch, high-contrast mode).
 

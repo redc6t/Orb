@@ -12,7 +12,7 @@ Only the latest release receives fixes. Please update before reporting.
 
 ## Security model
 
-Pitwall Strategy Manager is designed for a **closed, trusted local network** at the track, with no internet connection. Knowing the model helps decide whether something is a vulnerability:
+Orb is designed for a **closed, trusted local network** at the track, with no internet connection. Knowing the model helps decide whether something is a vulnerability:
 
 - The server listens on the local network (port 8080 by default) so phones, tablets and TVs can view it. It has **no user accounts and no passwords**.
 - Only the laptop running the server (`localhost`) and the addresses listed in `engineerHosts` in `data/settings.json` can change the race. Every other client is view-only and the server rejects its changes.
@@ -32,7 +32,7 @@ Examples of what we treat as a vulnerability:
 
 Please **do not open a public issue** for a security problem.
 
-Report it privately through GitHub: go to the repository's **Security** tab and choose **Report a vulnerability** ([direct link](https://github.com/redc6t/PWSM_Pit_Wall_Stategy_Manager/security/advisories/new)).
+Report it privately through GitHub: go to the repository's **Security** tab and choose **Report a vulnerability** ([direct link](https://github.com/redc6t/Orb/security/advisories/new)).
 
 Include:
 

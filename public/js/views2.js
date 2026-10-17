@@ -1,9 +1,9 @@
-/* Pitwall Strategy Manager views.
+/* Orb views.
    Hierarchy (ISA-101 style): Race = overview (L1) | Plan, Team, Car = areas (L2) | detail in-place (L3) | Log = diagnostics (L4).
    Rule: every datum has one home. The status bar carries lap, car state, flag and clocks; nothing below repeats them. */
 (function () {
   'use strict';
-  var U = window.U, E = window.PWEngine;
+  var U = window.U, E = window.OrbEngine;
   var V = {}, esc = U.esc, MIN = 60000, HOUR = 3600000;
 
   function name(ctx, id) { return id ? E.memberName(ctx.s, id) : '-'; }
@@ -1111,5 +1111,5 @@
     return { id: 'export', html: card('Weekend files', body) };
   }
 
-  window.PWViews = V;
+  window.OrbViews = V;
 })();

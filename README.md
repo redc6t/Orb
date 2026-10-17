@@ -1,4 +1,4 @@
-# Pitwall Strategy Manager
+# Orb - Pit Wall Strategy Manager
 
 *by Mullaloo Motorsport Engineering*
 
@@ -7,11 +7,11 @@
 ![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)
 ![Node.js 18+](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)
 ![Runs offline](https://img.shields.io/badge/internet-not%20required-lightgrey.svg)
-![Version](https://img.shields.io/badge/version-2.2.8-informational.svg)
+![Version](https://img.shields.io/badge/version-2.2.10-informational.svg)
 
 ![The Race tab during a 36 h race: the call, fuel on board, the driver's stint, the next stop and the live track map](docs/screenshots/race.png)
 
-> **Free and open source.** Pitwall Strategy Manager is released under the [GNU GPL v3](LICENSE). Use it at no cost, and customise it for your team, your car and your events. See [License](#license).
+> **Free and open source.** Orb is released under the [GNU GPL v3](LICENSE). Use it at no cost, and customise it for your team, your car and your events. See [License](#license).
 
 ---
 
@@ -33,7 +33,7 @@
 
 ## What it does
 
-Pitwall Strategy Manager answers, every second, the questions a pit wall asks during a long race:
+Orb answers, every second, the questions a pit wall asks during a long race:
 
 | Question | What the app gives you |
 |---|---|
@@ -52,7 +52,7 @@ It works with nothing but a keyboard. Add the Mullaloo Motorsport Engineering in
 **You need:** a Windows 10/11 laptop and [Node.js 18 or newer (LTS)](https://nodejs.org). The one dependency (`ws`) is already in the repo, so nothing else is downloaded.
 
 1. **Get the code.** Download the ZIP from GitHub (green **Code** button, **Download ZIP**) and unzip it, or `git clone` the repository.
-2. **Start the server.** Double-click `start-pitwall.bat`. Your browser opens `http://localhost:8080`, and the console prints the address other devices can use, for example `http://192.168.0.23:8080`.
+2. **Start the server.** Double-click `start-orb.bat`. Your browser opens `http://localhost:8080`, and the console prints the address other devices can use, for example `http://192.168.0.23:8080`.
 3. **Allow the firewall prompt.** The first time, Windows asks whether Node.js may use the network: allow **Private networks**.
 4. **Create your race weekend.** The first launch opens **Setup**. Fill it in and press **Create race weekend**. Restarting the server resumes the weekend automatically.
 
@@ -67,7 +67,7 @@ npm start
 The demo builds a 36-hour race that has been running for 6 hours, with laps, stops, a Safety Car, car issues and a full crew. A simulator then plays the car: it laps, obeys the pit board, and drives the pit lane when you call it in.
 
 1. Double-click `make-demo.bat` (it only replaces the DEMO weekend; your real weekends are not touched). It first stops any pit wall server or simulator still running in the background, so the new demo is not hidden behind an old one.
-2. Double-click `start-pitwall.bat`.
+2. Double-click `start-orb.bat`.
 3. Double-click `start-simulator.bat` (a simulated Agile lap timer and Sentinel brake and tyre monitor, so no hardware is needed).
 4. When the call says **BOX**, press **BOX BOX** in Race control. The car pits at the end of the lap, and the Race tab switches to pit mode.
 
@@ -214,7 +214,7 @@ npm test
 | The console window closes straight away | Node.js is missing or older than 18. Install the current LTS from nodejs.org. |
 | Phones and tablets cannot open the page | The firewall blocked Node.js (allow it on **Private networks**), the address is wrong (use the one printed in the console, not `localhost`), or the device is on a different Wi-Fi. |
 | The laptop itself shows **VIEW ONLY** | You opened it through its network address. On the server laptop use `http://localhost:8080`. |
-| "Reconnecting to pit wall server" banner | The server stopped or the Wi-Fi dropped. Restart `start-pitwall.bat`; the weekend resumes where it was. |
+| "Reconnecting to Orb server" banner | The server stopped or the Wi-Fi dropped. Restart `start-orb.bat`; the weekend resumes where it was. |
 | Changes are not accepted | Replay is running (press **Back to live**) or the device is view-only. |
 | Cards are in odd places, or one seems missing | The cards were rearranged in this browser. Press **Reset layout** at the bottom of the Race or Car tab. A card that only shows during a stop comes back at the next stop. |
 | Race tab columns are stacked | The window is narrower than about 1400 px. Maximise the browser or zoom out (Ctrl and minus). |
@@ -226,7 +226,7 @@ npm test
 | A handshake step stays amber | The geofence saw it and you have not confirmed it. Press the step's button, or leave it: it becomes AUTO once the car moves on. |
 | Simulator says "address in use" | Another simulator is still running. Close it, or start it with `--agile` / `--sentinel` on other ports (the old `--pltd` / `--bttm` still work) and update **Setup**. |
 | Demo clocks look wrong | The demo was built a while ago. Run `make-demo.bat` again. |
-| The page shows an old or mixed-up weekend after a restart, or the console says `EADDRINUSE` | An earlier server is still running in the background (closing its window or the app that started it does not always stop it). Double-click `stop-pitwall.bat`, then `start-pitwall.bat` again. |
+| The page shows an old or mixed-up weekend after a restart, or the console says `EADDRINUSE` | An earlier server is still running in the background (closing its window or the app that started it does not always stop it). Double-click `stop-orb.bat`, then `start-orb.bat` again. |
 
 ## Gotchas for first-time users
 
@@ -236,7 +236,7 @@ npm test
 - **Tag roles honestly.** The app only assigns people to refuel duties if they are tagged with that role and available. It never fills a gap silently: an empty slot shows **UNASSIGNED** with the reason.
 - **Durations always carry units.** `1h 55m` is a duration, `16:40` is a clock time. Switch to 12-hour clocks in **Setup** if you prefer.
 - **Rules are data, not PDFs.** There is no importer for organiser PDFs. Copy a JSON profile in `rules/` and edit it to match your series' regulations; check the numbers before race day.
-- **One server at a time.** Two copies of the app (or the old 1.x version) fight over port 8080 and the `data` folder. Close one first, or double-click `stop-pitwall.bat` to stop any that are left running.
+- **One server at a time.** Two copies of the app (or the old 1.x version) fight over port 8080 and the `data` folder. Close one first, or double-click `stop-orb.bat` to stop any that are left running.
 - **The race clock keeps running under a red flag** (a profile setting). Change `clock.stopsOnRed` in your rules file if your series stops it.
 - **Replay has no map.** GPS positions are live only; they are not written to the log.
 - **Back up the `data` folder.** It is the whole race. Copy it to a USB stick at every driver change if you can.
@@ -247,10 +247,11 @@ The full [user manual (PDF)](Pitwall_Strategy_Manager_User_Manual_v2.2.3.pdf) co
 
 ## Release notes
 
+- **2.2.10:** the app is now called **Orb - Pit Wall Strategy Manager** (Orb for short), and the repository moves to [github.com/redc6t/Orb](https://github.com/redc6t/Orb); the old address redirects. The scripts are now `start-orb.bat` and `stop-orb.bat`, weekend exports are saved as `.orb.json`, and the data folder can be set with `ORB_DATA`. Everything saved before still works: `.pitwall.json` files import, `start-pitwall.bat`, `stop-pitwall.bat`, `PITWALL_DATA`, `PITWALL_ENGINEER` and the simulator's `--pitwall` still work, and each browser keeps its tab and card layout.
 - **2.2.9:** the in-car devices are renamed: the PLTD lap timer is now **Agile** and the BTTM monitor is now **Sentinel**, in the app, the Setup tab and the docs. Weekends, settings and card layouts saved with the old names load and connect as before (each weekend is moved to the new names the first time it opens), and the simulator still accepts `--pltd` / `--bttm`. Nothing changes on the devices.
 - **2.2.8:** simulator: sending BOX again while the driver is already called in no longer restarts his 20 s turn-in delay, so resending the pit board can no longer make him miss pit entry and run another lap.
 - **2.2.7:** Race Plan: every finished stint in the stint table gets a **+ auto-gen debrief** toggle. It opens a written recap of the stint as the engineer would give it: laps and time in the car, average, best and worst green-flag lap, consistency and drop-off, Safety Cars and flags, logged incidents, penalties and Sentinel alarms, peak brake and tyre temperature per corner, and the stop that ended it. Laps now carry the Sentinel peaks seen during them, so the debrief also works in replay; the demo race includes them.
-- **2.2.6:** new `stop-pitwall.bat` stops a pit wall server or simulator left running in the background (it only touches Node.js processes on the pit wall ports). `make-demo.bat` runs it first, so a stale server can no longer show an old weekend over the fresh demo.
+- **2.2.6:** new `stop-pitwall.bat` (now `stop-orb.bat`) stops a pit wall server or simulator left running in the background (it only touches Node.js processes on the pit wall ports). `make-demo.bat` runs it first, so a stale server can no longer show an old weekend over the fresh demo.
 - **2.2.5:** movable cards on the Race and Car tabs: drag a card by the 9-dot grip in its header and the other cards slide out of the way live. The layout is saved in that browser; Reset layout at the bottom of the page restores the default. Cards that appear during a stop (pit gate, fuelling, pit timers) slot in next to where they normally sit.
 - **2.2.4:** new README with a guided tour, troubleshooting and first-time gotchas; contributing guide, code of conduct, security policy, accessibility statement, and issue and pull request templates. No change to the app.
 - **2.2.3:** Car tab: live track map and a live timing card with micro-sectors; tyre sets moved to the top.
@@ -264,10 +265,10 @@ The full history is in the git log.
 
 ## License
 
-Pitwall Strategy Manager is **free and open source software**, released under the [GNU General Public License v3.0](LICENSE).
+Orb is **free and open source software**, released under the [GNU General Public License v3.0](LICENSE).
 
 You are welcome to use it at your events and customise it for your needs: add your series' rules, your tracks and your car, and adjust it to the way your team runs its pit wall. There is no fee and no account.
 
 The GPL asks one thing in return: if you **distribute** a modified version, share its source code under the same license so the next team can build on it too. Running a modified copy on your own pit wall needs nothing more.
 
-Pitwall Strategy Manager is designed and developed by Pietro Gambarin, **Mullaloo Motorsport Engineering**, alongside the [Agile](https://github.com/redc6t/Agile), [Sentinel](https://github.com/redc6t/Sentinel) and [CIRTS](https://github.com/redc6t/CIRTS) hardware. Contributions, bug reports and new rule profiles are welcome through GitHub issues and pull requests: see [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md). Report security problems privately as described in [SECURITY.md](SECURITY.md), and accessibility barriers as described in [ACCESSIBILITY.md](ACCESSIBILITY.md).
+Orb is designed and developed by Pietro Gambarin, **Mullaloo Motorsport Engineering**, alongside the [Agile](https://github.com/redc6t/Agile), [Sentinel](https://github.com/redc6t/Sentinel) and [CIRTS](https://github.com/redc6t/CIRTS) hardware. Contributions, bug reports and new rule profiles are welcome through GitHub issues and pull requests: see [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md). Report security problems privately as described in [SECURITY.md](SECURITY.md), and accessibility barriers as described in [ACCESSIBILITY.md](ACCESSIBILITY.md).

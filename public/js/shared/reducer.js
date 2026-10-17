@@ -1,11 +1,11 @@
-/* Mullaloo Motorsport Engineering - Pit Wall
+/* Mullaloo Motorsport Engineering - Orb
  * Shared reducer. Every state change is an event in an append-only log;
  * state = reduce(config, events). The server and every browser run this
  * exact file, so live view, replay and what-if can never disagree.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.PWReducer = factory();
+  else root.OrbReducer = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 

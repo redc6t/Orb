@@ -1,11 +1,14 @@
-/* Pit Wall client core */
+/* Orb client core */
 (function () {
   'use strict';
-  var U = window.U, R = window.PWReducer, E = window.PWEngine, V = window.PWViews, SU = window.PWSetup;
+  var U = window.U, R = window.OrbReducer, E = window.OrbEngine, V = window.OrbViews, SU = window.OrbSetup;
   var MIN = 60000;
-  var App = window.PWApp = {
+  // browser storage uses 'orb.*' keys; the tab and card layouts saved before 2.2.10 are under 'pw2.*' and move over on the next save
+  function lsGet(k) { try { var v = localStorage.getItem('orb.' + k); return v !== null ? v : localStorage.getItem('pw2.' + k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { if (v == null) localStorage.removeItem('orb.' + k); else localStorage.setItem('orb.' + k, v); localStorage.removeItem('pw2.' + k); } catch (e) { /* private mode */ } }
+  var App = window.OrbApp = {
     role: 'viewer', meta: null, config0: null, events: [], state: null, live: {}, devices: {}, offset: 0,
-    tab: (function () { var t = localStorage.getItem('pw2.tab'); return ['race', 'plan', 'fuel', 'plans', 'team', 'car', 'garage', 'log', 'setup'].indexOf(t) >= 0 ? t : 'race'; })(), whatIf: null, replay: null, logFilter: { type: 'nolaps' }, dirty: {}, formSeq: {}, ws: null, layoutKey: null, debrief: {}
+    tab: (function () { var t = lsGet('tab'); return ['race', 'plan', 'fuel', 'plans', 'team', 'car', 'garage', 'log', 'setup'].indexOf(t) >= 0 ? t : 'race'; })(), whatIf: null, replay: null, logFilter: { type: 'nolaps' }, dirty: {}, formSeq: {}, ws: null, layoutKey: null, debrief: {}
   };
   var viewEl = document.getElementById('view');
 
@@ -18,7 +21,7 @@
   };
   // the fuel stop selected on the Fuel Plan tab (by time, so it survives re-numbering as stops are completed)
   App.fuelSelTs = function () { var c = App.lastCtx, f = c && c.fp ? V.fuelSelected(c) : null; return f ? f.ts : null; };
-  App.goTab = function (t) { App.tab = t; try { localStorage.setItem('pw2.tab', t); } catch (e) { /* private mode */ } App.layoutKey = null; renderAll(true); };
+  App.goTab = function (t) { App.tab = t; lsSet('tab', t); App.layoutKey = null; renderAll(true); };
 
   /* ------------------------------------------------------------ connection */
   function connect() {
@@ -146,7 +149,7 @@
     document.getElementById('hdr-devices').innerHTML = [['Agile', dv.agile], ['Sentinel', dv.sentinel], ['UDP', dv.udp]].map(function (x) {
       return '<span class="dev" title="' + U.esc(x[0] + ': ' + ((x[1] && x[1].status) || 'disabled') + (x[1] && x[1].host ? ' ' + x[1].host : '')) + '"><span class="dot ' + st(x[1]) + '"></span>' + x[0] + '</span>';
     }).join('');
-    if (!s) { document.getElementById('hdr-team').textContent = window.PWBrand.product; document.getElementById('hdr-car').textContent = ''; return; }
+    if (!s) { document.getElementById('hdr-team').textContent = window.OrbBrand.short; document.getElementById('hdr-car').textContent = ''; return; }
     var cfg = s.config;
     document.getElementById('hdr-team').textContent = (cfg.team.carNumber ? '#' + cfg.team.carNumber + ' ' : '') + (cfg.team.name || 'Team');
     document.getElementById('hdr-car').textContent = [cfg.car.year, cfg.car.make, cfg.car.model].filter(Boolean).join(' ') + ' | ' + (cfg.track.name || '');
@@ -261,8 +264,8 @@
   // layouts saved before the device rename (2.2.9) still name the cards 'pltd' / 'bttm'
   var OLD_CARD = { pltd: 'agile', bttm: 'sentinel' };
   function renameCards(v) { return Array.isArray(v) ? v.map(renameCards) : (OLD_CARD[v] || v); }
-  function loadCards(tab) { try { var v = JSON.parse(localStorage.getItem('pw2.cards.' + tab)); return Array.isArray(v) ? renameCards(v) : null; } catch (e) { return null; } }
-  function saveCards(tab, cols) { try { if (cols) localStorage.setItem('pw2.cards.' + tab, JSON.stringify(cols)); else localStorage.removeItem('pw2.cards.' + tab); } catch (e) { /* private mode */ } }
+  function loadCards(tab) { try { var v = JSON.parse(lsGet('cards.' + tab)); return Array.isArray(v) ? renameCards(v) : null; } catch (e) { return null; } }
+  function saveCards(tab, cols) { lsSet('cards.' + tab, cols ? JSON.stringify(cols) : null); }
   // insert item into list right after prev (when prev is there), otherwise at index i
   function placeAfter(list, item, prev, i, idOf) {
     var at = -1; if (prev != null) list.forEach(function (x, j) { if (idOf(x) === prev) at = j + 1; });
@@ -605,7 +608,7 @@
     replayjump: function (b) { var r = App.replay, t0 = App.events[0].ts, t1 = App.events[App.events.length - 1].ts; replayAt(Math.max(t0, Math.min(t1, r.t + +b.getAttribute('data-dt')))); App.formSeq.changed = true; renderAll(false); },
     activate: function (b) { fetch('/api/events/activate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: b.getAttribute('data-id') }) }); },
     'import': function () {
-      var f = document.getElementById('imp-file'); if (!f || !f.files[0]) return U.toast('Choose a .pitwall.json file', 'warn', null, false);
+      var f = document.getElementById('imp-file'); if (!f || !f.files[0]) return U.toast('Choose an .orb.json (or older .pitwall.json) file', 'warn', null, false);
       var fr = new FileReader();
       fr.onload = function () { fetch('/api/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: fr.result }).then(function (r) { return r.json(); }).then(function (j) { U.toast(j.error ? j.error : 'Weekend restored', j.error ? 'crit' : 'info'); }); };
       fr.readAsText(f.files[0]);
@@ -770,8 +773,8 @@
     this.setAttribute('aria-pressed', String(m)); this.textContent = m ? 'Sound off' : 'Sound on'; U.setMuted(m);
   });
   document.getElementById('modal').addEventListener('click', function (e) { if (e.target.id === 'modal') U.closeModal(); });
-  document.getElementById('brandprod').textContent = window.PWBrand.product;
-  document.getElementById('brandline').textContent = window.PWBrand.line;
+  document.getElementById('brandprod').textContent = window.OrbBrand.product;
+  document.getElementById('brandline').textContent = window.OrbBrand.line;
   document.getElementById('logo').addEventListener('error', function () { this.src = '/assets/mullaloo-logo.png'; });
 
   connect();
