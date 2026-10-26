@@ -34,6 +34,7 @@ const raceStart = now - HOURS * 3600e3;
 const pracStart = raceStart - 3 * 3600e3;
 const cfg = D.makeConfig({ id: 'demo-collie-36h', name: 'DEMO - BEERS 36h Collie', rulesId: 'beers-v4-2025-02', formatId: '36h', trackId: 'collie-motorplex',
   members, teamName: 'Mitsukitty', raceStart: new Date(raceStart).toISOString(), expectedLapS: 92 });
+cfg.demo = true;   // the store moves it forward on open so time Orb is closed does not count
 cfg.car.tanks.confirmed = true;
 cfg.sessions[0].plannedStart = new Date(pracStart).toISOString();
 cfg.sessions[1].plannedStart = new Date(pracStart + 90 * 60e3).toISOString();

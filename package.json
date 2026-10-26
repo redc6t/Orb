@@ -1,6 +1,6 @@
 {
   "name": "orb",
-  "version": "2.2.10",
+  "version": "2.2.11",
   "description": "Mullaloo Motorsport Engineering - Orb - Pit Wall Strategy Manager server (offline, multi-client)",
   "main": "server.js",
   "private": true,
