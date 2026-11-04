@@ -52,7 +52,7 @@ npm run sim
 - **Engine code stays shared.** Anything in `public/js/shared/` must work in both Node.js and the browser without changes.
 - **Match the existing style.** Plain JavaScript, no framework, no transpiler. Follow the naming and formatting of the file you are editing.
 - **UI follows control-room practice.** Grey by default, colour only for state and alarms, durations always with units (`1h 55m`), clock times as `16:40`.
-- **Update the docs.** If you change something a user sees, update the README (and its release notes) and the tooltips in `public/js/tips.js`.
+- **Update the docs.** If you change something a user sees, update the README (and its release notes), the user manual source in `docs/manual/orb-user-manual.html` (then print it to PDF, see `docs/manual/README.md`) and the tooltips in `public/js/tips.js`.
 - **Bump the version** in `package.json` and the README badge for user-visible changes.
 
 ## Adding a rules profile

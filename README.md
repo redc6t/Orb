@@ -7,7 +7,7 @@
 ![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)
 ![Node.js 18+](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)
 ![Runs offline](https://img.shields.io/badge/internet-not%20required-lightgrey.svg)
-![Version](https://img.shields.io/badge/version-2.2.18-informational.svg)
+![Version](https://img.shields.io/badge/version-2.2.19-informational.svg)
 
 ![The Race tab during a 36 h race: the call, fuel on board, the driver's stint, the next stop and the live track map](docs/screenshots/race.png)
 
@@ -40,10 +40,13 @@ Orb answers, every second, the questions a pit wall asks during a long race:
 | **Should the car stop now?** | One call, recomputed every second: STAY OUT, WINDOW OPEN, BOX IN 3 LAPS ... NOTIFY DRIVER: BOX BOX. |
 | **How much fuel is in the car?** | A fuel model that learns the real burn from every brim fill and gauge reading, split into green-flag and Safety Car rates. |
 | **What is the plan to the flag?** | Stops, fuel loads and driver changes, kept legal against your series rules (stint limit, fuel stop minimum, mandatory stops, no refuelling under flags). |
-| **What if there is a Safety Car?** | Six side-by-side scenarios. Drag a stop or a Safety Car and the rest of the race re-plans live. |
+| **What if there is a Safety Car?** | Six side-by-side scenarios that follow what really happened. Drag a stop or a Safety Car and the rest of the race re-plans live; undo, redo, or clone a scenario into a branch to compare. |
+| **What about a red flag?** | A red flag neutralises the race: the car is held in the pits until the restart, with no burn, no stint time and no stop planned inside it. |
+| **Do we have enough fuel at the track?** | A suggested fuel stock to bring, then the stock left against the fuel still needed to finish, with an alert if it runs short. |
 | **Who does what at the next stop?** | Litres, jerry cans, the refuel crew by name and a step-by-step procedure for every fuel stop. |
 | **Who is fit to drive?** | Driver rotation, crew presence, rest and sleep, and alerts before anyone goes over their limits. |
 | **What happened?** | An append-only race log you can export, import on another laptop and replay through the whole app. |
+| **Can we prepare before race day?** | Save the weekend as a plan, rehearse on it with the simulator, and start a fresh copy on race day. |
 
 It works with nothing but a keyboard. Add the Mullaloo Motorsport Engineering in-car devices, the **[Agile](https://github.com/redc6t/Agile)** lap timer and the **[Sentinel](https://github.com/redc6t/Sentinel)** brake and tyre temperature and pressure monitor, and laps, pit lane entries, flags and temperatures arrive by themselves (see [Connecting devices](#connecting-devices)).
 
@@ -68,7 +71,7 @@ The demo builds a 36-hour race that has been running for 6 hours, with laps, sto
 
 1. Double-click `make-demo.bat` (it only replaces the DEMO weekend; your real weekends are not touched). It first stops any pit wall server or simulator still running in the background, so the new demo is not hidden behind an old one.
 2. Double-click `start-orb.bat`.
-3. Double-click `start-simulator.bat` (a simulated Agile lap timer and Sentinel brake and tyre monitor, so no hardware is needed).
+3. Double-click `start-simulator.bat` (a simulated Agile lap timer and Sentinel brake and tyre monitor, so no hardware is needed). The simulated car slows under flags, parks in the pits under a red flag (a stop in progress freezes until GREEN), and its brakes and tyres heat and cool like a real car's.
 4. When the call says **BOX**, press **BOX BOX** in Race control. The car pits at the end of the lap, and the Race tab switches to pit mode.
 
 From a terminal the same steps are `npm run demo`, `npm start` and `npm run sim`.
@@ -77,13 +80,19 @@ From a terminal the same steps are `npm run demo`, `npm start` and `npm run sim`
 
 ## A tour of the app
 
-The screenshots below come from the demo, with an invented team (**#27 Redline Endurance**), six drivers, two engineers and two mechanics.
+The screenshots below come from the demo (version 2.2.19): an invented team (**Mitsukitty**, a 2004-2005 Mitsubishi Lancer) with six drivers and two engineers, six hours into a 36-hour BEERS race at Collie.
 
 ### 1. Set up the weekend
 
 ![Setup: regulations, event, sessions and team members with their roles](docs/screenshots/setup.png)
 
 Pick the **rules profile** for your series, the track, the race length and the session times. Add every team member and tick the **roles** each one can do (driver, mechanic, refueller, fire attendant, radio, timing, engineer). The order of the drivers is the starting rotation. In **Team & car** set the tank sizes and the fuel baseline; the app refines the burn rate from real measurements as the race runs.
+
+![Setup: the suggested fuel stock to bring for the weekend](docs/screenshots/fuel-stock-setup.png)
+
+Under **Fuel stock for the weekend** Orb suggests how much fuel to bring: every session at the green-flag burn, plus a safety margin (10% by default) and the reserve, less what is already in the car, rounded up to whole cans. Press **Use the suggestion** or type what you actually bring.
+
+You can set the weekend up days early: **Save plan** in **Log > Weekend files** keeps it as it stood before its first session, and **Start a copy** on race day gives you a fresh weekend, even if you rehearsed on the original with the simulator.
 
 ### 2. Run the race from one screen
 
@@ -98,6 +107,10 @@ The **Race** tab has three columns, each with one job:
 That is the default layout. To change it, press and hold the grip (nine dots) at the right of any card's header and drag the card to another place or column: the other cards slide out of the way as you move, and a dashed outline shows where it will land. The layout is saved in that browser, so the engineer's laptop and the garage screen can each have their own. Cards that only appear during a stop come back where you last put them, so a pit stop no longer pushes the rest of the page around. **Reset layout** at the bottom of the page restores the default. The Car tab works the same way.
 
 The status strip at the top (time remaining, lap, car state, flag, device lights) never moves, whatever tab you are on.
+
+![Red flag during a fuel stop: the call reads RED FLAG and the stop freezes until GREEN](docs/screenshots/red-flag.png)
+
+A **red flag** neutralises the race. The plan holds the car in the pits until the assumed restart (20 minutes by default), with no fuel burn, no driving stint and no stop planned inside it, and the driver's stint clock pauses. The call reads **RED FLAG**, then **RESTART** while the car is still parked after green. The red pit visit never counts as a mandatory stop and gets no automatic service.
 
 ### 3. Call the car in and work the stop
 
@@ -117,23 +130,29 @@ Five minutes before a planned stop the call counts down (**BOX IN 3 LAPS**, 2, 1
 
 **Fuel Plan** shows only the fuel stops. Click one to see litres on arrival, litres to add, the jerry cans to bring, the crew by role and a timed, step-by-step procedure from "refuel crew to the fuel bay" to pit out. Change the litres of a stop and a preview shows how every later stop moves before you apply it.
 
+The **Fuel stock at the track** card shows the fuel brought, poured, bought and left against the fuel still needed to finish (the race through the live plan, so expected Safety Cars count). It turns amber when less than one can is spare and red, with an alert, when the stock will not last. Pit stop litres come off the stock on their own; **Log a fill outside a stop**, **Fuel bought** and **Recount stock** cover the rest.
+
 ### 6. Prepare for what might happen
 
 ![Scenarios: six what-if versions of the rest of the race side by side](docs/screenshots/scenarios.png)
 
 **Scenarios** keeps six versions of the rest of the race: clean, Safety Car, early SC plus a penalty, mechanical, chaos, driver down. Drag a stop or a Safety Car along a bar and everything after it re-plans while you drag. **Run this scenario** makes it the live strategy.
 
+- **Undo / Redo** on every scenario steps back and forward through its changes (up to 50). The history is in the race log, so every screen sees it and it survives a restart.
+- **Clone** copies a scenario as it is now into a branch drawn underneath it (B1 above, then B2 ...). A branch can be run, edited, reset to how it was cloned, and removed.
+- Every bar shows the same **real past**: flags (Safety Car, yellow, red), the red-flag park block and the stops made. A predicted Safety Car or red flag is used up by a real one; one that does not happen slides forward to its next likely spot, or is dropped if it no longer fits before the flag.
+
 ### 7. Look after the people
 
 ![Team: rotation, presence, hours on duty, drive stats and the shift plan](docs/screenshots/team.png)
 
-**Team** is one roster: rotation order, presence (available, driving, resting, sleeping, offline, flag duty, unavailable), hours on duty, time driven and best lap. Below it, the shift plan shows who drives, rests and sleeps across the whole race. The app raises a rest alert after too many hours on duty and summons the refuel crew by name five minutes before each fuel stop.
+**Team** is one roster: rotation order, presence (available, driving, resting, sleeping, offline, flag duty, unavailable), hours on duty, time driven and best lap. Below it, the shift plan shows who drives, rests and sleeps across the whole race. The app raises a rest alert after too many hours on duty and summons the refuel crew by name five minutes before each fuel stop. Click **edit** next to a name to open that person's shifts: the block happening right now is outlined in cyan and scrolled into view.
 
 ### 8. Watch the car
 
 ![Car: tyre sets, car issues, penalties, live timing and brake/tyre temperatures](docs/screenshots/car.png)
 
-**Car** holds the tyre sets with life bars, the car issue log (flag an issue for the next stop and it shows up on the stop's job list), penalties, live timing with micro-sectors, and brake, tyre and pressure readings with alarm colours.
+**Car** holds the tyre sets with life bars, the car issue log (flag an issue for the next stop and it shows up on the stop's job list), penalties, live timing with micro-sectors, and brake, tyre and pressure readings with alarm colours. A car issue logged from the Race tab's Attention & feed card shows up there, and here, straight away.
 
 ### 9. Put a screen in the garage
 
@@ -145,7 +164,7 @@ Open **Garage display** on a tablet or TV for the crew: the countdown to the nex
 
 ![Log: the event log, replay and weekend file export](docs/screenshots/log.png)
 
-Every change is written to an append-only log. **Log** lets you search it, export the weekend (setup plus full log) or a CSV, import a weekend on another laptop, and **replay** the race: every tab shows what the pit wall saw at that moment.
+Every change is written to an append-only log. **Log** lets you search it, export the weekend (setup plus full log) or a CSV, import a weekend on another laptop, and **replay** the race: every tab shows what the pit wall saw at that moment. **Saved plans** sit under the weekend files: save one with an optional note, then **Start a copy**, **Download** or **Delete** it (deleted plans go to `data/plans/deleted/`). Orb also saves an `_auto` plan the moment a weekend's first session starts.
 
 ## Connecting devices
 
@@ -190,6 +209,7 @@ data/cars/*.json                    car library, including learned fuel burn
 data/events/<id>/events.jsonl       the race log: every change, append-only
 data/events/<id>/config.json        the weekend as created
 data/plans/<date>_<time>_<name>.orb.json   saved plans: a weekend before its first session (Log > Weekend files)
+data/plans/deleted/                 plans you deleted, kept in case you want them back
 ```
 
 To prepare a weekend early, set it up, then click **Save plan** in **Log > Weekend files**. On race day, click **Start a copy** on that plan: you get a fresh weekend with the same team, rotation, shifts and car, even if you rehearsed on the original with the simulator.
@@ -225,6 +245,8 @@ npm test
 | Agile light is amber ("stale") | Connected, but no data for 3 s: weak Wi-Fi or a busy device. |
 | No track map or micro-sectors | Agile has not recorded its reference lap yet; it does so after the first clean lap. A live trail is drawn meanwhile. |
 | A refuel role shows **UNASSIGNED** | Nobody tagged with that role is available. Press **FIX** for one-click options, or tag more people in **Setup**. |
+| The fuel stock card reads "suggested, not set" or turns red | Set what you actually bring in **Setup > Fuel stock for the weekend**. Log fuel bought at the track with **Fuel bought**, and spills or part cans with **Recount stock**, on the Fuel Plan tab. |
+| A scenario change was a mistake | Press **Undo** on that scenario's row (**Redo** puts it back). **Reset** returns it to its original. |
 | The fuel estimate drifts | No fuel measurement for a long time. Log a gauge reading, or tick **Filled to brim** at the next fuel stop. |
 | A handshake step stays amber | The geofence saw it and you have not confirmed it. Press the step's button, or leave it: it becomes AUTO once the car moves on. |
 | Simulator says "address in use" | Another simulator is still running. Close it, or start it with `--agile` / `--sentinel` on other ports (the old `--pltd` / `--bttm` still work) and update **Setup**. |
@@ -240,16 +262,19 @@ npm test
 - **Durations always carry units.** `1h 55m` is a duration, `16:40` is a clock time. Switch to 12-hour clocks in **Setup** if you prefer.
 - **Rules are data, not PDFs.** There is no importer for organiser PDFs. Copy a JSON profile in `rules/` and edit it to match your series' regulations; check the numbers before race day.
 - **One server at a time.** Two copies of the app (or the old 1.x version) fight over port 8080 and the `data` folder. Close one first, or double-click `stop-orb.bat` to stop any that are left running.
-- **The race clock keeps running under a red flag** (a profile setting). Change `clock.stopsOnRed` in your rules file if your series stops it.
+- **The race clock keeps running under a red flag** (a profile setting). Change `clock.stopsOnRed` in your rules file if your series stops it. The plan assumes a restart after `strategy.redExpectMin` (20 min by default); once that time has passed it always allows at least 5 more minutes.
 - **Replay has no map.** GPS positions are live only; they are not written to the log.
 - **Back up the `data` folder.** It is the whole race. Copy it to a USB stick at every driver change if you can.
 
 ## Documentation
 
-The full [user manual (PDF)](Pitwall_Strategy_Manager_User_Manual_v2.2.3.pdf) covers every screen, the pit stop workflow, the fuel model and the planner in detail, plus a guided demo and a feedback template.
+The full [user manual (PDF)](Orb_User_Manual_v2.2.19.pdf) covers every screen, the pit stop workflow, the fuel model and the planner in detail, plus a guided demo and a feedback template. Its source is [docs/manual/orb-user-manual.html](docs/manual/orb-user-manual.html): edit it and print it to PDF as described in [docs/manual/README.md](docs/manual/README.md).
+
+Other documents: [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [SECURITY.md](SECURITY.md) and [ACCESSIBILITY.md](ACCESSIBILITY.md).
 
 ## Release notes
 
+- **2.2.19:** documentation only. The user manual is rebuilt for Orb 2.2.19 (the new name, Agile and Sentinel, and everything from 2.2.4 to 2.2.18: movable cards, stint debriefs, saved plans, fuel stock, the red flag, scenario Undo/Redo and branches, the shifts editor) and is now kept as an editable HTML source in `docs/manual/`. Fresh README screenshots, with new ones for the fuel stock and a red flag. No change to the app.
 - **2.2.18:** **Shifts editor**: opening a member's shifts now highlights the block happening right now (cyan outline) and scrolls straight to it.
 - **2.2.17:** simulator fixes. **Red flag during a pit stop**: the car no longer gets fuelled or serviced under red. Whatever the crew was doing stops where it is (the car stays where it is, in the fuel bay if it was fuelling) and nothing happens until GREEN, when the stop carries on from the same point and the car leaves as normal. **Brakes and tyres**: a parked car now cools towards ambient (brakes over a few minutes, tyres more slowly) instead of holding at about 120 °C with on-track jitter; the pit lane runs cool, and slower laps under yellow, Safety Car, red or fuel saving run cooler than race pace; brake spikes only happen at race pace. **Agile deltas**: the live delta is now the time lost to the reference lap so far this lap (it grows under a Safety Car or red flag and shows saving or pushing), and there is none in the pit lane. Micro-sectors are recorded as the car crosses each one, including the time a flag is costing (slow sectors show red), nothing runs in the pit lane, and the sectors before pit exit on an out-lap stay grey.
 - **2.2.16:** **Scenario Undo / Redo**: every scenario row has Undo and Redo buttons next to RUNNING. Every change to a scenario's assumptions (Save assumptions, adding or removing an event, dragging an event or a stop, moving fuel, clearing dragged stops, Reset) can be stepped back and forward, up to 50 changes per scenario; a new change clears Redo. The buttons are always there and greyed out when there is nothing to undo or redo. The history is part of the event log, so it is the same on every screen and survives a restart. **Clone a scenario**: a Clone button next to each scenario's name copies it as it is now into a branch drawn underneath its family (A1, A2 ... for A, B1 for B; a clone of A1 becomes the next A number). A branch is a full scenario: it can be run, edited, undone and compared side by side with the main line; Reset returns it to how it was when cloned. Branches that are not running can be removed. **Fixed**: Save assumptions on the Scenarios tab was saving a weekend plan file instead of the scenario's assumptions (it shared a button action with Save plan since 2.2.13).

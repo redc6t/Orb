@@ -23,7 +23,7 @@
 - [ ] Works offline: no CDNs, external fonts or new runtime dependencies
 - [ ] Existing weekend logs still load and replay
 - [ ] Code in `public/js/shared/` still runs in both Node.js and the browser
-- [ ] README, release notes and tooltips (`public/js/tips.js`) updated for user-visible changes
+- [ ] README, release notes, user manual (`docs/manual/`) and tooltips (`public/js/tips.js`) updated for user-visible changes
 - [ ] Version bumped in `package.json` and the README badge for user-visible changes
 - [ ] For a rules profile: the regulations document is linked or named with its version and date
 

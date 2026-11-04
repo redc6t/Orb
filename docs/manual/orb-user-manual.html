@@ -1,0 +1,936 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orb - Pit Wall Strategy Manager - User Manual v2.2.19</title>
+<meta name="author" content="Mullaloo Motorsport Engineering - Pietro Gambarin">
+<meta name="description" content="User manual for Orb - Pit Wall Strategy Manager 2.2.19">
+<meta name="keywords" content="endurance racing, pit wall, strategy, fuel plan, Agile, Sentinel">
+<style>
+  @page { size: A4; margin: 16mm 15mm 18mm 15mm;
+    @bottom-left { content: "Orb - Pit Wall Strategy Manager - User Manual - v2.2.19"; font: 8pt Arial, sans-serif; color: #777; }
+    @bottom-right { content: "Mullaloo Motorsport Engineering - 2026 Pietro Gambarin    " counter(page) " / " counter(pages); font: 8pt Arial, sans-serif; color: #777; white-space: pre; }
+  }
+  @page cover { @bottom-left { content: none; } @bottom-right { content: none; } }
+  :root { --ink: #1a1d21; --muted: #5d6670; --line: #d5d9de; --accent: #0097a7; --lilac: #7b4fa8; --new: #00838f; --bg: #ffffff; --tint: #f3f6f8; }
+  html { background: var(--bg); }
+  body { font: 10pt/1.45 "Segoe UI", Arial, sans-serif; color: var(--ink); background: var(--bg); margin: 0 auto; max-width: 180mm; padding: 0 16px; }
+  h1 { font-size: 20pt; margin: 0 0 10px; break-before: page; color: var(--ink); border-bottom: 3px solid var(--accent); padding-bottom: 4px; }
+  h2 { font-size: 13.5pt; margin: 18px 0 6px; color: var(--ink); break-after: avoid; }
+  h3 { font-size: 11pt; margin: 14px 0 4px; break-after: avoid; }
+  p { margin: 5px 0 7px; }
+  ul, ol { margin: 4px 0 8px; padding-left: 20px; }
+  li { margin: 2px 0; }
+  code, .mono { font-family: Consolas, "Courier New", monospace; font-size: 9pt; background: var(--tint); padding: 0 3px; border-radius: 3px; }
+  pre { font-family: Consolas, monospace; font-size: 8.8pt; background: var(--tint); padding: 8px 10px; border-radius: 4px; white-space: pre-wrap; break-inside: avoid; }
+  table { border-collapse: collapse; width: 100%; margin: 6px 0 10px; font-size: 9pt; break-inside: auto; }
+  th, td { border-bottom: 1px solid var(--line); padding: 4px 6px; text-align: left; vertical-align: top; }
+  th { background: var(--tint); font-weight: 600; }
+  tr { break-inside: avoid; }
+  figure { margin: 8px 0 12px; break-inside: avoid; text-align: center; }
+  figure img { max-width: 100%; border: 1px solid var(--line); border-radius: 4px; }
+  figure.half img { max-width: 62%; }
+  figcaption { font-size: 8.5pt; color: var(--muted); margin-top: 3px; }
+  .new { display: inline-block; font-size: 7pt; font-weight: 700; color: #fff; background: var(--new); border-radius: 3px; padding: 0 4px; vertical-align: 2px; letter-spacing: .03em; }
+  .box { border-left: 4px solid var(--accent); background: var(--tint); padding: 6px 10px; margin: 8px 0; break-inside: avoid; }
+  .box b:first-child { display: block; margin-bottom: 2px; }
+  .cover { page: cover; text-align: center; padding-top: 40mm; break-after: page; }
+  .cover img { width: 46mm; }
+  .cover h1 { break-before: auto; border: 0; font-size: 30pt; margin: 18mm 0 4mm; }
+  .cover .sub { font-size: 13pt; color: var(--muted); max-width: 140mm; margin: 0 auto; }
+  .cover .ver { margin-top: 30mm; font-size: 12pt; }
+  .toc { columns: 2; column-gap: 10mm; font-size: 9.5pt; }
+  .toc a { color: var(--ink); text-decoration: none; }
+  .toc div { break-inside: avoid; margin: 1px 0; }
+  .toc .l1 { font-weight: 600; margin-top: 5px; }
+  .toc .l2 { padding-left: 12px; }
+  a { color: var(--accent); }
+  .ex { break-inside: avoid; }
+  @media screen { body { padding-top: 16px; padding-bottom: 40px; } h1 { margin-top: 36px; } .cover { padding-top: 40px; } }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --ink: #e6e9ec; --muted: #9aa4ae; --line: #3a4048; --bg: #15181c; --tint: #20252b; } }
+  :root[data-theme="dark"] { --ink: #e6e9ec; --muted: #9aa4ae; --line: #3a4048; --bg: #15181c; --tint: #20252b; }
+  @media print { :root { --ink: #1a1d21; --muted: #5d6670; --line: #d5d9de; --bg: #fff; --tint: #f3f6f8; } }
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <img src="img/mullaloo-logo.png" alt="Mullaloo Motorsport Engineering logo">
+  <h1>Orb - Pit Wall Strategy Manager</h1>
+  <p class="sub">User manual - endurance race strategy, live pit wall, fuel planning and crew management</p>
+  <p class="ver"><b>Version 2.2.19</b><br>Mullaloo Motorsport Engineering - 2026 Pietro Gambarin<br>November 2026</p>
+</section>
+
+<h1 id="contents" style="break-before:auto">Contents</h1>
+<nav class="toc">
+  <div class="l1"><a href="#s1">1. Introduction</a></div>
+  <div class="l2"><a href="#s1-1">1.1 Who this manual is for</a></div>
+  <div class="l2"><a href="#s1-2">1.2 Names and versions</a></div>
+  <div class="l2"><a href="#s1-3">1.3 Conventions</a></div>
+  <div class="l2"><a href="#s1-4">1.4 What is new since 2.2.3</a></div>
+  <div class="l1"><a href="#s2">2. Requirements and installation</a></div>
+  <div class="l1"><a href="#s3">3. Starting, stopping and access</a></div>
+  <div class="l1"><a href="#s4">4. Demo and simulator - guided tour</a></div>
+  <div class="l2"><a href="#s4-1">4.1 What the demo contains</a></div>
+  <div class="l2"><a href="#s4-2">4.2 Start the demo</a></div>
+  <div class="l2"><a href="#s4-3">4.3 What the simulator does</a></div>
+  <div class="l2"><a href="#s4-4">4.4 Simulator options</a></div>
+  <div class="l2"><a href="#s4-5">4.5 Guided exercises</a></div>
+  <div class="l2"><a href="#s4-6">4.6 Leaving the demo</a></div>
+  <div class="l1"><a href="#s5">5. Screen reference</a></div>
+  <div class="l2"><a href="#s5-1">5.1 How to read the screens</a></div>
+  <div class="l2"><a href="#s5-2">5.2 Strategy, message, information</a></div>
+  <div class="l2"><a href="#s5-3">5.3 Status bar</a></div>
+  <div class="l2"><a href="#s5-4">5.4 Timeline</a></div>
+  <div class="l2"><a href="#s5-5">5.5 Race tab</a></div>
+  <div class="l2"><a href="#s5-6">5.6 Race Plan tab</a></div>
+  <div class="l2"><a href="#s5-7">5.7 Fuel Plan tab</a></div>
+  <div class="l2"><a href="#s5-8">5.8 Scenarios tab</a></div>
+  <div class="l2"><a href="#s5-9">5.9 Team tab</a></div>
+  <div class="l2"><a href="#s5-10">5.10 Car tab</a></div>
+  <div class="l2"><a href="#s5-11">5.11 Garage display</a></div>
+  <div class="l2"><a href="#s5-12">5.12 Log tab and saved plans</a></div>
+  <div class="l2"><a href="#s5-13">5.13 Setup</a></div>
+  <div class="l2"><a href="#s5-14">5.14 Track layout - Collie Motorplex</a></div>
+  <div class="l1"><a href="#s6">6. Running a real race weekend</a></div>
+  <div class="l1"><a href="#s7">7. How the strategy works</a></div>
+  <div class="l1"><a href="#s8">8. Devices and network</a></div>
+  <div class="l1"><a href="#s9">9. Data, backup and recovery</a></div>
+  <div class="l1"><a href="#s10">10. Troubleshooting</a></div>
+  <div class="l1"><a href="#s11">11. Known limitations</a></div>
+  <div class="l1"><a href="#s12">12. Reporting feedback</a></div>
+  <div class="l1"><a href="#appA">Appendix A - Glossary</a></div>
+  <div class="l1"><a href="#appB">Appendix B - Calls and alerts</a></div>
+  <div class="l1"><a href="#appC">Appendix C - Version history</a></div>
+</nav>
+
+<!-- ============================================================ 1 -->
+<h1 id="s1">1. Introduction</h1>
+<p><b>Orb - Pit Wall Strategy Manager</b> (Orb for short) is a self-hosted race engineering application for endurance racing. One laptop runs a small server; the engineer works in a browser on that laptop, and any phone, tablet or TV on the same network can open the same screens view-only. It runs completely offline: no internet, no cloud account and no map tiles are needed at the track.</p>
+<p>It continuously answers the questions a pit wall asks during a long race:</p>
+<ul>
+  <li><b>Should the car stop now?</b> A single call (STAY OUT, WINDOW OPEN, BOX IN 3 LAPS, NOTIFY DRIVER: BOX BOX ...) recalculated every second.</li>
+  <li><b>How much fuel is in the car, and how far will it go?</b> A fuel model that learns from every brim fill and gauge reading.</li>
+  <li><b>Do we have enough fuel at the track?</b> A suggested stock to bring, then the stock left against the fuel still needed. <span class="new">NEW</span></li>
+  <li><b>What is the plan to the flag?</b> Stops, fuel loads and driver changes, kept legal against the selected regulations (stint limit, fuel stop minimum, mandatory stops, refuelling under flags), with red flags neutralising the race. <span class="new">NEW</span></li>
+  <li><b>What happens at each fuel stop?</b> Litres, jerry cans, crew by name and a step-by-step procedure for every fuel stop.</li>
+  <li><b>Who does what?</b> Driver rotation, crew presence, rest and sleep, refuel crew summoned by name before each fuel stop.</li>
+  <li><b>What happened?</b> Every change is written to an append-only log that can be replayed through the whole application.</li>
+</ul>
+<p>Orb is developed by Mullaloo Motorsport Engineering - Pietro Gambarin. It connects to the Mullaloo Motorsport Engineering devices in the car: the <b>Agile</b> lap timer (laps, micro-sectors, pit lane geofences, pit board messages, flags, GPS track map) and the <b>Sentinel</b> brake and tyre temperature and pressure monitor, with its <b>CIRTS</b> sensor nodes. Without them, everything can be entered by hand.</p>
+
+<h2 id="s1-1">1.1 Who this manual is for</h2>
+<table>
+  <tr><th>Reader</th><th>Read first</th></tr>
+  <tr><td>Testers evaluating the release</td><td>Sections 1.4 (what is new), 2, 3 and 4 (install, start, guided demo), then 12 (feedback)</td></tr>
+  <tr><td>Race engineer / strategist</td><td>Everything; sections 5 to 7 in detail</td></tr>
+  <tr><td>Refuel crew chief</td><td>Section 5.7 (Fuel Plan, including the fuel stock) and 6.5 (pit stop workflow)</td></tr>
+  <tr><td>Crew members using a tablet or TV</td><td>Section 3.3 (view-only access) and 5.11 (Garage display)</td></tr>
+</table>
+
+<h2 id="s1-2">1.2 Names and versions</h2>
+<p>Version 2 is a redesign of the user interface of the original version 1.x, following control-room design practice (ISA-101 "high performance HMI"): calm neutral screens, colour only when something needs attention, gauges with limits instead of bare numbers, and every piece of information in exactly one place. Both versions open the same race weekend files, but only one of them can run at a time.</p>
+<p>The application was called Pit Wall Pro2 up to 2.1.4 and Pitwall Strategy Manager from 2.2.0. From <b>2.2.10</b> it is <b>Orb - Pit Wall Strategy Manager</b>, at <a href="https://github.com/redc6t/Orb">github.com/redc6t/Orb</a>. From <b>2.2.9</b> the in-car devices are called <b>Agile</b> (was PLTD) and <b>Sentinel</b> (was BTTM). Everything saved under the old names still loads: <code>.pitwall.json</code> files import, the old start/stop scripts' environment variables and the simulator's <code>--pltd</code>, <code>--bttm</code> and <code>--pitwall</code> options still work.</p>
+<p>The version number lives in one place (<code>package.json</code>); the server console and the footer at the bottom of every page show it, for example <i>Orb - Pit Wall Strategy Manager v2.2.19 | Mullaloo Motorsport Engineering - 2026 Pietro Gambarin</i>.</p>
+
+<h2 id="s1-3">1.3 Conventions</h2>
+<ul>
+  <li><b>Bold</b> names are buttons, tabs or panel titles, for example <b>Race control</b>.</li>
+  <li><code>Monospace</code> is a file, command or value you type.</li>
+  <li>Clock times are the laptop's local time, shown 24 hour (13:00) by default or 12 hour with am/pm (1:00 pm), chosen in Setup. "Race time" means time since the green flag.</li>
+  <li>Durations always carry their units so they cannot be misread: <code>1h 55m</code>, <code>7h 15m</code>, and under an hour <code>4m 52s</code>.</li>
+  <li><span class="new">NEW</span> marks something added or changed since the 2.2.3 manual.</li>
+</ul>
+
+<h2 id="s1-4">1.4 What is new since 2.2.3 <span class="new">NEW</span></h2>
+<table>
+  <tr><th style="width:12%">Version</th><th>Change</th><th style="width:12%">Section</th></tr>
+  <tr><td>2.2.4</td><td>New README with a guided tour; contributing guide, code of conduct, security policy, accessibility statement, issue and pull request templates.</td><td>-</td></tr>
+  <tr><td>2.2.5</td><td>Movable cards on the Race and Car tabs: drag a card by the grip in its header; saved per browser; <b>Reset layout</b> restores the default.</td><td>5.5, 5.10</td></tr>
+  <tr><td>2.2.6</td><td><code>stop-orb.bat</code> stops a server or simulator left running in the background; <code>make-demo.bat</code> runs it first.</td><td>3.2, 4.2</td></tr>
+  <tr><td>2.2.7</td><td>Race Plan: <b>+ auto-gen debrief</b> on every finished stint - the engineer's written recap of that stint.</td><td>5.6</td></tr>
+  <tr><td>2.2.8</td><td>Simulator: sending BOX again no longer delays the simulated stop.</td><td>4.3</td></tr>
+  <tr><td>2.2.9</td><td>PLTD renamed <b>Agile</b>, BTTM renamed <b>Sentinel</b>. Old settings and weekends load unchanged.</td><td>1.2, 8</td></tr>
+  <tr><td>2.2.10</td><td>The app is renamed <b>Orb - Pit Wall Strategy Manager</b>; scripts <code>start-orb.bat</code> / <code>stop-orb.bat</code>; exports are <code>.orb.json</code>; data folder override <code>ORB_DATA</code>.</td><td>1.2, 2, 9</td></tr>
+  <tr><td>2.2.11</td><td>The demo resumes from its last lap, so the time Orb was closed does not count. Old <code>*-pitwall.bat</code> scripts removed.</td><td>4.1</td></tr>
+  <tr><td>2.2.12</td><td>A car issue logged from the Race tab's Attention &amp; feed card shows up there at once.</td><td>5.5</td></tr>
+  <tr><td>2.2.13</td><td><b>Saved plans</b>: prepare a weekend early and start a fresh copy of it on race day.</td><td>5.12, 6.1</td></tr>
+  <tr><td>2.2.14</td><td><b>Fuel stock</b>: a suggested amount to bring (Setup) and the live stock left against the fuel still needed (Fuel Plan).</td><td>5.7, 5.13</td></tr>
+  <tr><td>2.2.15</td><td><b>Red flag neutralises the race</b>: the car is held in the pits until the restart; RED FLAG / RESTART calls. Scenarios follow what really happens (real flags, stops and the red park block on every bar; predicted events used up or slid forward).</td><td>5.5, 5.8, 7.3</td></tr>
+  <tr><td>2.2.16</td><td>Scenario <b>Undo / Redo</b>; <b>Clone</b> a scenario into branches (A1, A2 ...). Fixed: Save assumptions saving a plan file.</td><td>5.8</td></tr>
+  <tr><td>2.2.17</td><td>Simulator: a red flag freezes a pit stop; realistic brake and tyre cooling; real Agile live deltas and micro-sectors.</td><td>4.3</td></tr>
+  <tr><td>2.2.18</td><td>Shifts editor highlights the block happening right now and scrolls to it.</td><td>5.9</td></tr>
+  <tr><td>2.2.19</td><td>This manual, rebuilt for Orb with new screenshots; the manual source is now in the repository (<code>docs/manual/</code>).</td><td>-</td></tr>
+</table>
+
+<!-- ============================================================ 2 -->
+<h1 id="s2">2. Requirements and installation</h1>
+<h2>2.1 What you need</h2>
+<table>
+  <tr><th style="width:24%">Item</th><th>Requirement</th></tr>
+  <tr><td>Host computer</td><td>Windows 10/11 laptop (Linux and macOS also work). Any recent laptop is enough; the reference machine is a Lenovo P52.</td></tr>
+  <tr><td>Software</td><td>Node.js 18 or newer (LTS). Install once from nodejs.org. Nothing else: the one dependency (<code>ws</code>) is inside the package.</td></tr>
+  <tr><td>Browser</td><td>Any current Chrome, Edge, Firefox or Safari, on the laptop and on viewing devices. The Race tab shows its three columns side by side on screens at least 1400 px wide; narrower screens stack them.</td></tr>
+  <tr><td>Network (optional)</td><td>For viewing devices and car telemetry: all devices on the same Wi-Fi network as the laptop (at the track: the VDG / MME_AP network, 192.168.0.x).</td></tr>
+</table>
+
+<h2>2.2 Install</h2>
+<ol>
+  <li>Install Node.js (LTS) and accept the defaults.</li>
+  <li>Download the code from <a href="https://github.com/redc6t/Orb">github.com/redc6t/Orb</a> (green <b>Code</b> button, <b>Download ZIP</b>) and unzip it to a folder you control, for example <code>C:\Orb</code>, or <code>git clone</code> the repository. Do not run it from inside the zip.</li>
+  <li>That is all. The <code>node_modules</code> folder is included, so no download or internet connection is needed at the track.</li>
+</ol>
+<table>
+  <tr><th style="width:30%">File / folder</th><th>Purpose</th></tr>
+  <tr><td><code>start-orb.bat</code></td><td>Starts the server and opens the engineer screen.</td></tr>
+  <tr><td><code>stop-orb.bat</code></td><td>Stops any Orb server or simulator still running in the background (only Node.js processes on Orb's ports).</td></tr>
+  <tr><td><code>make-demo.bat</code></td><td>Builds the demo race weekend (section 4).</td></tr>
+  <tr><td><code>start-simulator.bat</code></td><td>Starts the simulated Agile and Sentinel (section 4).</td></tr>
+  <tr><td><code>data\</code></td><td>Created on first run: race weekends, logs, saved plans, car library, logo. Back this folder up.</td></tr>
+  <tr><td><code>rules\</code></td><td>Regulation profiles (B4B Events, BEERS).</td></tr>
+  <tr><td><code>docs\</code></td><td>Screenshots and the source of this manual.</td></tr>
+  <tr><td><code>package.json</code></td><td>Holds the version number shown in the console and the page footer.</td></tr>
+  <tr><td><code>README.md</code></td><td>Overview, troubleshooting and the release notes.</td></tr>
+</table>
+<div class="box"><b>Upgrading</b>Unzip the new version into a new folder and copy your existing <code>data</code> folder into it. Weekends, plans, cars and logo carry over. A 2.1.x or 2.2.x data folder opens unchanged in 2.2.19; weekends saved with the PLTD/BTTM names are moved to Agile/Sentinel the first time they open.</div>
+
+<!-- ============================================================ 3 -->
+<h1 id="s3">3. Starting, stopping and access</h1>
+<h2>3.1 Start</h2>
+<p>Double-click <code>start-orb.bat</code>. A console window titled <i>Orb - Pit Wall Strategy Manager server</i> opens and prints the addresses, and the browser opens the engineer screen:</p>
+<pre>Orb - Pit Wall Strategy Manager v2.2.19 - Mullaloo Motorsport Engineering - 2026 Pietro Gambarin
+Engineer (this laptop): http://localhost:8080
+View-only devices:      http://192.168.0.23:8080
+Data folder:            C:\Orb\data</pre>
+<p>Leave the console window open for the whole event: closing it stops the server. If the server is restarted it resumes the last race weekend automatically, with nothing lost. On macOS or Linux run <code>npm start</code> in the folder.</p>
+<div class="box"><b>First start: Windows Firewall</b>Windows asks whether Node.js may use the network. Allow <b>Private networks</b>. If you refuse, the laptop still works but other devices and the car telemetry cannot connect.</div>
+
+<h2>3.2 Stop</h2>
+<p>Close the console window, or press Ctrl+C in it. Every change is already saved the moment it is made; there is no "save" step. If a server keeps running in the background (closing the window or the app that started it does not always stop it, and the console then says <code>EADDRINUSE</code>), double-click <code>stop-orb.bat</code>.</p>
+
+<h2>3.3 Engineer and view-only access</h2>
+<table>
+  <tr><th style="width:34%">Device</th><th>Can do</th></tr>
+  <tr><td>The host laptop (opened as <code>localhost</code>)</td><td>Everything. Badge in the top-right corner: <b>ENGINEER</b>.</td></tr>
+  <tr><td>Any other device</td><td>See every screen, run what-ifs locally, browse the log and replay. It cannot change anything (badge <b>VIEW ONLY</b>; the server rejects changes).</td></tr>
+</table>
+<p>To let a second laptop make changes, add its IP address to <code>engineerHosts</code> in <code>data\settings.json</code> and restart. The server port (default 8080) is set in the same file.</p>
+
+<!-- ============================================================ 4 -->
+<h1 id="s4">4. Demo and simulator - guided tour</h1>
+<p>The fastest way to learn the application is the demo: a complete race weekend already six hours into a 36-hour race, with a simulated car feeding live data. Nothing in it touches your real weekends.</p>
+
+<h2 id="s4-1">4.1 What the demo contains</h2>
+<table>
+  <tr><th style="width:20%">Item</th><th>Demo content</th></tr>
+  <tr><td>Event</td><td>DEMO - BEERS 36h Collie: BEERS standing regulations V4, 36-hour race on the Collie Motorplex long circuit (2.55 km, 13 turns, anti-clockwise).</td></tr>
+  <tr><td>Team and car</td><td>Mitsukitty, 2004-2005 Mitsubishi Lancer ES/VR-X 2.0 NA (45 L primary + 30 L secondary tank, jerry cans of 20 L).</td></tr>
+  <tr><td>People</td><td>6 drivers and 2 engineers: <b>Mal</b> - owner, every role; <b>Tanna, Pat, Jared</b> - drivers, mechanics, full fuel crew, radio (Raceceiver relay), timing; <b>Driver4, Driver5</b> - drivers, full fuel crew; <b>Pietro, Rhys</b> - engineers: mechanic, timing, radio, race engineering. No driving, no fuel.</td></tr>
+  <tr><td>Shift plan</td><td>Drafted with <b>Draft shifts from the plan</b> (section 5.9): drivers rotate through drive, rest, sleep, garage and next in; the two engineers alternate in 6 h groups.</td></tr>
+  <tr><td>History</td><td>Practice session; race started 6 hours before the demo was built; two fuel stops done; Safety Car periods; car issues, a black-flag warning, an engineer off the wall for a 2 h break. Laps carry Sentinel peaks so the stint debriefs work.</td></tr>
+  <tr><td>Fuel model</td><td>Already calibrated from two brim fills (it learned about 19.6 L/h against an 18.75 L/h baseline).</td></tr>
+  <tr><td>Fuel stock <span class="new">NEW</span></td><td>No stock entered, so Setup shows the suggestion (780 L, 39 cans) and the Fuel Plan works from it.</td></tr>
+  <tr><td>Scenarios</td><td>Scenarios A-F created at the moment the demo was built; A running.</td></tr>
+  <tr><td>Devices</td><td>Pointed at the simulator: Agile at <code>127.0.0.1:8081</code>, Sentinel at <code>127.0.0.1:8082</code>.</td></tr>
+</table>
+<div class="box"><b>The demo keeps its place <span class="new">NEW</span></b>Each time Orb opens the demo, the race clock resumes from its last lap, so the hours Orb was closed (or open without the simulator) do not count. To start over from the 6-hour mark, run <code>make-demo.bat</code> again.</div>
+
+<h2 id="s4-2">4.2 Start the demo</h2>
+<ol>
+  <li>Double-click <code>make-demo.bat</code>. It first runs <code>stop-orb.bat</code>, so an old server cannot hide the new demo, then builds the demo weekend and makes it the active weekend. It only replaces the DEMO weekend.</li>
+  <li>Double-click <code>start-orb.bat</code>. The engineer screen opens on the Race tab.</li>
+  <li>Double-click <code>start-simulator.bat</code>. A second console shows the simulated car: <code>Agile sim: Orb connected</code>, then a line per lap. Within a few seconds the Agile and Sentinel lights in the status bar turn green and the car dot starts moving on the track map.</li>
+</ol>
+<p>From a terminal the same steps are <code>npm run demo</code>, <code>npm start</code> and <code>npm run sim</code>.</p>
+
+<h2 id="s4-3">4.3 What the simulator does</h2>
+<p>The simulator pretends to be the two devices in the car, on this laptop, using the same network protocols as the real Agile and Sentinel firmware. The application cannot tell the difference.</p>
+<table>
+  <tr><th style="width:24%">Behaviour</th><th>Detail</th></tr>
+  <tr><td>Laps</td><td>About 92 s per lap with small random variation, reported exactly like the real Agile (lap number, latched last lap time, live delta, speed, micro-sectors).</td></tr>
+  <tr><td>Track</td><td>The real Collie Motorplex long circuit (section 5.14). In the pits the car follows the real pit lane: along the lane to the pits area, into the fuel area while fuelling, then out to the pit exit. The lap is counted where the car crosses the start/finish line in the pit lane.</td></tr>
+  <tr><td>Flags and driver pace</td><td>Yellow and Safety Car slow the car at once, about 1.35x and 1.6x lap time. <b>SAVE FUEL</b> on the pit board adds about 1.8 s per lap, <b>PUSH</b> takes about 0.6 s off, until the next stop.</td></tr>
+  <tr><td>Red flag <span class="new">NEW</span></td><td>On RED the car drives slowly to the pit entry, parks at the box and only leaves when the flag goes back to GREEN. A red flag during a stop freezes it where it is (in the fuel bay if it was fuelling): no fuelling or service under red; on GREEN the stop carries on from the same point.</td></tr>
+  <tr><td>Follows the engineer</td><td>The simulated crew follows the stop handshake: it starts pouring when you press <b>FUEL ON</b>, fuels only if the plan or your entry says so, stops when you press <b>FUEL STOP COMPLETED</b> and sends the car out on <b>PIT OUT</b>. Untouched steps use default timings.</td></tr>
+  <tr><td>Obeys the pit board</td><td>Any pit board message containing BOX brings the car in at the end of the current lap (at least 20 s after the message; sending BOX again does not restart that delay). In the app, BOX BOX is only a driver message. A message containing NO FUEL or DRIVER makes it a stop without fuelling.</td></tr>
+  <tr><td>Pit stop sequence</td><td>PIT ENTRY (25 s) - PITS (10 s, or 3 s after FUEL ON) - FUELLING (fuel minimum + 20 s) - PITS - PIT EXIT (15 s) - RUNNING: the same geofence states the real Agile sends.</td></tr>
+  <tr><td>Driver acknowledgement</td><td>Every pit board message is "shown" on the dash and acknowledged 1.5 to 3.5 s later.</td></tr>
+  <tr><td>Live delta and micro-sectors <span class="new">NEW</span></td><td>The live delta is the real time lost to the reference lap so far this lap (it grows under a Safety Car or red flag, and shows saving or pushing); there is none in the pit lane. Micro-sectors are recorded as the car crosses each one, including the time a flag costs; nothing runs in the pit lane, and sectors before pit exit on an out-lap stay grey.</td></tr>
+  <tr><td>Brakes and tyres <span class="new">NEW</span></td><td>Temperatures rise with speed. A parked car cools towards ambient (brakes over a few minutes, tyres more slowly); the pit lane runs cool, and slower laps under flags or fuel saving run cooler. Every 15 to 35 minutes at race pace the front-left brake spikes above 700 °C for 8 s, to exercise the Sentinel alarm and the automatic car issue.</td></tr>
+  <tr><td>TPMS</td><td>About 28.5 psi, rising slightly with tyre temperature.</td></tr>
+</table>
+
+<h2 id="s4-4">4.4 Simulator options</h2>
+<p>Options can be added after the batch file name in a command window (for example <code>start-simulator.bat --fuelmin 1</code>), or by running <code>node tools\simulate.js</code> with the same options.</p>
+<table>
+  <tr><th style="width:28%">Option</th><th style="width:24%">Default</th><th>Effect</th></tr>
+  <tr><td><code>--lap 92</code></td><td>from the demo (92 s)</td><td>Base lap time in seconds.</td></tr>
+  <tr><td><code>--fuelmin 8</code></td><td>from the demo (8 min, BEERS)</td><td>How long the simulated crew spends fuelling, in minutes. Use 1 for quick tests; the app will then correctly flag the stop as under the regulation minimum.</td></tr>
+  <tr><td><code>--startLap N</code></td><td>last demo lap</td><td>Lap number to continue from.</td></tr>
+  <tr><td><code>--agile 8081</code> / <code>--sentinel 8082</code></td><td>8081 / 8082</td><td>Ports of the simulated devices (<code>--pltd</code> / <code>--bttm</code> still work). If you change them, change the device addresses in Setup to match.</td></tr>
+  <tr><td><code>--orb URL</code></td><td><code>http://127.0.0.1:8080</code></td><td>Where the server runs, if not on the default port (<code>--pitwall</code> still works).</td></tr>
+</table>
+
+<h2 id="s4-5">4.5 Guided exercises</h2>
+<p>Work through these in order. Each takes a few minutes and covers one part of the application.</p>
+<div class="ex"><h3>Exercise 1 - Read the Race screen (2 min)</h3>
+<ol>
+  <li>Look at the status bar: time remaining, elapsed, lap, car state and local time; scenario and flag on the right.</li>
+  <li>In the <b>Now</b> column read the call (normally STAY OUT with the time to the next stop), the fuel gauge and the driver's stint gauge.</li>
+  <li>In <b>Next stop</b> find what the next stop is, when, how much fuel, who gets in, and who is on the refuel crew.</li>
+  <li>Hover over <b>Fuel on board</b> for half a second: a tooltip explains it. Tooltips exist on most labels and settings.</li>
+</ol></div>
+<div class="ex"><h3>Exercise 2 - Call the car in and run a pit stop (15 min)</h3>
+<ol>
+  <li>Watch the call count down (BOX IN 3 LAPS, 2, 1) as the planned stop approaches; on the last lap it becomes NOTIFY DRIVER: BOX BOX with a <b>+1 lap</b> button. Press <b>Send BOX BOX to the driver</b> (or <b>BOX BOX</b> in Race control at any time to stop sooner). The feed shows "Pit board: BOX BOX" with a MESSAGE tag, then the driver's acknowledgement. Nothing changes in the plan.</li>
+  <li>Within one lap the car crosses the pit-entry geofence: car state PIT ENTRY, the call becomes IN PITS, and the centre column becomes pit mode with the <b>Stop handshake</b> card on top. Press <b>PIT IN</b>: the row reads HANDSHAKE.</li>
+  <li>The driver row is pre-selected with the planned driver. Press <b>DRIVER CHANGE DONE</b>.</li>
+  <li>When the crew starts pouring press <b>FUEL ON</b>. Fill in the <b>Fuel stop</b> card while they fuel: litres and cans, <b>Filled to brim</b>, issues fixed. Watch the fuelling bar in the <b>Pit lane</b> card fill towards the 8-minute BEERS minimum. Open <b>Garage display</b> and <b>Fuel Plan</b> to see the crew views.</li>
+  <li>When fuelling ends press <b>FUEL STOP COMPLETED</b>, then <b>PIT OUT</b>. The stop completes once the car crosses the pit exit. On the Fuel Plan, the stock has gone down by the litres poured.</li>
+  <li>Repeat with another BOX BOX but press nothing: each step turns AUTO as the car moves past it, and the stop is still complete.</li>
+  <li>Open <b>Race Plan</b>: both stops appear in the stint table. Click <b>+ auto-gen debrief</b> on the stint that just ended.</li>
+</ol></div>
+<div class="ex"><h3>Exercise 3 - Alerts and car issues (3 min)</h3>
+<ol>
+  <li>In <b>Attention &amp; feed</b>, press <b>Ack</b> on an alert. It moves to the race history.</li>
+  <li>Type an issue in "Log a car issue for the next stop" and press <b>Log</b>. It appears at once as a NEXT STOP job, and is listed on the pit stop screen, the Car tab and the Garage display.</li>
+  <li>Wait for (or look in Car for) a Sentinel brake alarm: critical temperatures create a car issue automatically.</li>
+</ol></div>
+<div class="ex"><h3>Exercise 4 - Safety Car (5 min)</h3>
+<ol>
+  <li>Press <b>SC</b> in Race control. The flag turns orange and the simulated car slows down; the live delta grows.</li>
+  <li>Under BEERS rules refuelling is closed under Yellow/SC, so if a fuel stop is near the call says STAY OUT - refuelling closed. Under B4B rules the same situation gives BOX NOW.</li>
+  <li>Open <b>Scenarios</b>: the Safety Car is drawn on every bar as real past. Press <b>GREEN</b> to resume.</li>
+</ol></div>
+<div class="ex"><h3>Exercise 5 - Red flag (5 min) <span class="new">NEW</span></h3>
+<ol>
+  <li>Press <b>RED</b> in Race control. The call reads RED FLAG; the simulated car goes to the pits and parks. Try it during a fuel stop: the stop freezes where it is.</li>
+  <li>Look at the timeline and the Scenarios bars: the plan holds the car in the pits until the assumed restart, with nothing planned inside the red. The driver's stint clock pauses.</li>
+  <li>Press <b>GREEN</b>. With the car still parked the call reads RESTART; the simulator carries on from where it stopped.</li>
+</ol></div>
+<div class="ex"><h3>Exercise 6 - What-if (3 min)</h3>
+<ol>
+  <li>Open <b>Race Plan</b>. In <b>What-if</b> enter a lap time change of +5 (rain) and press <b>Run</b>. The stint table and timeline show the result while it is active.</li>
+  <li>Try <b>Green burn -8 %</b>: see whether a fuel stop disappears. <b>Drop one fuel stop</b> above the table gives the exact saving needed.</li>
+  <li>Press <b>Clear</b>. What-if never changes the real plan or the log.</li>
+</ol></div>
+<div class="ex"><h3>Exercise 7 - Scenarios, Undo and Clone (8 min)</h3>
+<ol>
+  <li>Open <b>Scenarios</b>. Compare the six bars: where the Safety Car and red flag sit, how many stops each needs, finish fuel, and the lap numbers above each bar.</li>
+  <li>On Scenario B press <b>Assumptions</b>. Drag the orange Safety Car to another time and stretch its right edge. Watch the stops re-plan.</li>
+  <li>Press <b>Undo</b> on B: the Safety Car goes back. <b>Redo</b> puts it back again. <span class="new">NEW</span></li>
+  <li>Press <b>Clone</b> next to B's name: a branch <b>B1</b> appears underneath. Change B1 (drag a stop) and compare it with B. <span class="new">NEW</span></li>
+  <li>Press <b>Run this scenario</b> on B1. The status bar shows SCENARIO B1; Race and Fuel Plan follow it.</li>
+  <li>Run A again, then <b>Remove</b> B1 and <b>Reset</b> B.</li>
+</ol></div>
+<div class="ex"><h3>Exercise 8 - Fuel Plan and fuel stock (5 min)</h3>
+<ol>
+  <li>Open <b>Fuel Plan</b>. The timeline shows only the fuel stops of the plan being run.</li>
+  <li>Click a planned stop, for example F5: litres on arrival, litres to add, the jerry cans, the crew. Under <b>Change the litres</b> press -5 twice and look at the preview, then <b>Cancel</b>.</li>
+  <li>In <b>Fuel stock at the track</b> <span class="new">NEW</span> read what was brought, poured, left and still needed. Press <b>Fuel bought</b> and add 40 L; the spare goes up. Open <b>Setup</b> and look at the suggestion under <i>Fuel stock for the weekend</i>.</li>
+</ol></div>
+<div class="ex"><h3>Exercise 9 - Shifts (3 min)</h3>
+<ol>
+  <li>Open <b>Team</b> and click <b>edit</b> next to a driver in <b>Shifts &amp; sleep</b>. The editor scrolls to the block happening now, outlined in cyan. <span class="new">NEW</span></li>
+  <li>Close it. Press <b>Draft shifts from the plan</b> to see the whole rota rebuilt (it asks first).</li>
+</ol></div>
+<div class="ex"><h3>Exercise 10 - A second device (3 min)</h3>
+<ol>
+  <li>On a phone or tablet on the same Wi-Fi, open the "View-only devices" address from the console.</li>
+  <li>The badge shows VIEW ONLY; controls are hidden. Choose <b>Garage display</b> for the big-type crew screen.</li>
+  <li>Make a change on the laptop (for example a flag) and watch it appear on the second device within a second.</li>
+</ol></div>
+<div class="ex"><h3>Exercise 11 - Replay and saved plans (5 min)</h3>
+<ol>
+  <li>Open <b>Log</b> and press <b>Start replay</b>. Drag the slider, or press Play at 60x. Switch to Race and Race Plan: they show exactly what the pit wall knew at that moment. Press <b>Back to live</b>.</li>
+  <li>Under <b>Saved plans</b> type a note and press <b>Save plan</b>. The plan is the weekend as it stood before its first session. <span class="new">NEW</span></li>
+</ol></div>
+
+<h2 id="s4-6">4.6 Leaving the demo</h2>
+<p>Your own weekends are never changed by the demo. To switch back: <b>Log</b> tab, <b>Weekend files</b>, press <b>Open</b> next to your weekend. To start a real weekend, open <b>Setup</b> and press <b>Start a new weekend instead</b> (section 6), or <b>Start a copy</b> of a saved plan. Close the simulator window when you are done with it.</p>
+
+<!-- ============================================================ 5 -->
+<h1 id="s5">5. Screen reference</h1>
+<h2 id="s5-1">5.1 How to read the screens</h2>
+<p>The application uses colour sparingly so that anything coloured means something:</p>
+<table>
+  <tr><th style="width:26%">Colour</th><th>Meaning</th></tr>
+  <tr><td>Grey / white</td><td>Normal. No action needed.</td></tr>
+  <tr><td>Amber</td><td>Warning: something is approaching a limit (fuel window open, stint ending soon, brake in the red band, fuel stock under one can spare).</td></tr>
+  <tr><td>Red (pulsing if unacknowledged)</td><td>Critical: act now (box this lap, fuel at reserve, over a limit, red flag, fuel stock short).</td></tr>
+  <tr><td>Lilac</td><td>Fuel: fuel stops, fuel windows, planned fuel arrival.</td></tr>
+  <tr><td>Cyan</td><td>Strategy items, pinned stops, the selected stop, the current shift block, primary buttons.</td></tr>
+  <tr><td>Flag colours</td><td>The track flag in the status bar (green, yellow, orange Safety Car, red).</td></tr>
+  <tr><td>Driver colours</td><td>Each driver keeps one colour on the timeline, the stint table and the shift plan.</td></tr>
+</table>
+<p>Gauges are bars against their limit: the red tick is the limit (reserve fuel, 15-minute stint warning), the lilac tick a planned value, the white line "now".</p>
+
+<h2 id="s5-2">5.2 What changes the strategy, and what does not</h2>
+<p>In the feed and the log, items that change the strategy carry a cyan <b>STRATEGY</b> tag, and driver messages a lilac <b>MESSAGE</b> tag.</p>
+<table>
+  <tr><th style="width:18%">Group</th><th>Examples</th><th style="width:34%">Effect on the plan</th></tr>
+  <tr><td>STRATEGY</td><td>Geofence events and the stop handshake; track flag (Green, Yellow, SC, Red); +1 lap; driver corrections and rotation; gauge readings; litres set on the Fuel Plan; switching, editing, undoing or cloning a scenario; session start/end.</td><td>The plan, the call, fuel estimate, driver times and crew summons are recalculated immediately.</td></tr>
+  <tr><td>MESSAGE</td><td>Pit board: BOX BOX, BOX NEXT LAP, STAY OUT, PUSH, SAVE FUEL, custom text.</td><td>None. Shown on the Agile dash and logged with the driver's acknowledgement. BOX BOX does not create a stop: the stop starts when the car crosses the pit-entry geofence.</td></tr>
+  <tr><td>Information</td><td>Car issues, penalties, crew status, tyre measurements, fuel stock movements, notes.</td><td>No direct effect on stop timing (crew status and driver availability change who is assigned and the rotation; the fuel stock raises its own alert).</td></tr>
+</table>
+<div class="box"><b>Why flags are strategy, not messages</b>A track flag changes the strategy because the rules and the car change: under Safety Car or Yellow the car burns less fuel, under BEERS rules refuelling is closed, and the call may become BOX NOW. A red flag neutralises the race and holds the car in the pits. The flag is also shown on the Agile dash, but that is a side effect.</div>
+
+<h2 id="s5-3">5.3 Status bar</h2>
+<figure><img src="img/status.png" alt="Status bar"><figcaption>Figure 1 - Status bar</figcaption></figure>
+<table>
+  <tr><th style="width:26%">Element</th><th>Meaning</th></tr>
+  <tr><td>Team and car</td><td>Team name, car number, car, track. Logo top-left.</td></tr>
+  <tr><td>Race - remaining</td><td>Race time remaining; before the start, time to the planned start. The label also names the session and the regulations.</td></tr>
+  <tr><td>Elapsed</td><td>Time since the green flag.</td></tr>
+  <tr><td>Lap / Car</td><td>Current lap and car state from the Agile geofences: RUNNING, PIT ENTRY, PITS, FUELLING, PIT EXIT.</td></tr>
+  <tr><td>Local</td><td>The laptop's clock.</td></tr>
+  <tr><td>SCENARIO</td><td>Which scenario is running (A unless you switch, or a branch such as B1). Amber when it is not A. Click it to open the scenarios.</td></tr>
+  <tr><td>Flag</td><td>Current track flag (set in Race control; mirrored to the Agile dash).</td></tr>
+  <tr><td>Agile / Sentinel / UDP</td><td>Device connection: green connected, amber connecting or stale data, red offline, dark disabled.</td></tr>
+  <tr><td>Sound on/off</td><td>Mutes the alert chime on this device.</td></tr>
+  <tr><td>ENGINEER / VIEW ONLY</td><td>What this device is allowed to do (section 3.3).</td></tr>
+</table>
+<p>A red or amber line under the status bar means the current call is critical or a warning. At the bottom of every page a footer shows the Mullaloo logo, the product name and version, and the credit line.</p>
+
+<h2 id="s5-4">5.4 Timeline</h2>
+<figure><img src="img/timeline.png" alt="Race timeline"><figcaption>Figure 2 - Race timeline with legend</figcaption></figure>
+<p>The whole race from green flag to chequered flag. Solid blocks are stints already driven (in driver colour); dashed blocks are planned stints. Lilac ticks are fuel stops, grey ticks other stops. The lilac bar under a planned fuel stop is its fuel window: the earliest to the latest time that stop can be made (hover it for the exact times and laps). The white line is now. Real flags are drawn along the top; a red flag shows as a red block where the car is parked. <span class="new">NEW</span></p>
+<figure><img src="img/timeline-red.png" alt="Timeline under a red flag"><figcaption>Figure 2a - Under a red flag the plan holds the car in the pits until the restart <span class="new">NEW</span></figcaption></figure>
+
+<h2 id="s5-5">5.5 Race tab</h2>
+<figure><img src="img/race.png" alt="Race tab"><figcaption>Figure 3 - Race tab: Now, Next stop, and the Track map, Race control and feed on the right</figcaption></figure>
+<p>The overview. Three columns, each with one job: <b>Now</b> (left, with the <b>Car feed summary</b> under it), <b>Next</b> (centre), and on the right the <b>Track</b> map, <b>Race control</b> and <b>Attention &amp; feed</b>. That is the default layout; you can move the cards.</p>
+
+<h3>Rearranging the cards</h3>
+<p>Every card on the Race and Car tabs has a small grip (nine dots) at the right of its header. Press and hold it, then drag: the card lifts off the page and follows the pointer, a dashed outline shows where it will land, and the other cards slide out of the way as you move. You can drop a card at any position in any column; hold it near the top or bottom of the window and the page scrolls.</p>
+<p>The layout is saved in that browser only, so the engineer's laptop, the garage screen and a tablet can each have their own. Cards that only appear during a stop (stop handshake, fuel stop, pit lane timers) come back where you last put them, or next to the card they normally sit beside, so a pit stop does not reshuffle your layout. <b>Reset layout</b>, at the bottom of the page, puts every card back.</p>
+
+<h3>Now</h3>
+<figure class="half"><img src="img/now.png" alt="Now column"><figcaption>Now column</figcaption></figure>
+<ul>
+  <li><b>The call</b> - the one instruction to give. See Appendix B for every call.</li>
+  <li><b>Fuel on board</b> - estimated litres with uncertainty (the light band). Red tick: reserve floor. Lilac tick: planned arrival at the next fuel stop. Underneath: laps and time to reserve, and the burn rate in use.</li>
+  <li><b>Log gauge reading</b> - enter what the fuel gauge or dipstick shows; this re-anchors the estimate and calibrates the model.</li>
+  <li><b>Driving now</b> and <b>Stint</b> - continuous time behind the wheel against the regulation maximum; amber at 15 minutes left, red at 5. The stint clock pauses under a red flag. <span class="new">NEW</span></li>
+  <li><b>Up next</b> - the next driver and the planned time they get in, then the rest of the rotation with presence icons; the engineer can click a name to make that driver up next.</li>
+</ul>
+<table>
+  <tr><th style="width:30%">Icon</th><th>Meaning</th></tr>
+  <tr><td>Steering wheel (cyan)</td><td>Driving</td></tr>
+  <tr><td>Jerry can (lilac)</td><td>Available, and on the refuel crew for the next fuel stop</td></tr>
+  <tr><td>Spanner (grey)</td><td>Available in the garage, ready for work on the car</td></tr>
+  <tr><td>Tick (green)</td><td>Available</td></tr>
+  <tr><td>Bed (purple)</td><td>Sleeping</td></tr>
+  <tr><td>Moon (violet)</td><td>Resting</td></tr>
+  <tr><td>Flag (orange)</td><td>On flag duty</td></tr>
+  <tr><td>Cross / red bar</td><td>Offline / unavailable</td></tr>
+</table>
+
+<h3>The call near a stop and +1 lap</h3>
+<p>From 5 minutes before the planned stop the call counts laps: BOX IN 3 LAPS, 2, 1. On the last lap it becomes NOTIFY DRIVER: BOX BOX with a notification and a one-click <b>Send BOX BOX to the driver</b>. Once sent, it reads BOX THIS LAP with the time sent and whether the driver has acknowledged.</p>
+<p><b>+1 lap</b> keeps the driver out one more lap. The called stop moves one lap later in the running plan and in every scenario; its fuel goes up by one lap's burn, the planned driver change is kept, and the log shows "stint extended +1 lap". Press it again for a further lap. The extension clears when the car next enters the pits. The button is disabled, with the reason in its tooltip, if the extra lap would bring the fuel below the reserve or the stint over the maximum.</p>
+
+<h3>Red flag <span class="new">NEW</span></h3>
+<figure class="half"><img src="img/now-red.png" alt="RED FLAG call"><figcaption>The call under a red flag</figcaption></figure>
+<p>When the flag is RED the call reads <b>RED FLAG</b> - race neutralised, car to the pits, engine off, wait for the restart (and "no refuelling" where the rules forbid it). The plan holds the car in the pits from the red until the assumed restart (<code>strategy.redExpectMin</code>, 20 minutes by default; once that has passed, always at least 5 minutes more), with no fuel burn, no driving stint and no stop planned inside it; the next stint starts at the restart. The red pit visit is shown as a red stop: it never counts as a mandatory stop and no fuel or driver change from the plan is applied to it. When the flag goes back to green with the car still parked, the call reads <b>RESTART</b>.</p>
+
+<h3>Next stop</h3>
+<figure class="half"><img src="img/next.png" alt="Next stop card"><figcaption>Next stop</figcaption></figure>
+<p>Everything about the next planned stop: type and clock time, time and laps to it, stops still to go, fuel to add (and cans), driver change, planned stationary time, the fuel window as a bar against now, and the refuel crew by name. Crew are assigned only from members tagged with that role and currently Available, and never the outgoing driver; the incoming driver is listed as Refueller Assistant (supervising) - see section 7.6. If nobody qualifies, the slot shows <b>UNASSIGNED</b> with the reason, who could help, and a <b>FIX</b> button that opens the Team tab at <b>Fix the refuel crew</b> with one-click fixes (wake a tagged person, or give an available person the missing role). Each fix is logged. When the Agile is offline, manual car state buttons appear here.</p>
+
+<h3>Pit mode and the stop handshake</h3>
+<figure><img src="img/pit-mode.png" alt="Pit mode"><figcaption>Figure 4 - Pit mode: the centre column becomes the pit stop screen while the car is in the pit lane</figcaption></figure>
+<p>When a stop is due, or the Agile pit-entry geofence opens one, the centre column becomes the pit stop screen, top to bottom:</p>
+<ul>
+  <li><b>Stop handshake</b> - the five steps of the stop (below).</li>
+  <li><b>Fuel stop</b> - the fuel entry, available from pit in: litres and cans pre-filled from the plan, gauge before, <b>Filled to brim</b>, tyres, penalty served, issues fixed; buttons <b>FUEL STOP COMPLETED</b> and <b>No fuel this stop</b>.</li>
+  <li><b>Pit lane</b> - fuelling time from the Agile fuel-bay geofence against the regulation minimum (B4B 5 min, BEERS 8 min), time since pit entry against the mandatory-stop minimum where the rules have one, what was planned and what was recorded, the refuel crew and the jobs to check at this stop. <b>Override car state</b> (geofence missed) is folded away under the card.</li>
+</ul>
+<figure><img src="img/gate.png" alt="Stop handshake"><figcaption>Stop handshake during fuelling: Pit in and Fuelling started are HANDSHAKES, the driver change is CONFIRMED, fuel completed and pit out still to come</figcaption></figure>
+<p>Every step has two signals. <b>GEO</b> means the Agile geofence saw the car do it; <b>ENG</b> means you confirmed it. Both together read <b>HANDSHAKE</b>. There are no countdowns: you press each step when you see it done.</p>
+<table>
+  <tr><th style="width:18%">Step</th><th style="width:26%">GEO</th><th>ENG (what you press)</th></tr>
+  <tr><td>Pit in</td><td>pit-entry geofence</td><td><b>PIT IN</b>: the car is in the pit lane. If the Agile missed the pit entry, this also opens the stop by hand.</td></tr>
+  <tr><td>Driver change</td><td>none</td><td>Choose who gets in (pre-selected from the plan) and press <b>DRIVER CHANGE DONE</b>.</td></tr>
+  <tr><td>Fuelling started</td><td>car in the fuel zone</td><td><b>FUEL ON</b>: the crew is pouring. Starts the fuelling clock if the geofence missed it.</td></tr>
+  <tr><td>Fuel completed</td><td>car left the fuel zone</td><td><b>FUEL STOP COMPLETED</b> in the Fuel stop card: litres and cans recorded. <b>No fuel this stop</b> for a driver-only stop.</td></tr>
+  <tr><td>Pit out</td><td>pit-exit geofence</td><td><b>PIT OUT</b>: the car is leaving the pit lane.</td></tr>
+</table>
+<ul>
+  <li>Amber "geofence seen - confirm it": the car did it and you have not confirmed yet.</li>
+  <li>"Waiting for the geofence": you confirmed and the car has not got there yet.</li>
+  <li>A step nobody confirms is applied from the plan (<b>AUTO</b>) once the car has moved past it: the planned driver is set and the planned litres are recorded as added (not used to calibrate the fuel model).</li>
+  <li><b>Not a stop (false trigger)</b> rejects a false geofence event; the stop is removed from the strategy.</li>
+  <li>If the fuel stop was applied automatically, <b>Correct it</b> reopens the card; <b>SAVE CORRECTION</b> replaces the automatic entry.</li>
+  <li>Under a red flag nothing is fuelled or serviced; the stop resumes on green. <span class="new">NEW</span></li>
+</ul>
+<figure><img src="img/gatefuel.png" alt="Fuel stop card"><figcaption>Fuel stop card, available from pit in: pre-fill it while fuelling, then press FUEL STOP COMPLETED</figcaption></figure>
+<div class="box"><b>Brim fills make the fuel model accurate</b>Whenever the tank is filled until full, tick <b>Filled to brim</b>. Each brim fill is an exact measurement of how much fuel the last stint used, and the model recalibrates from it. The litres recorded also come off the fuel stock.</div>
+<figure><img src="img/pittimers.png" alt="Pit lane card"><figcaption>Pit lane card: fuelling against the regulation minimum, planned and recorded, jobs and refuel crew</figcaption></figure>
+
+<h3>Track map and Car feed summary</h3>
+<figure><img src="img/map.png" alt="Track map"><figcaption>Track map (top of the right column)</figcaption></figure>
+<p>The track map shows the circuit with its turn numbers, the start/finish line and the pit zones; the dot is the car (coloured by car state, grey if the position is old) with a short trail. Until the Agile has recorded its own reference lap the outline comes from the track preset; after that the Agile's recorded lap is used, which is exact for the car's own GPS.</p>
+<figure><img src="img/telemetry.png" alt="Car feed summary"><figcaption>Car feed summary with micro-sectors and the four Sentinel corners</figcaption></figure>
+<p>The <b>Car feed summary</b> gives last lap, best lap, reference pace (median of recent clean green laps), live delta and speed; the micro-sectors of the current lap (green faster, red slower, purple best, grey not yet run, white outline = the sector the car is in); and the four corners from the Sentinel: brake and tyre temperature and TPMS pressure. Corner values are grey when in range, amber in the Sentinel red band and flashing red above the top band.</p>
+
+<h3>Race control (engineer only)</h3>
+<figure><img src="img/control.png" alt="Race control"><figcaption>Race control</figcaption></figure>
+<p>Before a session: choose the session, start fuel, starting driver and tyre set, and press <b>Green flag - start session</b>. During a session the panel has two clearly separated groups:</p>
+<ul>
+  <li><b>STRATEGY - Track status</b>: the track flag (changes fuel burn, refuelling rules and the call; also shown on the dash). <b>Chequered</b>, and which scenario is running with a link to change it.</li>
+  <li><b>MESSAGE - Pit board</b>: presets or up to 16 characters of your own, shown on the Agile dash. <b>Priority</b> keeps the message up until the driver acknowledges it. These never change the plan.</li>
+</ul>
+
+<h3>Attention &amp; feed</h3>
+<figure><img src="img/feed.png" alt="Attention and feed"><figcaption>Attention &amp; feed, with the Race history below</figcaption></figure>
+<p>The top of the feed is what needs attention: unacknowledged warnings and critical alerts (press <b>Ack</b>) and jobs for the next stop (press <b>Fixed</b> when done). <b>Log a car issue for the next stop</b> adds a job; it appears at once on this card and on the Car tab. <span class="new">NEW</span> Below is the <b>Race history</b>: flags, stops, pit board messages and acknowledgements, issues, penalties, crew status changes and acknowledged alerts, newest first, in a short window that scrolls inside its card. Alerts also pop up briefly in the bottom-right corner with a chime.</p>
+
+<h2 id="s5-6">5.6 Race Plan tab</h2>
+<figure><img src="img/race-plan.png" alt="Race Plan tab"><figcaption>Figure 5 - Race Plan tab</figcaption></figure>
+<ul>
+  <li><b>Summary</b> - stops to go (and how many are fuel stops), projected fuel at the flag, flag time, green burn rate, mandatory stops counted, and <b>Drop one fuel stop</b>: the fuel saving needed to remove one fuel stop.</li>
+  <li><b>Stint table</b> - one table for the whole race: stints already driven (with each completed stop and its lane time, fuelling time, litres and compliance), the current stint (highlighted), and the plan to the flag with every stop inline.</li>
+  <li><b>+ auto-gen debrief</b> - on every finished stint: a written recap as the engineer would give it - laps and time in the car, average, best and worst green-flag lap, consistency and drop-off, Safety Cars and flags, incidents, penalties and Sentinel alarms, peak brake and tyre temperature per corner, and the stop that ended it. Click <b>-</b> to fold it away. It works in replay too.</li>
+  <li><b>Laps</b> - lap history with each lap's class: push, green, slow, SC, pit.</li>
+  <li><b>Fuel trace</b> - fuel level over the race: solid so far, dashed planned, red reserve line.</li>
+  <li><b>Fuel model</b> - green and Safety Car burn rates, every measurement used to learn them, <b>Log gauge reading</b>, and <b>Save learned burn to this car</b>.</li>
+  <li><b>What-if</b> - lap time change, a Safety Car of N minutes with a fuel saving, or a green burn change. Local to the screen and never saved.</li>
+  <li><b>Regulations</b> - the profile in force and its key rules.</li>
+</ul>
+
+<h2 id="s5-7">5.7 Fuel Plan tab</h2>
+<figure><img src="img/fuel-plan.png" alt="Fuel Plan tab"><figcaption>Figure 6 - Fuel Plan tab: the fuel stops of the plan being run, the fuel stock, and the selected stop's procedure</figcaption></figure>
+<p>The Fuel Plan is the refuel crew's view of the race. It shows only the fuel stops of the plan being run (the running scenario); driver-only stops stay on Race Plan.</p>
+<p><b>Timeline.</b> Above it: fuel stops done and to go, litres to go, jerry cans to go, finish fuel and the scenario running. Each stop has a short label - number, time, litres, cans and the driver coming in - and a marker: grey done, lilac planned, amber in progress, dashed outline when you set its litres, with its fuel window underneath. Click a stop to select it.</p>
+
+<h3>Fuel stock at the track <span class="new">NEW</span></h3>
+<figure><img src="img/fpstock.png" alt="Fuel stock card"><figcaption>Fuel stock at the track: brought, poured, bought, left, still needed and spare</figcaption></figure>
+<p>Tracks the fuel brought to the weekend:</p>
+<ul>
+  <li><b>Brought</b> - what you set in Setup (or the suggestion, marked "suggested, not set").</li>
+  <li><b>Poured into the car</b> - every pit stop's litres come off the stock on their own, plus fills logged outside a stop.</li>
+  <li><b>Bought at the track</b> and <b>Left at the track</b>, in litres and cans.</li>
+  <li><b>Still needed to finish</b> - the burn left for every remaining session (the race through the live plan, so expected Safety Cars count; other sessions assume green flag), plus the reserve, less the fuel in the car. The line under the chips shows the sum.</li>
+  <li><b>Spare</b> - left minus still needed. Amber when under one can is spare; red, with an alert, when the stock will not last.</li>
+</ul>
+<p>The movements table lists every pour, purchase and recount. Buttons: <b>Log a fill outside a stop</b> (for example between sessions), <b>Fuel bought</b> (fuel bought at the track) and <b>Recount stock</b> (spills or part cans: sets the stock to what you count).</p>
+
+<h3>Stop detail and procedure</h3>
+<figure><img src="img/fpstop.png" alt="Fuel stop detail"><figcaption>Detail of the selected fuel stop, with the litres editor</figcaption></figure>
+<ul>
+  <li>litres on arrival, litres to add (inject), and litres on leaving;</li>
+  <li>jerry cans to bring, for example 4 x 20 L = 3 full + 1 with 4.5 L;</li>
+  <li>the fuel window and the planned stationary time;</li>
+  <li>the refuel crew by role (the incoming driver marked supervising), and the driver change;</li>
+  <li>who else attends: pit wall engineer, radio (Raceceiver relay), lap timing, mechanic.</li>
+</ul>
+<p>Crew for later stops is forecast from the shift plan at that time. The next stop uses whoever is available now.</p>
+<figure><img src="img/fpsteps.png" alt="Step by step"><figcaption>Step by step: the procedure for the selected stop, with times, names and each step's GEO / ENG handshake</figcaption></figure>
+<p><b>Step by step</b> gives the procedure for that stop from the incoming driver getting ready and the refuel crew going to the bay (summoned 5 minutes before pit-in, cans and the 9 kg foam extinguisher staged) through BOX BOX, pit in, driver change, fuelling started, fuel completed and pit out, with planned times and names.</p>
+<p><b>Change the litres of a stop</b> with -5, +5, Brim or by typing. A preview shows where every later fuel stop moves, the fuel stop count and the finish fuel, before anything is changed. <b>Apply to the running plan</b> re-plans the running scenario with that amount (capped by the tank and the per-stop limit); <b>Back to planner litres</b> removes it. Applied changes can be undone with <b>Undo</b> on the Scenarios tab.</p>
+
+<h2 id="s5-8">5.8 Scenarios tab</h2>
+<figure><img src="img/scenarios.png" alt="Scenarios tab"><figcaption>Figure 7 - Scenarios: Scenario B, its branch B1 (edited, with Undo available) and C, D, E</figcaption></figure>
+<p>Six "what could happen" scenarios side by side. Each starts from a template created at the moment the scenarios are created; event times are then fixed until you move them.</p>
+<table>
+  <tr><th style="width:28%">Scenario</th><th>Assumption</th></tr>
+  <tr><td>A - Clean race</td><td>No incidents: the plan as it stands.</td></tr>
+  <tr><td>B - Safety car</td><td>One 20 min Safety Car around the middle of what is left.</td></tr>
+  <tr><td>C - Early SC + sin bin</td><td>A 15 min Safety Car soon, then a 15 min sin bin penalty.</td></tr>
+  <tr><td>D - Mechanical</td><td>An unplanned 25 min repair stop.</td></tr>
+  <tr><td>E - Chaos</td><td>A 30 min red flag, then two 15 min Safety Cars.</td></tr>
+  <tr><td>F - Driver down</td><td>The up-next driver unavailable for the rest of the race.</td></tr>
+</table>
+<p>Each bar is the whole race. Above it, the estimated lap number; below it, the clock time. On the bar: driven stints dim, the plan from now in driver colours, stops as ticks (lilac = fuel), fuel windows underneath, and the scenario's events along the top (orange Safety Car, red Red flag, purple repair or sin bin). Chips give stops, fuel stops, total stationary time and finish fuel; warnings appear under the bar.</p>
+
+<h3>The real past on every bar <span class="new">NEW</span></h3>
+<figure><img src="img/plan-E-red.png" alt="Scenario with a real red flag"><figcaption>Scenario E after a real red flag: the real flags and the RED park block are drawn on every bar</figcaption></figure>
+<p>Every bar, and the Race timeline, show the same real past: Safety Cars, yellows and red flags as solid bars (a flag still out projected forward), a RED block in the driver lane for the time parked, and the stops really made. So the scenarios converge as the race goes on. A predicted Safety Car or red flag is <b>used up</b> when a real one of the same kind comes out after the scenario was made. A predicted event whose time passes without it happening <b>slides forward</b> to the next likely spot (evenly between now and the scenario's next event, or the flag; shown with a dashed outline), and is dropped once it no longer fits before the flag.</p>
+
+<h3>Working with a scenario</h3>
+<ul>
+  <li><b>Box under the Safety Car.</b> If a Safety Car starts and a stop is due within the next 45 minutes, the scenario takes that stop under the Safety Car (orange ring) and re-plans every other stop around it.</li>
+  <li><b>Drag a stop</b> along the bar to move it. That stop and every stop before it are pinned (cyan ring); every later stop re-plans live while you drag, and a (!) appears if the arrangement breaks a limit.</li>
+  <li><b>Move the fuel to another stop:</b> drag a fuel stop and drop it onto another stop. Both keep their times and driver changes; only the fuel moves.</li>
+  <li><b>Click a stop</b> to make it a fuel / no-fuel stop, or unpin it and the stops after it.</li>
+  <li><b>Assumptions</b> opens assumptions mode: drag a Safety Car, red flag, repair or sin bin to another time, or drag its right edge to change its length. The editor below the bar lists the events with exact start times and lengths, plus a lap time change and unavailable drivers; <b>Save assumptions</b> stores them.</li>
+  <li><b>Undo / Redo</b> <span class="new">NEW</span> step back and forward through every change to that scenario (Save assumptions, adding or removing an event, dragging an event or a stop, moving fuel, litres set on the Fuel Plan, clearing dragged stops, Reset), up to 50 per scenario. A new change clears Redo. The buttons are always there, greyed out when there is nothing to step through. The history is part of the event log, so it is the same on every screen and survives a restart.</li>
+  <li><b>Reset</b> brings the scenario back to its original events and removes every dragged stop and litres setting. An <b>edited</b> badge shows which scenarios differ from their original.</li>
+  <li><b>Run this scenario</b> makes it the live strategy. The call, Next stop, Fuel Plan, timeline, refuel crew summons, prepare alerts and Garage display all follow it, and the status bar shows its letter.</li>
+</ul>
+
+<h3>Branches: Clone <span class="new">NEW</span></h3>
+<figure><img src="img/branch.png" alt="Branch B1"><figcaption>Branch B1, cloned from Scenario B and then edited</figcaption></figure>
+<p><b>Clone</b>, next to each scenario's name, copies the scenario as it is now into a branch drawn indented under its family: A1, A2 ... for A, B1 for B. A clone of A1 becomes the next A number. A branch is a full scenario: it can be run, edited, undone and compared side by side with the main line; <b>Reset</b> returns it to how it was when cloned. <b>Remove</b> deletes a branch that is not running.</p>
+<div class="box"><b>Race Plan what-if vs Scenarios</b>The what-if on the Race Plan tab is a quick look on one screen and is never saved. Scenarios are saved, shared with every device, logged, and one of them is always the one running.</div>
+
+<h2 id="s5-9">5.9 Team tab</h2>
+<figure><img src="img/team.png" alt="Team tab"><figcaption>Figure 8 - Team tab: roster, then Shifts &amp; sleep</figcaption></figure>
+<p>One table for every team member. Drivers come first in rotation order (<b>Up</b>/<b>Down</b> to change it); the planner follows this order, skipping drivers who are unavailable, offline or have not rested enough. For each member: presence icon, roles, status (with what the shift plan has them doing), hours on duty (amber when rest is due, <b>+1 h</b> to override for a contingency), and for drivers time driven, stints, best lap and time since their last stint.</p>
+<table>
+  <tr><th style="width:22%">Status</th><th>Meaning</th></tr>
+  <tr><td>Available</td><td>On duty. Can be assigned to the refuel crew.</td></tr>
+  <tr><td>Driving</td><td>In the car (automatic).</td></tr>
+  <tr><td>Resting</td><td>On a break. Not assigned. The outgoing driver is set Resting automatically at pit in.</td></tr>
+  <tr><td>Sleeping</td><td>Asleep. Not assigned; FIX can wake them if a refuel role is empty.</td></tr>
+  <tr><td>Offline</td><td>Away from the track.</td></tr>
+  <tr><td>Flag duty</td><td>Marshalling at a flag point (enter the post in the reason box).</td></tr>
+  <tr><td>Unavailable</td><td>Sick, injured, or otherwise out; the planner removes a driver from the rotation.</td></tr>
+  <tr><td>Schedule</td><td>Follow the shift plan below (removes a manual status).</td></tr>
+</table>
+<figure><img src="img/gantt.png" alt="Shifts and sleep"><figcaption>Shifts &amp; sleep</figcaption></figure>
+<p>The <b>Shifts &amp; sleep</b> chart shows each person's blocks over the race: green duty, amber resting, blue sleeping, orange flag duty, red unavailable, dark grey offline, white driving (faded = planned).</p>
+<p><b>Draft shifts from the plan</b> replaces every block with a complete rota built from the plan being run (it asks first). Drivers are rostered stint by stint: the driver in the car is driving and the next driver in is on duty in the garage getting ready; the driver who has just stepped out rests, and the one before sleeps (races of 12 hours or more); at least two drivers wait in the garage for mechanical work and the fuel crew; any extra drivers sleep. Other crew run in two alternating groups of the <b>Crew shift</b> length. The refuel crew for each planned fuel stop is on duty from 5 minutes before pit-in to pit-out, chosen from who is in the garage, so the plan does not wake anyone for a stop.</p>
+<h3>Editing one person's shifts <span class="new">NEW</span></h3>
+<figure><img src="img/shifteditor.png" alt="Shifts editor"><figcaption>The shifts editor opens on the block happening now, outlined in cyan</figcaption></figure>
+<p>Click <b>edit</b> next to a name to open that person's blocks: start, end, kind and note for each, with <b>Remove</b>, <b>Add block</b> and <b>Save</b>. The block happening right now is outlined in cyan and the editor scrolls straight to it.</p>
+
+<h2 id="s5-10">5.10 Car tab</h2>
+<figure><img src="img/car.png" alt="Car tab"><figcaption>Figure 9 - Car tab: Tyre sets, Car status log and Penalties on the left; Track, Live timing and Sentinel on the right</figcaption></figure>
+<p>Left column: <b>Tyre sets</b> (time on the car, laps, last tread measurement and life bar; Fit, Measure, Scrap), <b>Car status log</b> (every issue, manual or automatic, with category, severity, whether to deal with it at the next stop, and its history; Next stop/Unflag, Fixed, Close) and <b>Penalties</b> (drive-through, stop-and-go, sin bin, black-flag warnings and time penalties per driver; black flags counted per driver per day for the BEERS escalation).</p>
+<p>Right column: <b>Track</b> (the same live map as on the Race tab), <b>Live timing (Agile)</b> and <b>Brakes, tyres &amp; TPMS (Sentinel)</b> with the device's own colour bands, thresholds and alarm history. The cards can be moved as on the Race tab.</p>
+<figure><img src="img/agile.png" alt="Live timing"><figcaption>Live timing (Agile) with the micro-sector grid</figcaption></figure>
+<p>Live timing shows lap number, running lap time, predicted lap, delta, last, best, reference pace and speed, updated live at 10 Hz. The micro-sector grid shows every sector of the Agile's reference lap with its colour (green faster, red slower, purple best, grey not yet run), its number and its delta for the current lap; the sector the car is in is outlined. In the pit lane there is no live delta and sectors before pit exit stay grey.</p>
+
+<h2 id="s5-11">5.11 Garage display</h2>
+<figure><img src="img/garage.png" alt="Garage display"><figcaption>Figure 10 - Garage display during a stop</figcaption></figure>
+<p>A big-type screen for the crew, meant for a TV or tablet in the garage. Between stops it shows the countdown to the next stop, its type and fuel, the driver and fuel on board. When the car is in, it shows the fuelling minimum counting down. Alongside: the refuel crew by name, the driver change (with the time to have kit on), the jobs to check at this stop, and a warning when refuelling is closed by the flag. An unassigned refuel role shows a FIX button on the engineer's screen.</p>
+
+<h2 id="s5-12">5.12 Log tab and saved plans</h2>
+<figure><img src="img/log.png" alt="Log tab"><figcaption>Figure 11 - Log tab: event log, replay, weekend files and saved plans</figcaption></figure>
+<ul>
+  <li><b>Event log</b> - every change ever made, in order, with clock and race time and who made it. Filter by type or search text. Scenario clones and edits, fuel stock movements and handshake steps are all here.</li>
+  <li><b>Replay</b> - re-runs the log through the application: every tab shows what the pit wall saw at that moment. Slider, Play at 1x to 1200x, jump 10 minutes, <b>Back to live</b>.</li>
+  <li><b>Weekend files</b> - download the weekend file (<code>.orb.json</code>: setup and complete log), the event log as CSV, restore (import) a weekend file (old <code>.pitwall.json</code> files import too), and open other weekends.</li>
+</ul>
+<h3>Saved plans <span class="new">NEW</span></h3>
+<figure><img src="img/export.png" alt="Weekend files and saved plans"><figcaption>Weekend files and Saved plans</figcaption></figure>
+<p>Prepare a weekend days early and start it fresh on race day. <b>Save plan</b> stores the open weekend as it stood before its first session - team, rotation, shifts, car, tyres and scenarios, but no laps, alerts, device data or anything logged during a run - in <code>data\plans\</code> as <code>&lt;date&gt;_&lt;time&gt;_&lt;name&gt;.orb.json</code>, with an optional note. Each plan offers:</p>
+<ul>
+  <li><b>Start a copy</b> - opens a new weekend from that plan; the weekend it came from is kept. So you can rehearse with the simulator and still go back to the clean plan.</li>
+  <li><b>Download</b> - the plan file, which imports on another laptop like any weekend file.</li>
+  <li><b>Delete</b> - moves it to <code>data\plans\deleted\</code>.</li>
+</ul>
+<p>Orb also saves a plan automatically (<code>..._auto.orb.json</code>) the moment a weekend's first session starts. Plans are also offered on the New race weekend screen.</p>
+
+<h2 id="s5-13">5.13 Setup</h2>
+<figure><img src="img/setup.png" alt="Setup"><figcaption>Figure 12 - Setup</figcaption></figure>
+<p>Opened from <b>Setup</b> at the right of the tab bar. On the first start it is the only screen, and it creates the race weekend. Later it edits the weekend; every change is logged. Every field has a tooltip: what it is, and what raising or lowering it does.</p>
+<table>
+  <tr><th style="width:24%">Section</th><th>Fields</th></tr>
+  <tr><td>Regulations</td><td>Rules profile (B4B Events or BEERS) with its version and key rules.</td></tr>
+  <tr><td>Event</td><td>Name, date, track (the Collie Motorplex preset includes the long-circuit outline and turn numbers), lap length (distance races), pit lane transit time, race format (7 h, 12 h, 24 h, 36 h, 1000 km, custom), race length, expected lap time.</td></tr>
+  <tr><td>Sessions</td><td>Practice, qualifying, race (and more) with planned start and length.</td></tr>
+  <tr><td>Team &amp; car</td><td>Team name, number; car profile from the library; tank sizes and unusable fuel; reserve floor; <b>Tank sizes confirmed</b>; baseline green and Safety Car burn for this track; refuel method; pour rate; driver change time; save car to library.</td></tr>
+  <tr><td>Fuel stock for the weekend <span class="new">NEW</span></td><td>Safety margin on the burn (%, default 10), fuel in the car on arrival, and <b>Fuel we bring</b>. The suggestion: every session at the green-flag burn, plus the margin and the reserve, less the fuel already in the car, rounded up to whole cans, with the sum spelled out. <b>Use the suggestion</b> fills it in.</td></tr>
+  <tr><td>Team members</td><td>Name, driver yes/no, roles (driver, mechanic, refueller, assistant, cutoff, pump, fire, raceceiver, engineer, timing, other). Drivers' order is the rotation.</td></tr>
+  <tr><td>Tyres, policies &amp; devices</td><td>Tyre sets, new and minimum tread; rest after hours on duty; minimum driver rest; crew shift length; max stint; when to change drivers; stint safety margin; fill to brim; clock format; Agile, Sentinel and UDP addresses.</td></tr>
+  <tr><td>Branding</td><td>The Mullaloo Motorsport Engineering logo is built in; upload a PNG/SVG only to replace it, <b>Use default logo</b> to go back.</td></tr>
+  <tr><td>Checks</td><td>Warnings before you race: too few drivers for the format, tank over the regulation maximum, tank sizes not confirmed, refuel roles nobody holds, no Raceceiver relay (BEERS), headlights for 24 h+ races.</td></tr>
+</table>
+<figure><img src="img/setup-stock.png" alt="Fuel stock in Setup"><figcaption>Fuel stock for the weekend, with the suggestion worked out <span class="new">NEW</span></figcaption></figure>
+
+<h2 id="s5-14">5.14 Track layout - Collie Motorplex long circuit</h2>
+<p>The Collie Motorplex preset is the long circuit: 2.55 km, 13 turns, run anti-clockwise, start/finish on the straight between T13 and T1. The centreline was fitted to satellite imagery of the venue (true shape and orientation, north up) using the official layout for the turn order, and scaled to 2.55 km. The pit lane, pits area, fuel area, pit entry and exit lines and the start/finish line come from the team's own mark-ups of the pit complex. The pit lane is about 460 m from entry to exit and runs alongside the start/finish straight; the pits area comes before the fuel area, then the exit.</p>
+<figure class="half"><img src="img/collie-official-layout.png" alt="Official Collie layout"><figcaption>Figure 13 - Collie Motorplex long circuit, official layout (red). The grey link is the short-circuit connection and is not part of the long circuit.</figcaption></figure>
+<p>The map uses the preset until the Agile has recorded its own reference lap, then the Agile's lap (exact for the car's GPS). Turn numbers and the pit lane stay on the map whenever they line up with the drawn circuit. The preset's absolute GPS position is approximate; at the track the Agile's recorded lap and its stored geofences are what the app uses.</p>
+
+<!-- ============================================================ 6 -->
+<h1 id="s6">6. Running a real race weekend</h1>
+<h2>6.1 Before the weekend</h2>
+<ol>
+  <li>Start the server (with no weekend active, Setup opens; otherwise <b>Setup - Start a new weekend instead</b>).</li>
+  <li>Choose the regulations, track, format and sessions. Enter team, car and tank sizes; tick <b>Tank sizes confirmed</b> once checked on the car.</li>
+  <li>Enter every team member and tag their roles. For jerry-can fuelling you need people tagged <code>refueller</code>, <code>assistant</code> and <code>fire</code>. The outgoing driver is never on the crew and the incoming driver takes the assistant role (supervising), so tag at least three or four people with each fuel role; for BEERS also <code>raceceiver</code>.</li>
+  <li>Under <b>Fuel stock for the weekend</b> check the suggestion and set what you will bring. <span class="new">NEW</span></li>
+  <li>Clear all warnings in <b>Checks</b>, then <b>Create race weekend</b>.</li>
+  <li>In <b>Team</b>, press <b>Draft shifts from the plan</b> and adjust blocks as needed. Open <b>Fuel Plan</b> and check the crew forecast for each fuel stop.</li>
+  <li>In <b>Log - Saved plans</b> press <b>Save plan</b>. Rehearse with the simulator if you like; on race day press <b>Start a copy</b> on the plan for a clean weekend. <span class="new">NEW</span></li>
+</ol>
+
+<h2>6.2 At the track: connect the car</h2>
+<p>Join the laptop to the car network (VDG / MME_AP, 192.168.0.x). Read the IP addresses on the Agile and Sentinel screens and enter them in <b>Setup - Tyres, policies &amp; devices</b>, then <b>Save changes</b>. Starting from the demo weekend, these are the fields to change:</p>
+<table>
+  <tr><th>Description</th><th>Current setting</th><th>Target setting</th></tr>
+  <tr><td>Agile lap timer</td><td>ticked</td><td>no change</td></tr>
+  <tr><td>Agile IP</td><td><code>127.0.0.1:8081</code> (simulator)</td><td>IP shown on the Agile screen, e.g. <code>192.168.0.41</code></td></tr>
+  <tr><td>Sentinel</td><td>ticked</td><td>no change</td></tr>
+  <tr><td>Sentinel IP</td><td><code>127.0.0.1:8082</code> (simulator)</td><td>IP shown on the Sentinel screen, e.g. <code>192.168.0.40</code></td></tr>
+  <tr><td>Sentinel poll (ms)</td><td>1000</td><td>no change</td></tr>
+  <tr><td>UDP input / port</td><td>ticked / 47800</td><td>no change</td></tr>
+</table>
+<p>The Agile and Sentinel lights turn green within seconds. The track map appears once the Agile has recorded its reference lap. Close the simulator if it is still running.</p>
+
+<h2>6.3 Starting a session</h2>
+<p>In <b>Race control</b> select the session, enter the actual fuel in the car, the starting driver and the tyre set, and press <b>Green flag - start session</b> when the session goes green. Practice and qualifying are recorded too: their laps and fuel measurements help the model before the race, and the fuel they use comes off the stock. Orb saves an automatic plan when the weekend's first session starts.</p>
+
+<h2>6.4 During the race - routine</h2>
+<ul>
+  <li>Glance at the call and the Attention list; acknowledge alerts once handled.</li>
+  <li>Set the flag in Race control whenever race control changes it; the call accounts for refuelling rules under each flag, and a red flag holds the plan until the restart.</li>
+  <li>About 30 and 15 minutes before a driver change, the next driver gets a "prepare" alert; 5 minutes before a fuel stop the refuel crew is summoned by name.</li>
+  <li>At every stop: confirm the handshake steps and record the fuel (litres, brim, driver in, fixes).</li>
+  <li>Log a gauge reading whenever someone reads the fuel gauge.</li>
+  <li>Keep crew statuses current; assignments update immediately.</li>
+  <li>Log fuel bought and any fill outside a stop on the Fuel Plan, and recount the stock now and then.</li>
+  <li>Use the Garage display on a TV and the Fuel Plan on the crew chief's tablet.</li>
+</ul>
+
+<h2>6.5 Pit stop workflow</h2>
+<table>
+  <tr><th style="width:14%">Moment</th><th>What happens</th><th style="width:34%">Engineer action</th></tr>
+  <tr><td>Stop near</td><td>From 5 min before the planned stop the call counts laps: BOX IN 3 LAPS, 2, 1. On the last lap: NOTIFY DRIVER: BOX BOX. Refuel crew summoned 5 min before pit-in; the incoming driver joins them in the fuel zone.</td><td>Press <b>Send BOX BOX to the driver</b>. To keep the car out, press <b>+1 lap</b> instead.</td></tr>
+  <tr><td>Pit entry</td><td>PIT ENTRY geofence opens the stop (GEO); the handshake card appears; pit lane timer starts. The outgoing driver is set Resting.</td><td><b>PIT IN</b> (or <b>Not a stop</b>). Brief the crew from "Check at this stop".</td></tr>
+  <tr><td>Driver out</td><td>Outgoing driver leaves the car before fuelling and goes straight to rest.</td><td>Check the driver row, <b>DRIVER CHANGE DONE</b>.</td></tr>
+  <tr><td>Fuelling</td><td>Fuel bay geofence (GEO): fuelling timer against the minimum. The incoming driver supervises, hands off.</td><td><b>FUEL ON</b> when pouring starts. Fill in the Fuel stop card.</td></tr>
+  <tr><td>Fuel done</td><td>Car leaves the fuel zone (GEO). The litres come off the fuel stock.</td><td><b>FUEL STOP COMPLETED</b>.</td></tr>
+  <tr><td>Pit exit</td><td>PIT EXIT geofence: stop closed and checked; plan recalculated. Anything not confirmed is applied from the plan (AUTO).</td><td><b>PIT OUT</b>, then check the new next stop.</td></tr>
+  <tr><td>Red flag in the stop <span class="new">NEW</span></td><td>No fuelling or service under red; the stop waits where it is.</td><td>Wait for GREEN, then carry on from the same step.</td></tr>
+</table>
+<div class="box"><b>If the Agile misses a geofence</b>Use <b>Override car state</b> under the Pit lane card (or the manual car state buttons in Next stop when the Agile is offline). The stop timers follow these buttons exactly as they follow the Agile.</div>
+
+<h2>6.6 After the race</h2>
+<p>Press <b>Chequered</b>. In <b>Race Plan - Fuel model</b>, press <b>Save learned burn to this car</b> to keep the measured consumption for the next event at this track. Read the stint debriefs. In <b>Log</b> download the weekend file and the CSV for the debrief, and back up the <code>data</code> folder.</p>
+
+<!-- ============================================================ 7 -->
+<h1 id="s7">7. How the strategy works</h1>
+<h2>7.1 Fuel model</h2>
+<p>Burn starts from the car's baseline for the track (green and Safety Car litres per hour). Every lap is classified by its time against the live reference pace: push, green, slow, Safety Car or pit lap; stationary time in the pits burns nothing. Each brim fill or gauge reading is a measurement of the fuel actually used since the previous one; a regression then refits the green and Safety Car rates, with the baseline as a starting point. A stint that used more than 10% more or less than predicted raises an alert. The estimate shows its uncertainty, which grows with time since the last measurement.</p>
+<h2>7.2 Planner</h2>
+<p>From the current moment to the flag, the planner searches the number of stops, how many of them are fuel stops and where they fall, and picks the plan with the least total time stationary while respecting:</p>
+<ul>
+  <li>fuel range and the reserve floor;</li>
+  <li>the maximum continuous stint (minus the safety margin);</li>
+  <li>the maximum litres per stop (regulation cap or fuel-area storage);</li>
+  <li>mandatory stops and their minimum duration (B4B);</li>
+  <li>the minimum fuel stop time and pour rate;</li>
+  <li>driver rotation, availability and minimum rest.</li>
+</ul>
+<p>On long races with short fuel range (for example the BEERS 36 h), this typically alternates driver-only stops with fuel stops, which saves a large amount of stationary time.</p>
+<h2>7.3 Red flags and scenarios <span class="new">NEW</span></h2>
+<p>A live red flag neutralises the race: from the red until the assumed restart (<code>strategy.redExpectMin</code>, 20 min; once that has passed, always at least 5 minutes away) the car is parked in the pits, nothing burns, no stint is driven and no stop is planned. The red pit visit never counts as a mandatory stop and gets no automatic fuel or driver change from the plan. The driver's continuous time pauses.</p>
+<p>A scenario is the planner plus assumptions. Safety Car windows lower the burn rate (and a stop due within 45 minutes is taken under the Safety Car), assumed red flags stop the burn, repair stops and sin bins are forced stops of fixed length, and unavailable drivers are removed from the rotation. All scenarios share the real past (real flags, the red park block and the stops made). A predicted Safety Car or red is consumed by a real one of the same kind; one that does not happen moves forward to the next likely spot, or is dropped if it no longer fits before the flag.</p>
+<p>Stops you drag are pinned: the planner keeps them where you put them, with their fuel and driver choice, and searches the best plan only for the time after the last pinned stop. Litres set on the Fuel Plan are kept the same way. Every change is recorded with an undo history per scenario (up to 50 steps).</p>
+<h2>7.4 Windows and calls</h2>
+<p>A fuel window opens at the earliest time the car could stop, fill up and still reach the next fuel stop (or the flag), and closes at the latest time before the reserve floor or the stint limit. The call is recalculated every second from the plan, the fuel estimate, the stint time and the flag; Appendix B lists every call.</p>
+<h2>7.5 Driver time and +1 lap</h2>
+<p>A driver's continuous time stops when the car stops in the pits. Once the driver change is confirmed, the Now column shows the new driver as "In the car - timer starts at pit out", with the outgoing driver's final time beside it. While the car is in the pits no stint-limit or fuel-window alerts are raised. A driver who stays in the car through a stop keeps counting from where it paused.</p>
+<p><b>+1 lap</b> holds the called stop one reference lap later in the running plan and every scenario. It is allowed only if the fuel on arrival stays at or above the reserve floor and the stint stays within the maximum. The stop's fuel grows by one lap's burn; the planned driver change is kept. The extension ends when the car next enters the pits.</p>
+<h2>7.6 Crew, refuel crew and shifts</h2>
+<ul>
+  <li>Presence states: Available, Driving, Resting, Sleeping, Offline, Flag duty, Unavailable, each with a reason. A manual status overrides the shift plan until set back to Schedule.</li>
+  <li>Rest: rest alert after 7 h on duty (Setup), with a 1 h contingency override. Drivers need the minimum driver rest (2 h by default) before the planner puts them back in the car.</li>
+  <li>Prepare alerts for the next driver at 30 and 15 minutes.</li>
+  <li>Refuel crew summoned by name 5 minutes before a fuel stop. Only members tagged with the role and currently Available are assigned, the most constrained role first, preferring non-drivers.</li>
+  <li>The golden rule at a fuel stop: the outgoing driver steps out and goes to rest - never on the refuel crew. The incoming driver enters the fuel zone as Refueller Assistant, supervising only.</li>
+  <li>If nobody qualifies, the slot shows UNASSIGNED with the reason; nobody is ever assigned silently.</li>
+</ul>
+<h2>7.7 Fuel stock <span class="new">NEW</span></h2>
+<p>Suggested stock = (sum over sessions of length x green-flag burn) x (1 + margin) + reserve - fuel in the car on arrival, rounded up to whole cans. Live: left = brought + bought - poured (pit stops, fills outside a stop), or the last recount adjusted since. Still needed = burn for every remaining session (race from the live plan) + reserve - fuel in the car. Spare = left - still needed.</p>
+<h2>7.8 Regulation profiles</h2>
+<table>
+  <tr><th style="width:22%">Rule</th><th>B4B Events (Mar 2026 + 7 h supplementary)</th><th>BEERS (Standing Regulations V4, 09/02/2025)</th></tr>
+  <tr><td>Fuel stop minimum</td><td>5 min</td><td>8 min (confirmed at the briefing)</td></tr>
+  <tr><td>Mandatory stops</td><td>5 stops of at least 5 min</td><td>None</td></tr>
+  <tr><td>Fuel per stop</td><td>Max 80 L</td><td>Limited by fuel-area storage (jerry cans 5 x 20 L, drums 2 x 60 L)</td></tr>
+  <tr><td>Refuelling under Safety Car</td><td>Allowed</td><td>Not allowed (treated as Yellow)</td></tr>
+  <tr><td>Refuelling under Red</td><td>Not allowed</td><td>Not allowed</td></tr>
+  <tr><td>Max continuous stint</td><td>120 min</td><td>120 min</td></tr>
+  <tr><td>Drivers</td><td>3 to 6</td><td>Min 4, min 5 for 24 h+</td></tr>
+  <tr><td>Other</td><td>Contact = 15 min sin bin</td><td>Raceceiver relay required at all times; black flags escalate per driver per day; headlights for 24 h+; no driver swap during fuelling</td></tr>
+</table>
+<p>Profiles are JSON files in the <code>rules</code> folder. Importing directly from an organiser's PDF is not supported.</p>
+
+<!-- ============================================================ 8 -->
+<h1 id="s8">8. Devices and network</h1>
+<table>
+  <tr><th style="width:18%">Device</th><th style="width:38%">Connection</th><th>Used for</th></tr>
+  <tr><td><a href="https://github.com/redc6t/Agile">Agile</a> lap timer</td><td>WebSocket to <code>ws://AGILE-IP/ws</code> (10 Hz live data, flag state, pit board shown / acknowledged); HTTP <code>/data</code> (completed lap time, position at 2 Hz), <code>/refpath</code>, <code>/geozones</code>, <code>/sf/get</code></td><td>Laps, live timing and micro-sectors, car state from geofences (stop timers and the GEO half of the handshake), position and track map, pit board messages and driver acknowledgements, flags shown on the dash</td></tr>
+  <tr><td><a href="https://github.com/redc6t/Sentinel">Sentinel</a> with <a href="https://github.com/redc6t/CIRTS">CIRTS</a> sensors</td><td>HTTP <code>/data</code> polled every second, <code>/config</code> for thresholds</td><td>Brake and tyre temperatures, TPMS, alarms; GPS position as a fallback for the map</td></tr>
+  <tr><td>Other devices</td><td>JSON over UDP, port 47800</td><td>Simulator, future devices (e.g. an IMU impact sensor)</td></tr>
+</table>
+<p>UDP messages are one JSON object per datagram:</p>
+<pre>{"t":"lap","n":12,"ms":91234,"pitted":false}      {"t":"carstate","cs":"PITS"}
+{"t":"flag","flag":"SC"}                          {"t":"fuel","litres":32.5}
+{"t":"impact","g":4.2,"lat":-33.36,"lon":116.15}
+{"t":"issue","cat":"engine","sev":"warn","text":"Oil temp high"}</pre>
+<p>Sentinel alarms: a value in the Sentinel red band is logged as a warning; above the top (flashing) band it is critical and automatically creates a car issue flagged for the next stop. Each alarm level repeats at most every 5 minutes per corner.</p>
+
+<!-- ============================================================ 9 -->
+<h1 id="s9">9. Data, backup and recovery</h1>
+<table>
+  <tr><th style="width:40%">Path (inside the data folder)</th><th>Content</th></tr>
+  <tr><td><code>settings.json</code></td><td>Port, engineer hosts, last weekend (resumed automatically)</td></tr>
+  <tr><td><code>cars\</code></td><td>Car library with learned fuel profiles per track</td></tr>
+  <tr><td><code>events\&lt;id&gt;\config.json</code></td><td>The weekend as created</td></tr>
+  <tr><td><code>events\&lt;id&gt;\events.jsonl</code></td><td>Every change, one line each: the race log and replay source (scenario undo history and fuel stock movements included)</td></tr>
+  <tr><td><code>events\&lt;id&gt;\car_config.json</code>, <code>driver_schedule.json</code></td><td>Readable snapshots</td></tr>
+  <tr><td><code>plans\&lt;date&gt;_&lt;time&gt;_&lt;name&gt;.orb.json</code> <span class="new">NEW</span></td><td>Saved plans (and <code>_auto</code> plans saved at the first session)</td></tr>
+  <tr><td><code>plans\deleted\</code> <span class="new">NEW</span></td><td>Plans you deleted</td></tr>
+  <tr><td><code>branding\</code></td><td>Your logo</td></tr>
+</table>
+<ul>
+  <li>Changes are written to disk the moment they are made; a power cut loses at most the last change.</li>
+  <li>The weekend file (<b>Log - Weekend files - Download</b>) contains the setup and the complete log; <b>Import</b> restores it on any machine.</li>
+  <li>To keep the data folder somewhere else, set the environment variable <code>ORB_DATA</code> (<code>PITWALL_DATA</code> still works).</li>
+  <li>Copy the data folder to a USB stick or a second laptop at least once per session during long events.</li>
+</ul>
+
+<!-- ============================================================ 10 -->
+<h1 id="s10">10. Troubleshooting</h1>
+<table>
+  <tr><th style="width:32%">Symptom</th><th>Cause and fix</th></tr>
+  <tr><td>Console window closes immediately</td><td>Node.js is not installed or too old. Install Node.js 18+ (LTS).</td></tr>
+  <tr><td>"Reconnecting to Orb server" banner</td><td>The server stopped or the network dropped. Restart <code>start-orb.bat</code>; the weekend resumes.</td></tr>
+  <tr><td>Old or mixed-up weekend after a restart, or <code>EADDRINUSE</code></td><td>An earlier server is still running in the background. Double-click <code>stop-orb.bat</code>, then <code>start-orb.bat</code>.</td></tr>
+  <tr><td>Other devices cannot open the page</td><td>Firewall blocked Node.js (allow on Private networks), wrong address (use the one printed in the console), or devices on a different network.</td></tr>
+  <tr><td>VIEW ONLY on the laptop</td><td>You opened it via its network address. Use <code>http://localhost:8080</code> on the host.</td></tr>
+  <tr><td>Cards are in odd places or a card seems missing</td><td>The cards were rearranged in this browser. Press <b>Reset layout</b> at the bottom of the Race or Car tab. A card that only shows during a stop appears again at the next stop.</td></tr>
+  <tr><td>Race tab columns stacked</td><td>The window is narrower than 1400 px. Maximise the browser or zoom out (Ctrl and minus).</td></tr>
+  <tr><td>Agile or Sentinel light red</td><td>Wrong IP, laptop not on the car network, or device off. Check the IP on the device screen and in Setup.</td></tr>
+  <tr><td>Agile amber ("stale")</td><td>Connected but no live data for 3 s: weak Wi-Fi or the device is busy.</td></tr>
+  <tr><td>No track map / no micro-sectors</td><td>The Agile has no reference lap yet; it records one after the first clean lap. The live trail is drawn meanwhile.</td></tr>
+  <tr><td>Handshake step stays amber</td><td>The geofence saw the step and you have not confirmed it. Press the step's button, or leave it: it becomes AUTO once the car moves on.</td></tr>
+  <tr><td>+1 lap greyed out</td><td>The extra lap would bring the fuel below the reserve or the stint over the maximum; the tooltip gives the reason.</td></tr>
+  <tr><td>Refuel crew UNASSIGNED</td><td>Nobody is tagged with that role, or everyone tagged is resting, sleeping, offline, driving or barred by the rules. Press <b>FIX</b>, or tag more people in Setup.</td></tr>
+  <tr><td>Fuel estimate drifting</td><td>No measurement for a long time. Log a gauge reading or tick <b>Filled to brim</b> at the next fuel stop.</td></tr>
+  <tr><td>Fuel stock "suggested, not set" or red <span class="new">NEW</span></td><td>Set what you bring in <b>Setup - Fuel stock for the weekend</b>; log purchases with <b>Fuel bought</b> and spills or part cans with <b>Recount stock</b>.</td></tr>
+  <tr><td>A scenario change was a mistake <span class="new">NEW</span></td><td>Press <b>Undo</b> on that scenario (<b>Redo</b> puts it back), or <b>Reset</b> to the original.</td></tr>
+  <tr><td>Call says RESTART <span class="new">NEW</span></td><td>The red flag is over and the car is still parked: send it out.</td></tr>
+  <tr><td>Demo times look wrong</td><td>Restart Orb (<code>stop-orb.bat</code>, then <code>start-orb.bat</code>): the demo resumes from its last lap. To start it over, run <code>make-demo.bat</code>.</td></tr>
+  <tr><td>Simulator: "address in use"</td><td>Another simulator is still running. Close it, or start with <code>--agile</code> / <code>--sentinel</code> on other ports and update Setup.</td></tr>
+  <tr><td>Changes not accepted</td><td>Replay is active (press <b>Back to live</b>) or the device is view-only.</td></tr>
+</table>
+
+<!-- ============================================================ 11 -->
+<h1 id="s11">11. Known limitations</h1>
+<ul>
+  <li>Tested against the simulator. The device adapters follow the Agile and Sentinel firmware exactly but have not yet been used with the real devices on a live car.</li>
+  <li>Regulation profiles cannot be imported from PDF; they are JSON files.</li>
+  <li>Impacts can only be received over UDP; the Agile does not send them.</li>
+  <li>GPS positions are live only and not stored in the log, so replay has no map.</li>
+  <li>The race clock keeps running under red flags (profile setting <code>clock.stopsOnRed</code>).</li>
+  <li>The red-flag restart time is an assumption (<code>strategy.redExpectMin</code>) until the flag actually goes green.</li>
+  <li>One server at a time: versions 1.x and 2.x use the same port and the same data folder.</li>
+  <li>Crew for fuel stops after the next one is a forecast from the shift plan; the real crew is assigned from who is Available at the 5-minute summon.</li>
+  <li>The fuel stock counts every session at the green-flag burn; Safety Cars outside the race plan only add spare.</li>
+  <li>The Collie preset's absolute GPS position is approximate. The Agile's recorded lap and geofences replace it at the track.</li>
+</ul>
+
+<!-- ============================================================ 12 -->
+<h1 id="s12">12. Reporting feedback</h1>
+<p>When something is wrong or unclear, open an issue at <a href="https://github.com/redc6t/Orb/issues">github.com/redc6t/Orb/issues</a> or send the following. The weekend file and the CSV let the problem be replayed exactly.</p>
+<pre>Orb - Pit Wall Strategy Manager v2.2.19 - test report
+Tester:
+Date / time of the problem (laptop clock):
+Weekend: demo / real (name):
+Screen and panel:
+What I did:
+What I expected:
+What happened:
+Screenshot: attached
+Weekend file (.orb.json) and event log CSV: attached (Log tab - Weekend files)</pre>
+<p>Useful things to test: the full pit stop handshake, confirmed and unconfirmed; +1 lap on the last lap; a red flag during a fuel stop and the restart; scenario Undo/Redo and branches; the fuel stock through a whole race, with a purchase and a recount; saving a plan and starting a copy of it; changing the litres of a fuel stop; a driver marked Unavailable mid-race; drafting shifts and checking who is called for each fuel stop; a Safety Car under both rule sets; restarting the server mid-race; two or three viewing devices at once; a long run with the simulator.</p>
+<p>Security problems: report privately as described in <code>SECURITY.md</code>. Accessibility barriers: see <code>ACCESSIBILITY.md</code>.</p>
+
+<!-- ============================================================ A -->
+<h1 id="appA">Appendix A - Glossary</h1>
+<table>
+  <tr><th style="width:24%">Term</th><th>Meaning</th></tr>
+  <tr><td>Agile</td><td>The MME GPS lap timer and pit board display in the car (was PLTD).</td></tr>
+  <tr><td>Branch</td><td>A scenario cloned from another (A1, B1 ...), to try a change and compare.</td></tr>
+  <tr><td>Brim fill</td><td>Filling the tank until full. Gives an exact measurement of fuel used.</td></tr>
+  <tr><td>Call</td><td>The single instruction shown at the top of the Now column.</td></tr>
+  <tr><td>CIRTS</td><td>The CAN infrared temperature sensor node at each corner of the Sentinel network.</td></tr>
+  <tr><td>ENG</td><td>The engineer's half of a stop handshake: the step's button was pressed.</td></tr>
+  <tr><td>Fuel stock</td><td>The fuel the team has at the track, in litres and cans.</td></tr>
+  <tr><td>Fuel window</td><td>Earliest to latest time a fuel stop can be made without breaking fuel or stint limits.</td></tr>
+  <tr><td>GEO</td><td>The geofence half of a stop handshake: the Agile saw the car do the step.</td></tr>
+  <tr><td>Geofence</td><td>A zone stored in the Agile (pit entry line, pits, fuel bay, pit exit line); crossing it changes the car state.</td></tr>
+  <tr><td>Handshake</td><td>A stop step confirmed by both the geofence (GEO) and the engineer (ENG).</td></tr>
+  <tr><td>Mandatory stop</td><td>A stop the regulations require (B4B: at least 5 stops of at least 5 minutes).</td></tr>
+  <tr><td>Micro-sector</td><td>One of the short sections the Agile splits its reference lap into; each is timed against the reference.</td></tr>
+  <tr><td>Plan (saved)</td><td>A weekend as it stood before its first session, stored to start fresh copies from.</td></tr>
+  <tr><td>Raceceiver</td><td>Race-control radio receiver; BEERS requires a crew member relaying it at all times.</td></tr>
+  <tr><td>Red park block</td><td>The time the car is held in the pits under a red flag, drawn in red on the timeline and scenarios.</td></tr>
+  <tr><td>Reference pace</td><td>Median of recent clean green laps.</td></tr>
+  <tr><td>Reserve floor</td><td>Fuel the plan never goes below.</td></tr>
+  <tr><td>Sentinel</td><td>The MME brake and tyre temperature and pressure monitor (was BTTM).</td></tr>
+  <tr><td>Stint</td><td>Continuous time one driver spends driving.</td></tr>
+  <tr><td>Stint extension</td><td>+1 lap: the called stop moved one lap later by the engineer.</td></tr>
+  <tr><td>Stationary time</td><td>Time the car is stopped in the box.</td></tr>
+  <tr><td>Up next</td><td>The next driver to get in the car.</td></tr>
+  <tr><td>What-if</td><td>A scenario calculated on screen only; never saved.</td></tr>
+</table>
+
+<!-- ============================================================ B -->
+<h1 id="appB">Appendix B - Calls and alerts</h1>
+<h2>B.1 Calls</h2>
+<table>
+  <tr><th style="width:32%">Call</th><th>When</th></tr>
+  <tr><td>PRE-RACE</td><td>Race not started; the plan is built from the planned start.</td></tr>
+  <tr><td>PRACTICE / QUALIFYING</td><td>A non-race session is shown.</td></tr>
+  <tr><td>STAY OUT</td><td>Normal running; shows minutes and laps to the next stop.</td></tr>
+  <tr><td>WINDOW OPEN</td><td>The next fuel stop's window is open; shows when it closes.</td></tr>
+  <tr><td>BOX IN N LAPS</td><td>Less than 5 minutes left to the planned stop: laps to go.</td></tr>
+  <tr><td>NOTIFY DRIVER: BOX BOX</td><td>The planned stop is at the end of this lap and the driver has not been told yet. Send BOX BOX, or press +1 lap.</td></tr>
+  <tr><td>BOX THIS LAP (amber)</td><td>Last lap, BOX BOX already sent; shows when it was sent and whether the driver acknowledged.</td></tr>
+  <tr><td>BOX THIS LAP (red)</td><td>Fuel at reserve, or the driver at the stint limit.</td></tr>
+  <tr><td>BOX NOW (caution)</td><td>Yellow / Safety Car and a stop is near: stopping under caution loses less time (only where refuelling is allowed under that flag).</td></tr>
+  <tr><td>STAY OUT - refuelling closed</td><td>A fuel stop is near but the flag forbids refuelling.</td></tr>
+  <tr><td>IN PITS</td><td>The car is in the pit lane.</td></tr>
+  <tr><td>RED FLAG</td><td>Race neutralised - car to the pits, engine off, wait for the restart (no refuelling where the rules forbid it).</td></tr>
+  <tr><td>RESTART <span class="new">NEW</span></td><td>Red flag over, car still parked: send it out for the restart.</td></tr>
+  <tr><td>CHEQUERED</td><td>Race finished.</td></tr>
+</table>
+<h2>B.2 Alerts</h2>
+<table>
+  <tr><th style="width:38%">Alert</th><th style="width:20%">Level</th><th>Action</th></tr>
+  <tr><td>Notify driver to BOX BOX</td><td>Warning</td><td>Send BOX BOX on the pit board.</td></tr>
+  <tr><td>Fuel at reserve</td><td>Critical</td><td>Box this lap.</td></tr>
+  <tr><td>Projected finish / stop below reserve</td><td>Critical</td><td>Review the plan; consider saving fuel or an extra stop.</td></tr>
+  <tr><td>Consumption +/-N% vs model</td><td>Warning / critical</td><td>The model has recalibrated; check the new plan.</td></tr>
+  <tr><td>Fuel window OPEN / closes in 5 min</td><td>Warning / critical</td><td>Prepare or make the fuel stop.</td></tr>
+  <tr><td>Refuel crew to the fuel bay</td><td>Warning (critical if a role is unassigned)</td><td>Crew to the fuel bay; fix any UNASSIGNED role.</td></tr>
+  <tr><td>Refuelling CLOSED under flag</td><td>Warning</td><td>Hold the fuel stop until the flag allows it.</td></tr>
+  <tr><td>Fuel stock tight (under one can spare) / SHORT <span class="new">NEW</span></td><td>Warning / critical</td><td>Buy fuel, recount, or plan to save fuel.</td></tr>
+  <tr><td>Driver reaches stint limit in 30 / 15 / 5 min; over max stint</td><td>Info / warning / critical</td><td>Plan the driver change.</td></tr>
+  <tr><td>Prepare (next driver) at 30 / 15 min</td><td>Info / warning</td><td>Next driver: kit on, hydrate, ready.</td></tr>
+  <tr><td>On duty N h - rest required</td><td>Warning</td><td>Send the person to rest, or override for 1 h.</td></tr>
+  <tr><td>No Raceceiver relay on duty (BEERS)</td><td>Critical</td><td>Put a raceceiver-tagged member on duty.</td></tr>
+  <tr><td>Check at this stop</td><td>Warning</td><td>Jobs listed for the stop in progress.</td></tr>
+  <tr><td>Sentinel brake / tyre alarm</td><td>Warning / critical</td><td>Critical creates a car issue for the next stop.</td></tr>
+  <tr><td>Stop fuel time under the minimum</td><td>Critical</td><td>Possible penalty: inform the team manager.</td></tr>
+  <tr><td>Stop does NOT count toward mandatory stops (B4B)</td><td>Warning</td><td>Another stop of the minimum length is needed.</td></tr>
+</table>
+
+<!-- ============================================================ C -->
+<h1 id="appC">Appendix C - Version history</h1>
+<table>
+  <tr><th style="width:12%">Version</th><th>Change</th></tr>
+  <tr><td>2.2.19</td><td>Manual rebuilt for Orb; source kept in <code>docs/manual/</code>; fresh screenshots.</td></tr>
+  <tr><td>2.2.18</td><td>Shifts editor highlights the current block.</td></tr>
+  <tr><td>2.2.17</td><td>Simulator: red flag freezes a stop; realistic brake/tyre cooling; real Agile deltas and micro-sectors.</td></tr>
+  <tr><td>2.2.16</td><td>Scenario Undo/Redo; Clone into branches; Save assumptions fix.</td></tr>
+  <tr><td>2.2.15</td><td>Red flag neutralises the race; scenarios follow what really happens.</td></tr>
+  <tr><td>2.2.14</td><td>Fuel stock: suggested amount and live stock vs needed.</td></tr>
+  <tr><td>2.2.13</td><td>Saved plans.</td></tr>
+  <tr><td>2.2.12</td><td>Car issues logged from the Race tab show up at once.</td></tr>
+  <tr><td>2.2.11</td><td>Demo resumes from its last lap; old pitwall scripts removed.</td></tr>
+  <tr><td>2.2.10</td><td>Renamed Orb - Pit Wall Strategy Manager.</td></tr>
+  <tr><td>2.2.9</td><td>PLTD renamed Agile, BTTM renamed Sentinel.</td></tr>
+  <tr><td>2.2.8</td><td>Simulator: repeated BOX no longer delays the stop.</td></tr>
+  <tr><td>2.2.7</td><td>Stint debriefs on the Race Plan.</td></tr>
+  <tr><td>2.2.6</td><td>Stop script for stale servers.</td></tr>
+  <tr><td>2.2.5</td><td>Movable cards on the Race and Car tabs.</td></tr>
+  <tr><td>2.2.4</td><td>README tour and community files.</td></tr>
+  <tr><td>2.2.0 - 2.2.3</td><td>Fuel Plan tab, stop handshake, +1 lap, shift draft, larger text, Car tab live map and timing.</td></tr>
+  <tr><td>2.1.x</td><td>Draggable scenarios, lap countdown call, stop gates, Collie preset.</td></tr>
+  <tr><td>2.0</td><td>UI redesign following ISA-101 practice.</td></tr>
+</table>
+<p style="margin-top:20px" class="muted">Orb is free and open source software, released under the GNU General Public License v3.0. Designed and developed by Pietro Gambarin, Mullaloo Motorsport Engineering.</p>
+
+</body>
+</html>
