@@ -90,6 +90,7 @@
     var st = { id: 'P' + (s.stops.length + 1), sessionId: s.activeSessionId, inTs: ts, outTs: null,
       fuelInTs: null, fuelOutTs: null, statInTs: null, statOutTs: null, src: src || null,
       driverOut: s.drivers.activeId, service: null, penalty: null };
+    if (s.flag.current === 'RED') st.red = true;   // car called in by a red flag: neutralised, not a pit stop
     s.stops.push(st);
     s.openStopId = st.id;
     return st;
@@ -187,6 +188,8 @@
       }
       case 'flag.set': {
         if (p.flag && p.flag !== s.flag.current) {
+          // leaving a red flag: the time the race stood still is not driving time - the driver's stint clock skips it
+          if (s.flag.current === 'RED' && s.activeSessionId && s.drivers.stintStartTs && s.flag.since) s.drivers.stintStartTs += Math.max(0, ts - Math.max(s.flag.since, s.drivers.stintStartTs));
           s.flag.current = p.flag; s.flag.since = ts;
           s.flag.history.push({ flag: p.flag, ts: ts, src: e.src || null });
         }

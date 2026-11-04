@@ -137,7 +137,7 @@
     if (!App.scenCache || App.scenCache.key !== key) {
       App.scenCache = { key: key, val: { list: s.scenarios.order.map(function (id) {
         var pl = s.scenarios.plans[id];
-        var dd = E.derive(s, now, Object.assign({ noScenario: true }, E.defToWhatIf(pl.cur)));
+        var dd = E.derive(s, now, Object.assign({ noScenario: true }, E.defToWhatIf(pl.cur, s, now, pl.createdTs)));
         return { id: id, name: pl.name, desc: pl.desc, def: pl.cur, d: dd, active: s.scenarios.active === id, dirty: JSON.stringify(pl.cur) !== JSON.stringify(pl.orig), pins: (pl.cur.pins || []).length };
       }) } };
     }
@@ -191,7 +191,16 @@
       if (w <= 0) return;
       h += '<div class="tl-seg plan" style="left:' + x(st.fromTs) + '%;width:' + w + '%;color:' + U.driverColour(s, st.driverId) + '">' + (w > 3 ? U.esc(U.short(E.memberName(s, st.driverId))) : '') + '</div>';
     });
-    (pl.events || []).forEach(function (e) { h += '<div class="tl-ev ' + e.kind + '" style="left:' + x(e.from) + '%;width:' + Math.max(0.3, x(e.to) - x(e.from)) + '%" title="' + U.esc(e.kind + ' (plan assumption) ' + U.clock(e.from) + '-' + U.clock(e.to)) + '"></div>'; });
+    (pl.events || []).forEach(function (e) {
+      if (e.consumed || e.dropped) return;
+      if (e.actual) {
+        h += '<div class="tl-ev act ' + e.kind + '" style="left:' + x(e.from) + '%;width:' + Math.max(0.3, x(e.to) - x(e.from)) + '%" title="' + U.esc(e.label + ' ' + U.clock(e.from) + '-' + (e.live ? 'now' : U.clock(e.to))) + '"></div>';
+        if (e.live && e.projTo > e.to) h += '<div class="tl-ev proj ' + e.kind + '" style="left:' + x(e.to) + '%;width:' + Math.max(0.3, x(e.projTo) - x(e.to)) + '%" title="' + U.esc(e.label + ' still out - assumed to end ~' + U.clock(e.projTo)) + '"></div>';
+        if (e.kind === 'red') { var re = e.live ? Math.max(e.projTo || e.to, e.to) : e.to; h += '<div class="tl-hold" style="left:' + x(e.from) + '%;width:' + Math.max(0.3, x(re) - x(e.from)) + '%" title="' + U.esc('Red flag - car parked in the pits ' + U.clock(e.from) + '-' + (e.live ? '~' : '') + U.clock(re)) + '">' + (x(re) - x(e.from) > 3 ? 'RED' : '') + '</div>'; }
+        return;
+      }
+      h += '<div class="tl-ev ' + e.kind + (e.slid ? ' slid' : '') + '" style="left:' + x(e.from) + '%;width:' + Math.max(0.3, x(e.to) - x(e.from)) + '%" title="' + U.esc(e.kind + ' (plan assumption' + (e.slid ? ', moved forward - did not happen at ' + U.clock(e.origFrom) : '') + ') ' + U.clock(e.from) + '-' + U.clock(e.to)) + '"></div>';
+    });
     d.stops.list.forEach(function (st) { h += '<div class="tl-stop' + (st.added ? ' fuel' : '') + '" style="left:' + x(st.inTs) + '%" title="' + U.esc(st.id + ' ' + U.clock(st.inTs)) + '"></div>'; });
     pl.stops.forEach(function (st) {
       h += '<div class="tl-stop plan' + (st.add ? ' fuel' : '') + '" style="left:' + x(st.ts) + '%" title="' + U.esc('Planned ' + st.type + ' ' + U.clock(st.ts)) + '"></div>';
@@ -711,7 +720,8 @@
     if (!App.lastCtx || !App.scenCache) return;
     var base = App.scenCache.val.list.filter(function (p) { return p.id === d.id; })[0]; if (!base) return;
     var def = d.target ? fuelMoveDef(d.id, d.k, d.target.k, d.stops) : pinDef(d.id, d.k, d.ts, null, d.stops);
-    var dd = E.derive(App.state, App.now(), Object.assign({ noScenario: true }, E.defToWhatIf(def)));
+    var sp = App.state.scenarios.plans[d.id];
+    var dd = E.derive(App.state, App.now(), Object.assign({ noScenario: true }, E.defToWhatIf(def, App.state, App.now(), sp && sp.createdTs)));
     var p = Object.assign({}, base, { def: def, d: dd, dirty: true, pins: (def.pins || []).length });
     var panel = viewEl.querySelector('[data-panel="plan-' + d.id + '"]'); if (!panel) return;
     panel.innerHTML = V.planRow(App.lastCtx, p).html; panel._html = null;
@@ -727,7 +737,9 @@
     if (!el || App.role !== 'engineer' || App.replay) return;
     var bar = el.closest('.pbar'), r = bar.getBoundingClientRect(), id = el.getAttribute('data-plan'), i = +el.getAttribute('data-i');
     var ev = App.state.scenarios.plans[id].cur.events[i];
-    evd = { el: el, bar: bar, rect: r, id: id, i: i, mode: e.target.classList.contains('pb-ev-h') ? 'len' : 'move', x0: e.clientX, from: ev.from, to: ev.to,
+    // start from where the event is shown (an assumed event that did not happen is shown slid forward)
+    var shF = +el.getAttribute('data-from') || ev.from, shT = +el.getAttribute('data-to') || ev.to;
+    evd = { el: el, bar: bar, rect: r, id: id, i: i, mode: e.target.classList.contains('pb-ev-h') ? 'len' : 'move', x0: e.clientX, from: shF, to: shT,
       t0: +bar.getAttribute('data-t0'), t1: +bar.getAttribute('data-t1'), now: +bar.getAttribute('data-now') };
     App.dragging = true; el.classList.add('dragging'); el.setPointerCapture(e.pointerId); e.preventDefault(); e.stopPropagation();
   }, true);

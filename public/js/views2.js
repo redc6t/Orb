@@ -10,7 +10,7 @@
   function dis(ctx) { return ctx.eng ? '' : ' disabled'; }
   function card(title, body, hint, cls) { return '<div class="card ' + (cls || '') + '"><h3><span>' + title + '</span>' + (hint ? '<span class="hint">' + hint + '</span>' : '') + '</h3>' + body + '</div>'; }
   function pct(v, max) { return Math.max(0, Math.min(100, v / max * 100)); }
-  function stopType(t) { return { fuel: 'Fuel stop', driver: 'Driver change', mandatory: 'Mandatory stop', service: 'Service stop', penalty: 'Penalty', stop: 'Stop' }[t] || t; }
+  function stopType(t) { return { fuel: 'Fuel stop', driver: 'Driver change', mandatory: 'Mandatory stop', service: 'Service stop', penalty: 'Penalty', stop: 'Stop', red: 'Red flag (parked)' }[t] || t; }
   V.CS_COLOUR = { 'RUNNING': '#00C846', 'PIT ENTRY': '#FFA500', 'PITS': '#4fc3f7', 'FUELLING': '#CE93D8', 'PIT EXIT': '#FFD54F' };
   V.csClass = function (cs) { return 'cs cs-' + String(cs || 'UNKNOWN').replace(/\s/g, ''); };
 
@@ -970,7 +970,7 @@
   }
 
   /* ================================================================== PLANS A-F (scenarios) */
-  var EV_LABEL = { sc: 'Safety car', red: 'Red flag', repair: 'Repair stop', sinbin: 'Sin bin' };
+  var EV_LABEL = { sc: 'Safety car', red: 'Red flag', repair: 'Repair stop', sinbin: 'Sin bin' };   // what a scenario can assume (yellow is only ever real)
   V.plans = function (ctx) {
     var sc = ctx.scen, col = [panelPlansHead(ctx)];
     if (sc) sc.list.forEach(function (p) {
@@ -983,6 +983,7 @@
   function panelPlansHead(ctx) {
     var s = ctx.s, has = s.scenarios && s.scenarios.order.length;
     var h = '<div class="small">Six what-could-happen scenarios side by side. Each bar is the full race: driven stints (dim), the plan from now (driver colours), stops (drag a stop to move it - every later stop re-plans), fuel windows (lilac) and the plan\'s assumed events on top (orange Safety Car, red Red flag, purple repair or sin bin).</div>' +
+      '<div class="small" style="margin-top:4px">The past is the same on every bar: real flags (solid, yellow included), real stops and who drove. A red flag parks the car (RED in the driver lane) until the restart. An assumed Safety Car or red flag is used up when a real one comes out; one that did not happen when assumed moves forward to the next likely spot (dashed outline).</div>' +
       '<div class="small" style="margin-top:4px"><b>Run this scenario</b> makes it the live strategy: the call, the next stop, the timeline, the crew summons and the Garage display all follow it. <b>Assumptions</b> lets you drag the Safety Car, red flag or repair along the bar and stretch it from its right edge. <b>Reset</b> undoes your changes to that scenario.</div>';
     if (!has) h += ctx.eng ? '<div class="row" style="margin-top:10px"><button class="btn primary" data-act="plansinit">Create scenarios A-F from now</button><span class="small muted">Event times are fixed when created; Reset brings a scenario back to that original.</span></div>' : '<div class="small muted" style="margin-top:8px">The engineer has not created the scenarios yet.</div>';
     return { id: 'planshead', html: card('Scenarios', h, has ? 'running: Scenario ' + (s.scenarios.active || 'A') : '') };
@@ -1006,10 +1007,22 @@
     laps += '</div>';
     var b = laps + '<div class="pbar' + (editing ? ' editing' : '') + '" data-plan="' + p.id + '" data-t0="' + t0 + '" data-t1="' + t1 + '" data-now="' + d.now + '">';
     if (rs.started) b += '<div class="pb-past" style="width:' + x(d.now) + '%"></div>';
-    (p.def.events || []).forEach(function (e, i) {
-      b += '<div class="pb-ev ' + e.kind + (editing ? ' edit' : '') + '" data-plan="' + p.id + '" data-i="' + i + '" style="left:' + x(e.from) + '%;width:' + Math.max(0.5, x(e.to) - x(e.from)) + '%" title="' + esc((EV_LABEL[e.kind] || e.kind) + ' ' + U.clock(e.from) + '-' + U.clock(e.to) + (editing ? ' - drag to move, drag the right edge to change the length' : '')) + '">' + (editing ? '<span class="pb-ev-h"></span>' : '') + '</div>';
+    // what really happened (the same on every scenario), then this scenario's assumptions still to come
+    (pl.events || []).forEach(function (e) {
+      if (e.consumed || e.dropped) return;
+      if (e.actual) {
+        b += '<div class="pb-ev act ' + e.kind + (e.live ? ' live' : '') + '" style="left:' + x(e.from) + '%;width:' + Math.max(0.4, x(e.to) - x(e.from)) + '%" title="' + esc(e.label + ' ' + U.clock(e.from) + '-' + (e.live ? 'now' : U.clock(e.to)) + ' (happened)') + '"></div>';
+        if (e.live && e.projTo > e.to) b += '<div class="pb-ev proj ' + e.kind + '" style="left:' + x(e.to) + '%;width:' + Math.max(0.4, x(e.projTo) - x(e.to)) + '%" title="' + esc(e.label + ' still out - assumed to end ~' + U.clock(e.projTo)) + '"></div>';
+        // red flag: the car is parked, nobody drives - show it in the driver lane too
+        if (e.kind === 'red') { var re = e.live ? Math.max(e.projTo || e.to, e.to) : e.to; b += '<div class="pb-hold" style="left:' + x(e.from) + '%;width:' + Math.max(0.4, x(re) - x(e.from)) + '%" title="' + esc('Red flag - race neutralised, car parked in the pits ' + U.clock(e.from) + '-' + (e.live ? '~' : '') + U.clock(re)) + '">' + (x(re) - x(e.from) > 3 ? 'RED' : '') + '</div>'; }
+        return;
+      }
+      var ed = editing && e.i != null;
+      b += '<div class="pb-ev ' + e.kind + (ed ? ' edit' : '') + (e.slid ? ' slid' : '') + '" data-plan="' + p.id + '"' + (e.i != null ? ' data-i="' + e.i + '" data-from="' + e.from + '" data-to="' + e.to + '"' : '') + ' style="left:' + x(e.from) + '%;width:' + Math.max(0.5, x(e.to) - x(e.from)) + '%" title="' + esc((EV_LABEL[e.kind] || e.kind) + ' ' + U.clock(e.from) + '-' + U.clock(e.to) + (e.slid ? ' (assumed at ' + U.clock(e.origFrom) + ', did not happen - moved to the next likely spot)' : ' (assumption)') + (ed ? ' - drag to move, drag the right edge to change the length' : '')) + '">' + (ed ? '<span class="pb-ev-h"></span>' : '') + '</div>';
     });
     if (rs.started) s.drivers.stints.filter(function (st) { return st.sessionId === rs.id; }).forEach(function (st) { var e = st.endTs || d.now; b += '<div class="pb-st done" style="left:' + x(st.startTs) + '%;width:' + (x(e) - x(st.startTs)) + '%;background:' + U.driverColour(s, st.driverId) + '"></div>'; });
+    // stops really made (fuel, driver change, red-flag park): the same on every scenario
+    if (rs.started) d.stops.list.forEach(function (st) { b += '<div class="pb-stop done' + (st.added ? ' fuel' : '') + (st.type === 'red' ? ' red' : '') + '" style="left:' + x(st.inTs) + '%" title="' + esc(st.id + ' ' + (st.type === 'red' ? 'red flag (parked)' : stopType(st.type)) + ' ' + U.clock(st.inTs) + (st.added ? ', ' + st.added + ' L' : '') + (st.driverIn && st.driverIn !== st.driverOut ? ', ' + name(ctx, st.driverOut) + ' to ' + name(ctx, st.driverIn) : '') + ' (done)') + '"></div>'; });
     pl.stints.forEach(function (st) { var w = x(st.endTs) - x(st.fromTs); if (w <= 0) return; b += '<div class="pb-st" style="left:' + x(st.fromTs) + '%;width:' + w + '%;border-color:' + U.driverColour(s, st.driverId) + ';color:' + U.driverColour(s, st.driverId) + '">' + (w > 3.5 ? esc(U.short(name(ctx, st.driverId))) : '') + '</div>'; });
     pl.stops.forEach(function (st) {
       var drag = ctx.eng && !st.event && st.ts > d.now + 60000;

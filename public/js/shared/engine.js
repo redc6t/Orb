@@ -51,6 +51,7 @@
       changeMode: st.driverChangeMode || 'max-stint',
       fillToBrim: st.fillToBrim !== false,
       scExpectMs: num(st.scExpectMin, 6) * MIN,
+      redExpectMs: num(st.redExpectMin, 20) * MIN,
       dutyLimitMs: num(c.crewPolicy && c.crewPolicy.dutyLimitH, 7) * HOUR,
       minRestMs: num(c.crewPolicy && c.crewPolicy.minDriverRestH, 0) * HOUR,
       prepMins: (c.crewPolicy && c.crewPolicy.prepAlertMin) || [30, 15],
@@ -84,6 +85,65 @@
       sum += overlap(h[i].ts, end, t0, t1);
     }
     return sum;
+  }
+
+  // Live red flag: the race is neutralised, the car is held in the pits until the restart. The restart is assumed
+  // redExpectMin after the red came out; once that has passed it is always at least 5 min away (it moves with the clock).
+  function redHold(s, sess, now, P) {
+    if (!sess.running || s.flag.current !== 'RED') return null;
+    var from = s.flag.since || now;
+    return { from: from, to: Math.max(from + P.redExpectMs, now + 5 * MIN) };
+  }
+
+  // What really happened on track in this session: every non-green flag period, oldest first. A flag still out
+  // is "live" and projected forward (red: to the assumed restart, SC / yellow: scExpectMin from now).
+  var FLAG_KIND = { 'RED': 'red', 'SC': 'sc', 'FCY': 'sc', 'YELLOW': 'yellow', 'DOUBLE YELLOW': 'yellow' };
+  function actualEvents(s, sess, now, P) {
+    var out = [];
+    if (!sess.started) return out;
+    var h = s.flag.history, end = sess.finished ? s.sessions[sess.id].endTs : now;
+    for (var i = 0; i < h.length; i++) {
+      var k = FLAG_KIND[h[i].flag];
+      if (!k) continue;
+      var nx = i + 1 < h.length ? h[i + 1].ts : null, from = Math.max(h[i].ts, sess.startTs), live = nx == null && !sess.finished;
+      var to = nx != null ? Math.min(nx, end) : end;
+      if (to <= sess.startTs || from >= end && !live) continue;
+      var e = { kind: k, flag: h[i].flag, from: from, to: to, actual: true, live: live, label: h[i].flag };
+      if (live) {
+        var hd = k === 'red' ? redHold(s, sess, now, P) : null;
+        e.projTo = hd ? hd.to : now + P.scExpectMs;
+      }
+      out.push(e);
+    }
+    return out;
+  }
+
+  // Scenario events seen from now. Scenarios all converge on what really happened:
+  //  - a predicted Safety Car / red flag is used up by a real one of the same kind that came out after the scenario was made
+  //    (first real one uses up the earliest predicted one), and is no longer planned;
+  //  - a predicted event whose start has passed without happening slides forward to the next plausible spot: evenly
+  //    between now and the scenario's next event still to come (or the flag), keeping its length and the order of events;
+  //    if it no longer fits before the flag it is dropped.
+  function effectiveEvents(s, def, createdTs, now, sess, P, raceEndTs) {
+    var evs = ((def && def.events) || []).map(function (e, i) { return { i: i, id: e.id, kind: e.kind, from: e.from, to: e.to, label: e.label, origFrom: e.from }; });
+    if (!sess.started) return evs;
+    var real = { sc: 0, red: 0 };
+    actualEvents(s, sess, now, P).forEach(function (a) { if ((a.kind === 'sc' || a.kind === 'red') && a.from >= (createdTs || 0) - MIN) real[a.kind]++; });
+    var sorted = evs.slice().sort(function (a, b) { return a.from - b.from; });
+    sorted.forEach(function (e) { if (real[e.kind] > 0) { real[e.kind]--; e.consumed = true; } });
+    var left = sorted.filter(function (e) { return !e.consumed; });
+    var overdue = left.filter(function (e) { return e.from < now; });
+    if (overdue.length) {
+      var nextF = left.filter(function (e) { return e.from >= now; })[0];
+      var limit = nextF ? nextF.from : raceEndTs;
+      overdue.forEach(function (e, q) {
+        var dur = e.to - e.from;
+        var f = Math.max(now + 2 * MIN, Math.round((now + (q + 1) / (overdue.length + 1) * (limit - now)) / MIN) * MIN);
+        if (f + dur > raceEndTs - 2 * MIN) { e.dropped = true; return; }
+        e.from = f; e.to = f + dur; e.slid = true;
+      });
+    }
+    return evs;
   }
 
   function raceSessionId(s) {
@@ -327,6 +387,7 @@
     if (SLOW_FLAGS[flagNow]) windows.push([now, now + P.scExpectMs, S]);
     ((whatIf && whatIf.scWindows) || []).forEach(function (w) { windows.push([w[0], w[1], S]); });
     ((whatIf && whatIf.redWindows) || []).forEach(function (w) { windows.push([w[0], w[1], 0]); });
+    if (whatIf && whatIf._hold) windows.push([whatIf._hold.from, whatIf._hold.to, 0]);   // live red: engine off in the pits
     if (whatIf && whatIf.scMin > 0) {
       var scRate = whatIf.scPct != null ? model.G * (1 - whatIf.scPct / 100) : S;
       windows.push([now, now + whatIf.scMin * MIN, scRate]);
@@ -404,14 +465,16 @@
 
   function planCore(s, now, P, model, sess, refMs, whatIf, stopsInfo, curFuel) {
     var T0 = sess.startTs, startNow = sess.started ? now : T0;
-    var R = makeRate(P, model, Object.assign({ refLapMs: refMs }, whatIf || {}), startNow, sess.running ? s.flag.current : 'GREEN');
+    // live red flag: nothing moves until the restart - no burn, no driving, the driver's clock paused, no stop planned inside it
+    var hold = redHold(s, sess, now, P);
+    var R = makeRate(P, model, Object.assign({ refLapMs: refMs, _hold: hold }, whatIf || {}), startNow, sess.running ? s.flag.current : 'GREEN');
     var avgStopMs = P.pitLaneMs + Math.max(P.fuelMinMs * 0.5, P.mandMinMs, P.driverChangeMs);
     var lapsDone = sess.started ? sessionLaps(s, sess.id).length : 0;
     var raceEndTs;
-    if (sess.mode === 'time') raceEndTs = T0 + sess.durationMs + sess.pausedMs;
+    if (sess.mode === 'time') raceEndTs = T0 + sess.durationMs + sess.pausedMs + (hold && P.stopsOnRed ? hold.to - now : 0);
     else {
       var totLaps = sess.mode === 'laps' ? sess.totalLaps : Math.ceil(sess.distanceKm / (P.lapKm || 2));
-      raceEndTs = startNow + Math.max(0, totLaps - lapsDone) * refMs;   // driving time only, stops added below
+      raceEndTs = (hold ? hold.to : startNow) + Math.max(0, totLaps - lapsDone) * refMs;   // driving time only, stops added below
     }
     var warnings = [];
     var fuel = curFuel != null ? curFuel : P.capacity;
@@ -422,7 +485,12 @@
     var mandLeft = Math.max(0, P.mandCount - stopsInfo.counted);
     var inPit = sess.running && !!s.openStopId;   // the stop in progress IS the next stop
     var openStop = null; if (inPit) s.stops.forEach(function (x) { if (x.id === s.openStopId) openStop = x; });
+    if (openStop && openStop.red) inPit = false;          // parked for the red flag: not a service stop
     var inPitServiced = !!(openStop && openStop.service);   // fuel already recorded for this stop: it is history, not a plan
+    if (hold) {
+      if (stintStart < hold.to) stintStart += hold.to - Math.max(hold.from, stintStart);
+      t = Math.max(t, hold.to);
+    }
     var used = {};
     s.drivers.stints.forEach(function (st) { if (st.endTs) used[st.driverId] = Math.max(used[st.driverId] || 0, st.endTs); });
     var excl = (whatIf && whatIf.excludeDrivers) || [];
@@ -638,11 +706,16 @@
     if (finishFuel < P.reserve - 0.5) warnings.push('Projected finish fuel ' + finishFuel.toFixed(1) + ' L is below the ' + P.reserve + ' L reserve');
     stops.forEach(function (st) { if (st.fuelArr < P.reserve - 0.5) warnings.push('Stop ' + st.k + ' arrives with ' + st.fuelArr.toFixed(1) + ' L (below reserve)'); });
     var endFinal = sess.mode === 'time' ? raceEndTs : raceEndTs + extraLoss;
-    var events = [];
-    ((whatIf && whatIf.scWindows) || []).forEach(function (w) { events.push({ kind: 'sc', from: w[0], to: w[1] }); });
-    ((whatIf && whatIf.redWindows) || []).forEach(function (w) { events.push({ kind: 'red', from: w[0], to: w[1] }); });
-    ((whatIf && whatIf.extraStops) || []).forEach(function (x) { events.push({ kind: x.kind || 'repair', from: x.ts, to: x.ts + x.statMs, label: x.label }); });
-    return { stints: stints, stops: stops, events: events, stationaryMs: extraLoss, finishFuelL: finishFuel, raceEndTs: endFinal, warnings: warnings, greenRate: R.G,
+    // events: what really happened (every scenario shows the same past), then the scenario's assumptions still to come
+    var events = actualEvents(s, sess, now, P);
+    if (whatIf && whatIf.evList) whatIf.evList.forEach(function (e) { events.push({ kind: e.kind, from: e.from, to: e.to, label: e.label, i: e.i, slid: !!e.slid, origFrom: e.origFrom, consumed: !!e.consumed, dropped: !!e.dropped }); });
+    else {
+      ((whatIf && whatIf.scWindows) || []).forEach(function (w) { events.push({ kind: 'sc', from: w[0], to: w[1] }); });
+      ((whatIf && whatIf.redWindows) || []).forEach(function (w) { events.push({ kind: 'red', from: w[0], to: w[1] }); });
+      ((whatIf && whatIf.extraStops) || []).forEach(function (x) { events.push({ kind: x.kind || 'repair', from: x.ts, to: x.ts + x.statMs, label: x.label }); });
+    }
+    if (whatIf && whatIf.scMin > 0) events.push({ kind: 'sc', from: now, to: now + whatIf.scMin * MIN, label: 'What-if Safety Car' });
+    return { stints: stints, stops: stops, events: events, hold: hold, stationaryMs: extraLoss, finishFuelL: finishFuel, raceEndTs: endFinal, warnings: warnings, greenRate: R.G,
       fuelStops: stops.filter(function (x) { return x.add > 0; }).length, rate: R };
   }
 
@@ -660,10 +733,11 @@
       var laneMs = (st.outTs || now) - st.inTs;
       var fuelMs = st.fuelInTs ? (st.fuelOutTs || now) - st.fuelInTs : null;
       var added = st.service && st.service.fuelAdded > 0 ? st.service.fuelAdded : 0;
-      var counts = !!st.outTs && laneMs >= P.mandMinMs && !(st.service && st.service.penalty);
+      // a red-flag pit visit is the race being neutralised, not a pit stop: it never counts as a mandatory stop
+      var counts = !!st.outTs && laneMs >= P.mandMinMs && !(st.service && st.service.penalty) && !st.red;
       var fuelBasis = P.fuelTiming === 'zone' && fuelMs != null ? fuelMs : laneMs;
       var fuelOk = added > 0 ? fuelBasis >= P.fuelMinMs : null;
-      var type = st.service && st.service.penalty ? 'penalty' : (added > 0 ? 'fuel' : (st.service && st.service.driverIn && st.service.driverIn !== st.driverOut ? 'driver' : 'stop'));
+      var type = st.red ? 'red' : st.service && st.service.penalty ? 'penalty' : (added > 0 ? 'fuel' : (st.service && st.service.driverIn && st.service.driverIn !== st.driverOut ? 'driver' : 'stop'));
       return { id: st.id, inTs: st.inTs, outTs: st.outTs, laneMs: laneMs, fuelMs: fuelMs, added: added, counts: counts, fuelOk: fuelOk, type: type,
         open: !st.outTs, serviced: !!st.service, driverOut: st.driverOut, driverIn: st.service ? st.service.driverIn : null, raw: st };
     });
@@ -782,10 +856,23 @@
   }
 
   /* ------------------------------------------------- scenarios (Plans A-F) */
-  function defToWhatIf(def) {
+  // def = a scenario's assumptions. With s and now, its events are the effective ones (used up by real events, or slid
+  // forward when they did not happen); without them, the raw stored times.
+  function roughRaceEnd(s, now, P, sess) {
+    var hd = redHold(s, sess, now, P);
+    if (sess.mode === 'time') return sess.startTs + sess.durationMs + sess.pausedMs + (hd && P.stopsOnRed ? hd.to - now : 0);
+    return sess.startTs + sess.durationMs;
+  }
+  function defToWhatIf(def, s, now, createdTs) {
     if (!def) return null;
-    var ev = def.events || [];
+    var ev = def.events || [], evList = null;
+    if (s && now != null) {
+      var P = params(s), sess = sessionInfo(s, now, P, raceSessionId(s) || currentSessionId(s));
+      evList = effectiveEvents(s, def, createdTs, now, sess, P, roughRaceEnd(s, now, P, sess));
+      ev = evList.filter(function (e) { return !e.consumed && !e.dropped; });
+    }
     return {
+      evList: evList,
       lapDeltaS: def.lapDeltaS || 0,
       excludeDrivers: (def.excludeDrivers || []).slice(),
       scWindows: ev.filter(function (e) { return e.kind === 'sc'; }).map(function (e) { return [e.from, e.to]; }),
@@ -801,7 +888,7 @@
   function mergeWhatIf(a, b) {
     if (!a) return b || null; if (!b) return a;
     var o = Object.assign({}, a, b);
-    ['scWindows', 'redWindows', 'extraStops', 'excludeDrivers'].forEach(function (k) { o[k] = (a[k] || []).concat(b[k] || []); });
+    ['scWindows', 'redWindows', 'extraStops', 'excludeDrivers', 'evList'].forEach(function (k) { o[k] = (a[k] || []).concat(b[k] || []); });
     o.pins = b.pins && b.pins.length ? b.pins : a.pins;
     o.lapDeltaS = (a.lapDeltaS || 0) + (b.lapDeltaS || 0);
     return o;
@@ -858,6 +945,7 @@
   // No timers. A step the engineer has not confirmed is applied from the plan ("AUTO") only when the geofences show
   // the car has physically moved past it.
   function gatesFor(s, d, now, st, later) {
+    if (st.red) return null;        // parked for a red flag: nothing to service, nothing to apply from the plan
     var key = function (g) { return st.id + ':' + g; };
     var pin = s.gates[key('pitin')];
     var snap = pin && pin.plan ? pin.plan : null;
@@ -1013,7 +1101,7 @@
   }
 
   function derive(s, now, whatIf, opts) {
-    if (!(whatIf && whatIf.noScenario)) { var asc = activeScenario(s); if (asc) whatIf = mergeWhatIf(defToWhatIf(asc.cur), whatIf); }
+    if (!(whatIf && whatIf.noScenario)) { var asc = activeScenario(s); if (asc) whatIf = mergeWhatIf(defToWhatIf(asc.cur, s, now, asc.createdTs), whatIf); }
     var P = params(s);
     var cur = sessionInfo(s, now, P);
     var sess = cur.isRace ? cur : sessionInfo(s, now, P, raceSessionId(s) || cur.id);
@@ -1045,9 +1133,10 @@
       reserve: P.reserve, capacity: P.capacity, uncertaintyL: model.uncertaintyL };
 
     var openSt = null; if (s.openStopId) s.stops.forEach(function (x) { if (x.id === s.openStopId) openSt = x; });
-    var stintEnd = openSt ? (openSt.statInTs || openSt.inTs) : now;          // car stopped: the outgoing driver's time stops
+    var stintEnd = openSt && !openSt.red ? (openSt.statInTs || openSt.inTs) : now;          // car stopped: the outgoing driver's time stops
+    if (cur.running && s.flag.current === 'RED' && s.flag.since) stintEnd = Math.min(stintEnd, s.flag.since);   // red flag: the driver's clock is paused
     var stintMs = cur.running && s.drivers.stintStartTs ? Math.max(0, stintEnd - s.drivers.stintStartTs) : 0;
-    var stint = { driverId: s.drivers.activeId, name: memberName(s, s.drivers.activeId), elapsedMs: stintMs, maxMs: P.maxStintMs, remainingMs: P.maxStintMs - stintMs, frozen: !!openSt };
+    var stint = { driverId: s.drivers.activeId, name: memberName(s, s.drivers.activeId), elapsedMs: stintMs, maxMs: P.maxStintMs, remainingMs: P.maxStintMs - stintMs, frozen: !!openSt || (cur.running && s.flag.current === 'RED') };
     if (openSt && s.drivers.pendingIn && s.drivers.pendingIn !== s.drivers.activeId) {
       // driver change confirmed during the stop: the new driver is in the car, his clock starts at pit out
       stint.outgoing = { driverId: s.drivers.activeId, name: stint.name, elapsedMs: stintMs };
@@ -1108,9 +1197,11 @@
     if (!sess.isRace) return { code: 'session', level: 'info', title: sess.name.toUpperCase(), detail: sess.running ? 'Session running' : 'Not started' };
     if (!sess.started) return { code: 'pre', level: 'info', title: 'PRE-RACE', detail: 'Plan built from planned start' };
     if (sess.finished) return { code: 'done', level: 'info', title: 'CHEQUERED', detail: 'Race finished' };
-    if (inPits) return { code: 'pits', level: 'info', title: 'IN PITS', detail: 'Service the car - stop timer running' };
     var flag = s.flag.current;
-    if (flag === 'RED') return { code: 'red', level: 'crit', title: 'RED FLAG', detail: 'Pit lane, engine off' + (P.refuelAllowed.RED ? '' : ' - no refuelling') };
+    if (flag === 'RED') return { code: 'red', level: 'crit', title: 'RED FLAG', detail: 'Race neutralised - car to the pits, engine off, wait for the restart' + (P.refuelAllowed.RED ? '' : ' - no refuelling') };
+    var openRed = s.openStopId && s.stops.some(function (x) { return x.id === s.openStopId && x.red; });
+    if (inPits && openRed) return { code: 'restart', level: 'warn', title: 'RESTART', detail: 'Red flag over - car out of the pits for the restart' };
+    if (inPits) return { code: 'pits', level: 'info', title: 'IN PITS', detail: 'Service the car - stop timer running' };
     var lapsTo = function (ts) { return (ts - now) / ref; };
     if (fuel.nowL - P.reserve <= fuel.lapL * 1.2) return { code: 'box', level: 'crit', title: 'BOX THIS LAP', detail: 'Fuel at reserve (' + fuel.nowL.toFixed(1) + ' L)' };
     if (stint.remainingMs <= ref * 1.2) return { code: 'box', level: 'crit', title: 'BOX THIS LAP', detail: 'Driver at stint limit' };

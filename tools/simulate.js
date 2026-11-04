@@ -3,7 +3,8 @@
 //   node tools/simulate.js [--lap 92] [--fuelmin 8] [--agile 8081] [--sentinel 8082] [--startLap N] [--orb http://127.0.0.1:8080]
 // Point the weekend devices at Agile 127.0.0.1:8081 and Sentinel 127.0.0.1:8082 (the demo does this).
 // The simulated driver obeys the pit board: any message containing BOX pits at the end of the lap.
-// Raising SAFETY CAR / YELLOW / RED from Orb slows the car (flags mirror to Agile).
+// Raising SAFETY CAR / YELLOW from Orb slows the car (flags mirror to Agile). RED neutralises the race: the car drives
+// slowly to the pit entry, parks at the box with the engine off and only leaves when the flag goes back to GREEN.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -50,8 +51,12 @@ function tick() {
     // the simulated crew follows Orb: start pouring on FUEL ON, fuel only if planned or recorded, stop fuelling when the engineer
     // presses FUEL STOP COMPLETED, leave when he presses PIT OUT; untouched stops use default timings
     const p = car.pit, t = now - p.t0, gs = pitStatus || {};
-    if (p.phase === 'entry') { setCs('PIT ENTRY'); p.laneIdx = LANE_BOX * Math.min(1, t / 25000); if (t >= 25000) { p.phase = 'box'; p.at = now; } }
-    else if (p.phase === 'box') {
+    if (p.phase === 'entry') { setCs('PIT ENTRY'); p.laneIdx = LANE_BOX * Math.min(1, t / 25000); if (t >= 25000) { p.phase = p.red ? 'red' : 'box'; p.at = now; if (p.red) console.log(new Date().toLocaleTimeString(), 'red flag: car parked in the pits, engine off'); } }
+    else if (p.phase === 'red') {
+      // red flag: parked at the box until the race restarts (GREEN), then straight out - no service
+      setCs('PITS'); p.laneIdx = LANE_BOX;
+      if (!car.flags.red && now - p.at >= 3000) { p.phase = 'exit'; p.at = now; p.exitAt = t; p.exitFrom = LANE_BOX; console.log(new Date().toLocaleTimeString(), 'restart: car leaves the pits'); }
+    } else if (p.phase === 'box') {
       setCs('PITS');
       if (now - p.at >= 10000 || (gs.fuelOn && now - p.at >= 3000)) {
         const fuel = gs.fuelOn || (p.forceNoFuel ? false : (gs.fuelDone ? gs.fuelAdded > 0 : (gs.plannedAdd > 0)));
@@ -63,7 +68,8 @@ function tick() {
       if (now - p.at >= p.fuelMs || gs.fuelDone) { p.phase = 'post'; p.at = now; p.fuelDone = true; }
     } else if (p.phase === 'post') {
       setCs('PITS'); p.fuelDone = true;
-      if (gs.pitOut || now - p.at >= (p.fuel ? 10000 : 60000)) { p.phase = 'exit'; p.at = now; p.exitAt = t; p.exitFrom = p.fuel ? LANE_FUEL : LANE_BOX; }
+      if (car.flags.red) { p.phase = 'red'; p.at = now; console.log(new Date().toLocaleTimeString(), 'red flag during the stop: car stays parked'); }
+      else if (gs.pitOut || now - p.at >= (p.fuel ? 10000 : 60000)) { p.phase = 'exit'; p.at = now; p.exitAt = t; p.exitFrom = p.fuel ? LANE_FUEL : LANE_BOX; }
     } else if (p.phase === 'exit') {
       setCs('PIT EXIT');
       p.laneIdx = p.exitFrom + (LANE.length - 1 - p.exitFrom) * Math.min(1, (now - p.at) / 15000);
@@ -78,6 +84,11 @@ function tick() {
     // the pit lane passes the start/finish line: the lap is completed there, in the middle of the stop
     if (!p.sfDone && p.laneIdx != null && p.laneIdx >= LANE_SF && (p.phase === 'entry' || p.phase === 'exit')) { p.sfDone = true; lapDone(now, true); }
     else if (!p.sfDone && LANE_SF <= LANE_BOX && p.phase !== 'entry' && p.phase !== 'exit') { p.sfDone = true; lapDone(now, true); }
+  } else if (car.flags.red && fr > F_ENTRY) {
+    // red flag: the race is neutralised, the car drives slowly round to the pit entry and parks
+    car.lapHadPit = true;
+    car.pit = { t0: now, phase: 'entry', red: true, fuelMs: 0, forceNoFuel: true, laneIdx: 0 };
+    console.log(new Date().toLocaleTimeString(), 'red flag: car enters the pit lane');
   } else if (car.boxReq && fr > F_ENTRY && now - car.boxReqAt > 20000) {
     car.boxReq = false; car.lapHadPit = true;
     car.pit = { t0: now, phase: 'entry', fuelMs: (FUEL_MIN * 60 + 20) * 1000, forceNoFuel: car.wantFuel === false, laneIdx: 0 };
@@ -126,7 +137,7 @@ function carPos() {
   if (car.pit) {
     const p = car.pit, t = Date.now() - p.t0;
     if (car.cs === 'PIT ENTRY') return alongLane(0, LANE_BOX, t / 25000);              // entry line -> pits
-    if (car.cs === 'PITS' && (p.phase === 'box' || (p.phase === 'post' && !p.fuel))) return PITS_C;   // in the pits area
+    if (car.cs === 'PITS' && (p.phase === 'box' || p.phase === 'red' || (p.phase === 'post' && !p.fuel))) return PITS_C;   // in the pits area
     if (car.cs === 'FUELLING') return FUEL_C;                                           // in the fuel area
     if (car.cs === 'PITS') return LANE[LANE_FUEL];                                      // leaving the fuel area
     if (car.cs === 'PIT EXIT') return alongLane(p.exitFrom != null ? p.exitFrom : LANE_FUEL, LANE.length - 1, (t - (p.exitAt || t)) / 15000);
