@@ -51,7 +51,17 @@ function tick() {
     // the simulated crew follows Orb: start pouring on FUEL ON, fuel only if planned or recorded, stop fuelling when the engineer
     // presses FUEL STOP COMPLETED, leave when he presses PIT OUT; untouched stops use default timings
     const p = car.pit, t = now - p.t0, gs = pitStatus || {};
-    if (p.phase === 'entry') { setCs('PIT ENTRY'); p.laneIdx = LANE_BOX * Math.min(1, t / 25000); if (t >= 25000) { p.phase = p.red ? 'red' : 'box'; p.at = now; if (p.red) console.log(new Date().toLocaleTimeString(), 'red flag: car parked in the pits, engine off'); } }
+    // red flag during a service stop: everything stops where it is - no fuelling, no work, no leaving. The car stays where it is
+    // (in the fuel bay if it was there, so the geofence state does not change); on GREEN the stop carries on from the same point.
+    let held = false;
+    if (!p.red && (p.phase === 'box' || p.phase === 'fuel' || p.phase === 'post')) {
+      if (car.flags.red) {
+        if (!p.frozen) { p.frozen = now; console.log(new Date().toLocaleTimeString(), 'red flag during the stop: crew stops, car stays parked (' + p.phase + ')'); }
+        held = true;
+      } else if (p.frozen) { p.at += now - p.frozen; p.frozen = null; console.log(new Date().toLocaleTimeString(), 'restart: the stop carries on (' + p.phase + ')'); }
+    }
+    if (held) { /* frozen by the red flag */ }
+    else if (p.phase === 'entry') { setCs('PIT ENTRY'); p.laneIdx = LANE_BOX * Math.min(1, t / 25000); if (t >= 25000) { p.phase = p.red ? 'red' : 'box'; p.at = now; if (p.red) console.log(new Date().toLocaleTimeString(), 'red flag: car parked in the pits, engine off'); } }
     else if (p.phase === 'red') {
       // red flag: parked at the box until the race restarts (GREEN), then straight out - no service
       setCs('PITS'); p.laneIdx = LANE_BOX;
@@ -68,8 +78,7 @@ function tick() {
       if (now - p.at >= p.fuelMs || gs.fuelDone) { p.phase = 'post'; p.at = now; p.fuelDone = true; }
     } else if (p.phase === 'post') {
       setCs('PITS'); p.fuelDone = true;
-      if (car.flags.red) { p.phase = 'red'; p.at = now; console.log(new Date().toLocaleTimeString(), 'red flag during the stop: car stays parked'); }
-      else if (gs.pitOut || now - p.at >= (p.fuel ? 10000 : 60000)) { p.phase = 'exit'; p.at = now; p.exitAt = t; p.exitFrom = p.fuel ? LANE_FUEL : LANE_BOX; }
+      if (gs.pitOut || now - p.at >= (p.fuel ? 10000 : 60000)) { p.phase = 'exit'; p.at = now; p.exitAt = t; p.exitFrom = p.fuel ? LANE_FUEL : LANE_BOX; }
     } else if (p.phase === 'exit') {
       setCs('PIT EXIT');
       p.laneIdx = p.exitFrom + (LANE.length - 1 - p.exitFrom) * Math.min(1, (now - p.at) / 15000);
@@ -78,6 +87,7 @@ function tick() {
         setCs('RUNNING'); car.pit = null; car.pace = 0;
         if (!p.sfDone) lapDone(now, true);
         car.curLapMs = newLapTarget(); car.posStart = now - F_EXIT * car.curLapMs;
+        car.secFromLap = car.lap; car.secFrom = Math.ceil(F_EXIT * 26);   // micro-sectors before pit exit were driven in the pit lane
         return;
       }
     }
@@ -96,7 +106,10 @@ function tick() {
   if (!car.pit && fr >= 1) { lapDone(now, false); car.posStart = now; car.curLapMs = newLapTarget(); }
   const elNow = Date.now() - car.lapStart, frNow = (Date.now() - car.posStart) / car.curLapMs;
   const spd = car.pit ? (car.cs === 'PIT ENTRY' || car.cs === 'PIT EXIT' ? 58 : 0) : (120 + 40 * Math.sin(elNow / 9000)) / slowFactor();
-  wsAll({ t: 'live', d: Math.round((Math.random() - 0.5) * 400 + car.pace * 600), v: true, tl: !car.pit, bs: 0, sec: 1 + Math.floor(frNow * 9) % 9,
+  // live delta = time lost to the reference lap so far this lap (flags, saving, pushing all show); none in the pit lane
+  const refMs = car.best || LAP_S * 1000, fClamp = Math.max(0, Math.min(1, frNow));
+  const dLive = car.pit ? 0 : Math.round(fClamp * (car.curLapMs - refMs) + (Math.random() - 0.5) * 120);
+  wsAll({ t: 'live', d: dLive, v: !car.pit, tl: !car.pit, bs: 0, sec: 1 + Math.floor(frNow * 9) % 9,
     lap: car.lap, el: elNow, est: Math.round(car.curLapMs), spd: Math.max(0, spd), cs: car.cs, pit: car.lapHadPit || !!car.pit, br: 2000 });
 }
 
@@ -152,9 +165,13 @@ const agile = http.createServer((req, res) => {
   if (req.url.startsWith('/sf/get')) { const p = COLLIE.sf; res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ valid: true, lat: p[0], lon: p[1] })); }
   if (req.url.startsWith('/data')) {
     const p = carPos();
-    const NSEC = 26, cur = Math.min(NSEC - 1, Math.max(0, Math.floor((Date.now() - car.posStart) / car.curLapMs * NSEC)));
-    if (!car.secDelta || car.secLap !== car.lap) { car.secLap = car.lap; car.secDelta = Array.from({ length: NSEC }, () => Math.round((Math.random() - 0.55) * 160)); }
-    const sectors = car.secDelta.map((dm, i) => ({ completed: i < cur && !car.pit, delta_ms: dm, cur_time_ms: 0, colour: i < cur && !car.pit ? (dm < -60 ? 3 : dm < 0 ? 1 : 2) : 0 }));
+    // micro-sectors: each is recorded when the car crosses its end, with the driver's small variation plus whatever the
+    // lap is losing to the reference (yellow / SC / red / saving = red cells). In the pit lane nothing runs.
+    const NSEC = 26, cur = car.pit ? 0 : Math.min(NSEC - 1, Math.max(0, Math.floor((Date.now() - car.posStart) / car.curLapMs * NSEC)));
+    if (!car.secDelta || car.secLap !== car.lap) { car.secLap = car.lap; car.secDelta = Array.from({ length: NSEC }, () => Math.round((Math.random() - 0.55) * 160)); car.secRec = new Array(NSEC).fill(null); }
+    const secLoss = Math.round((car.curLapMs - (car.best || LAP_S * 1000)) / NSEC);
+    if (!car.pit) for (let i = car.secFromLap === car.lap ? car.secFrom : 0; i < cur; i++) if (car.secRec[i] == null) car.secRec[i] = car.secDelta[i] + secLoss;
+    const sectors = car.secRec.map((dm, i) => { const done = dm != null && !car.pit; return { completed: done, delta_ms: done ? dm : 0, cur_time_ms: 0, colour: done ? (dm < -60 ? 3 : dm < 0 ? 1 : 2) : 0 }; });
     res.writeHead(200, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ sector_count: NSEC, current_sector: cur, sectors, last_sectors: [], lat: p[0], lon: p[1], gnss_sats: 17, gnss_pdop: 1.1, lap_number: car.lap, lap_elapsed_ms: Date.now() - car.lapStart, best_lap_ms: car.best || 0, car_state: car.cs, speed_kph: 0,
       synth: { lap_m: Math.round(COLLIE.lengthKm * 1000) }, geo_active: 'Collie Motorplex Long (sim)', lap_pitted: car.lapHadPit, last_lap: { n: car.lastLap.n, ms: car.lastLap.ms, delta: car.lastLap.delta, promoted: false, sc: 9 } }));
@@ -198,14 +215,28 @@ setInterval(() => {
 
 // ------------------------------------------------------------------ fake Sentinel
 const bt = { brake: [320, 330, 210, 220], tyre: [78, 80, 66, 68], spikeUntil: 0, nextSpike: Date.now() + (6 + Math.random() * 10) * 60000 };
+// Simple heat model (every 0.5 s). Racing: brakes follow the braking zones quickly, tyres settle slowly. Slower laps
+// (yellow, SC, red, saving fuel) run cooler. Pit lane at limiter speed: barely any braking. Parked: everything cools
+// towards ambient - brakes over a few minutes, tyres more slowly - with no on-track jitter.
+const AMB_BRAKE = 35, AMB_TYRE = 28;
 function sentinelTick() {
-  const moving = !car.pit;
+  const parked = car.pit && car.cs !== 'PIT ENTRY' && car.cs !== 'PIT EXIT';
+  const inLane = car.pit && !parked;
+  const k = car.pit ? 1 : slowFactor() * (1 + Math.max(0, car.pace) / LAP_S);   // > 1 = slower than race pace
+  const heat = 1 / Math.pow(k, 1.6);                                                 // share of the racing heat input
   for (let i = 0; i < 4; i++) {
-    const tgtB = moving ? (i < 2 ? 420 : 280) + 140 * Math.sin(Date.now() / 7000 + i) : 120;
-    bt.brake[i] += (tgtB - bt.brake[i]) * 0.15 + (Math.random() - 0.5) * 8;
-    const tgtT = moving ? (i < 2 ? 84 : 72) : 55;
-    bt.tyre[i] += (tgtT - bt.tyre[i]) * 0.05 + (Math.random() - 0.5);
+    let tgtB, tgtT, aB, aT, nB, nT;
+    if (parked) { tgtB = AMB_BRAKE; tgtT = AMB_TYRE; aB = 0.5 / 200; aT = 0.5 / 600; nB = 0.3; nT = 0.05; }
+    else if (inLane) { tgtB = AMB_BRAKE + 60; tgtT = AMB_TYRE + 25; aB = 0.5 / 60; aT = 0.5 / 400; nB = 1; nT = 0.1; }
+    else {
+      const hotB = (i < 2 ? 420 : 280) + 140 * Math.sin(Date.now() / 7000 + i), hotT = i < 2 ? 84 : 72;
+      tgtB = AMB_BRAKE + (hotB - AMB_BRAKE) * heat; tgtT = AMB_TYRE + (hotT - AMB_TYRE) * Math.sqrt(heat);
+      aB = 0.15; aT = 0.02; nB = 8 * heat + 1; nT = 0.6;
+    }
+    bt.brake[i] += (tgtB - bt.brake[i]) * aB + (Math.random() - 0.5) * nB;
+    bt.tyre[i] += (tgtT - bt.tyre[i]) * aT + (Math.random() - 0.5) * nT;
   }
+  const moving = !car.pit && slowFactor() === 1;   // brake spikes only at race pace
   if (Date.now() > bt.nextSpike && moving) { bt.spikeUntil = Date.now() + 8000; bt.nextSpike = Date.now() + (15 + Math.random() * 20) * 60000; console.log('Sentinel sim: FL brake spike'); }
   if (Date.now() < bt.spikeUntil) bt.brake[0] = 735 + Math.random() * 20;
 }
