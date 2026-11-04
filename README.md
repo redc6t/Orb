@@ -7,7 +7,7 @@
 ![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)
 ![Node.js 18+](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)
 ![Runs offline](https://img.shields.io/badge/internet-not%20required-lightgrey.svg)
-![Version](https://img.shields.io/badge/version-2.2.11-informational.svg)
+![Version](https://img.shields.io/badge/version-2.2.12-informational.svg)
 
 ![The Race tab during a 36 h race: the call, fuel on board, the driver's stint, the next stop and the live track map](docs/screenshots/race.png)
 
@@ -247,6 +247,7 @@ The full [user manual (PDF)](Pitwall_Strategy_Manager_User_Manual_v2.2.3.pdf) co
 
 ## Release notes
 
+- **2.2.12:** a car issue logged from the Race tab's Attention & feed card now appears there straight away, instead of only after switching to another tab and back.
 - **2.2.11:** the demo no longer counts the time Orb was closed: each time it opens, the race resumes from its last lap instead of showing a race that has been running for days. Only the demo is moved; real weekends keep their times. The old `start-pitwall.bat` and `stop-pitwall.bat` are removed, so there is one script for each job: `start-orb.bat` and `stop-orb.bat` (repoint any old desktop shortcut).
 - **2.2.10:** the app is now called **Orb - Pit Wall Strategy Manager** (Orb for short), and the repository moves to [github.com/redc6t/Orb](https://github.com/redc6t/Orb); the old address redirects. The scripts are now `start-orb.bat` and `stop-orb.bat`, weekend exports are saved as `.orb.json`, and the data folder can be set with `ORB_DATA`. Everything saved before still works: `.pitwall.json` files import, `start-pitwall.bat`, `stop-pitwall.bat`, `PITWALL_DATA`, `PITWALL_ENGINEER` and the simulator's `--pitwall` still work, and each browser keeps its tab and card layout.
 - **2.2.9:** the in-car devices are renamed: the PLTD lap timer is now **Agile** and the BTTM monitor is now **Sentinel**, in the app, the Setup tab and the docs. Weekends, settings and card layouts saved with the old names load and connect as before (each weekend is moved to the new names the first time it opens), and the simulator still accepts `--pltd` / `--bttm`. Nothing changes on the devices.

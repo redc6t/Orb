@@ -528,7 +528,9 @@
       var p = b.getAttribute('data-p'), text = val(p + '-text').trim();
       if (!text) return U.toast('Describe the issue first', 'warn', null, false);
       App.send('issue.add', { text: text, cat: val(p + '-cat') || 'other', sev: val(p + '-sev') || 'warn', nextStop: document.getElementById(p + '-next') ? checked(p + '-next') : true, src: 'manual' });
-      document.getElementById(p + '-text').value = ''; App.dirty.nextissues = false; App.dirty.issues = false;
+      document.getElementById(p + '-text').value = '';
+      // un-freeze whichever card holds this form (Race 'feed' or Car 'issues') so the new issue shows at once
+      var pan = b.closest('[data-panel]'); if (pan) App.dirty[pan.getAttribute('data-panel')] = false;
     },
     issue: function (b) {
       var op = b.getAttribute('data-op'), id = b.getAttribute('data-id');
