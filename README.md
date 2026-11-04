@@ -7,7 +7,7 @@
 ![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)
 ![Node.js 18+](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)
 ![Runs offline](https://img.shields.io/badge/internet-not%20required-lightgrey.svg)
-![Version](https://img.shields.io/badge/version-2.2.13-informational.svg)
+![Version](https://img.shields.io/badge/version-2.2.14-informational.svg)
 
 ![The Race tab during a 36 h race: the call, fuel on board, the driver's stint, the next stop and the live track map](docs/screenshots/race.png)
 
@@ -250,6 +250,7 @@ The full [user manual (PDF)](Pitwall_Strategy_Manager_User_Manual_v2.2.3.pdf) co
 
 ## Release notes
 
+- **2.2.14:** **fuel stock**: Orb now tracks the fuel you bring to the weekend. On **Setup**, under *Fuel stock for the weekend*, it suggests how much to bring: every session (practice, qualifying and the race) at the car's green-flag burn, plus a safety margin (10% by default), plus the reserve, less the fuel already in the car on arrival, rounded up to whole cans. **Use the suggestion** fills it in, or type what you actually bring. The **Fuel Plan** tab gets a *Fuel stock at the track* card: what was brought, what has been poured, what is left, and what is still needed to finish (the race through the live plan, so expected Safety Cars count). It turns amber when under one can is spare and red, with an alert, when the stock will not last. Pit stop litres come off the stock on their own; **Log a fill outside a stop**, **Fuel bought** and **Recount stock** cover fills between sessions, fuel bought at the track, and spills or part cans.
 - **2.2.13:** **saved plans**: prepare a weekend days early, save it, and start it fresh on race day. In **Log > Weekend files**, **Save plan** stores the open weekend as it stood before its first session (team, rotation, shifts, car, tyres and scenarios, but no laps, alerts or anything logged during a run) in `data/plans/` as `<date>_<time>_<name>.orb.json`, with an optional note. **Start a copy** opens a new weekend from that plan, so you can rehearse with the simulator and still go back to the clean plan; the weekend it came from is kept. Orb also saves a plan automatically (`..._auto.orb.json`) the moment a weekend's first session starts. Plans can be downloaded and imported on another laptop like any weekend file, and they are offered on the New race weekend screen. Deleting a plan moves it to `data/plans/deleted/`.
 - **2.2.12:** a car issue logged from the Race tab's Attention & feed card now appears there straight away, instead of only after switching to another tab and back.
 - **2.2.11:** the demo no longer counts the time Orb was closed: each time it opens, the race resumes from its last lap instead of showing a race that has been running for days. Only the demo is moved; real weekends keep their times. The old `start-pitwall.bat` and `stop-pitwall.bat` are removed, so there is one script for each job: `start-orb.bat` and `stop-orb.bat` (repoint any old desktop shortcut).

@@ -68,6 +68,7 @@
       stops: [],
       openStopId: null,
       fuel: { anchors: [], refuels: [], checks: [] },
+      stock: { adds: [], counts: [] },  // fuel stock at the track: litres bought or recounted (pours come from stops and refuels)
       drivers: { activeId: null, stintStartTs: null, stints: [], queue: clone(cfg.driverOrder || []), pendingIn: null },
       crew: { status: {}, shifts: {}, overrides: {} },
       issues: [],
@@ -265,6 +266,14 @@
       }
       case 'fuel.refuel': {
         s.fuel.refuels.push({ ts: ts, litres: p.litres, sessionId: s.activeSessionId, note: p.note });
+        break;
+      }
+      case 'stock.add': {
+        if (p.litres) s.stock.adds.push({ ts: ts, litres: +p.litres, note: p.note || '' });
+        break;
+      }
+      case 'stock.count': {
+        if (p.litres != null) s.stock.counts.push({ ts: ts, litres: +p.litres, note: p.note || '' });
         break;
       }
       case 'driver.set': {

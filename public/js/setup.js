@@ -74,7 +74,7 @@
       sel('track.id', 'Track', trackOpts, ' data-rerender="track"') + (trackId === 'custom' || !m.tracks.some(function (t) { return t.id === trackId; }) ? inp('track.name', 'Track name') : '') +
       inp('track.lapLengthKm', 'Lap length (km)', 'number', ' step="0.001" placeholder="auto from Agile"') + inp('track.pitLaneS', 'Pit lane transit (s)', 'number', ' step="1"') +
       sel('race.format', 'Race format', fmtOpts, ' data-rerender="format"') +
-      (c.race.mode === 'time' ? inp('race.durationMin', 'Race length (min)', 'number') : c.race.mode === 'laps' ? inp('race.laps', 'Race laps', 'number') : inp('race.distanceKm', 'Race distance (km)', 'number')) +
+      (c.race.mode === 'time' ? inp('race.durationMin', 'Race length (min)', 'number', ' data-rerender="stock"') : c.race.mode === 'laps' ? inp('race.laps', 'Race laps', 'number', ' data-rerender="stock"') : inp('race.distanceKm', 'Race distance (km)', 'number', ' data-rerender="stock"')) +
       inp('race.expectedLapS', 'Expected lap (s)', 'number', ' step="0.1"') + '</div>';
 
     h += '<div class="section-title" style="margin-top:14px">Sessions</div><table><thead><tr><th>Type</th><th>Name</th><th>Planned start</th><th class="num">Minutes</th><th></th></tr></thead><tbody>' +
@@ -90,12 +90,13 @@
     h += '<div class="fgrid" style="margin-top:10px">' + '<label class="f">Car profile<select id="su-car"' + (eng ? '' : ' disabled') + '>' + carOpts.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (o[0] === c.car.id ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></label>' +
       inp('car.make', 'Make') + inp('car.model', 'Model') + inp('car.year', 'Year') + '</div>';
     h += '<div class="fgrid" style="margin-top:10px">' + inp('car.tanks.primaryL', 'Primary tank (L)', 'number', ' step="0.5"') + inp('car.tanks.secondaryL', 'Surge / secondary (L)', 'number', ' step="0.5"') +
-      inp('car.tanks.unusableL', 'Unusable fuel (L)', 'number', ' step="0.5"') + inp('strategy.reserveL', 'Reserve floor (L)', 'number', ' step="0.5"') + '</div>';
+      inp('car.tanks.unusableL', 'Unusable fuel (L)', 'number', ' step="0.5"') + inp('strategy.reserveL', 'Reserve floor (L)', 'number', ' step="0.5" data-rerender="stock"') + '</div>';
     h += '<div class="row" style="margin-top:6px">' + inp('car.tanks.confirmed', 'Tank sizes confirmed for this event', 'checkbox') + '</div>';
-    h += '<div class="fgrid" style="margin-top:10px">' + inp('car.fuelProfiles.' + trackId + '.greenLph', 'Green burn here (L/h)', 'number', ' step="0.05"') + inp('car.fuelProfiles.' + trackId + '.scLph', 'Safety car burn (L/h)', 'number', ' step="0.05"') +
-      sel('car.refuel.methodId', 'Refuel method', methodOpts) + inp('car.refuel.pourLpm', 'Pour rate (L/min)', 'number', ' step="1"') + inp('car.driverChangeS', 'Driver change (s)', 'number') + '</div>';
+    h += '<div class="fgrid" style="margin-top:10px">' + inp('car.fuelProfiles.' + trackId + '.greenLph', 'Green burn here (L/h)', 'number', ' step="0.05" data-rerender="stock"') + inp('car.fuelProfiles.' + trackId + '.scLph', 'Safety car burn (L/h)', 'number', ' step="0.05"') +
+      sel('car.refuel.methodId', 'Refuel method', methodOpts, ' data-rerender="stock"') + inp('car.refuel.pourLpm', 'Pour rate (L/min)', 'number', ' step="1"') + inp('car.driverChangeS', 'Driver change (s)', 'number') + '</div>';
     h += '<div class="small muted" style="margin-top:6px">Fuel burn is the starting point only: every brim fill and visual check during the weekend recalibrates it, and the learned figures can be saved back to this car.</div>';
     if (eng) h += '<div class="row" style="margin-top:6px"><label class="chk"><input id="su-savecar" type="checkbox"' + (S.saveCar ? ' checked' : '') + '> Save this car to the library</label></div>';
+    h += stockSection(c, eng);
     h += '</div>';
     h += '</div><div class="col">';
 
@@ -183,6 +184,20 @@
     }
   }
 
+  // Fuel stock to bring: Orb suggests it from every session at the green-flag burn; the team sets what it actually brings.
+  function stockSection(c, eng) {
+    var g = window.OrbEngine.stockSuggest(c), L = function (v) { return U.L(v, 0); };
+    var h = '<div class="section-title" style="margin-top:14px">Fuel stock for the weekend</div>';
+    h += '<div class="fgrid">' + inp('strategy.stockMarginPct', 'Safety margin on the burn (%)', 'number', ' step="1" min="0" placeholder="10" data-rerender="stock"') +
+      inp('strategy.arrivalFuelL', 'Fuel in the car on arrival (L)', 'number', ' step="0.5" min="0" placeholder="0" data-rerender="stock"') +
+      inp('strategy.stockBroughtL', 'Fuel we bring (L)', 'number', ' step="1" min="0" placeholder="' + g.suggestedL + ' suggested"') + '</div>';
+    h += '<div class="note" style="margin-top:8px"><b>Suggested: ' + g.suggestedL + ' L = ' + g.cans + ' x ' + g.canL + ' L cans.</b> ' +
+      g.sessions.map(function (x) { return esc(x.name) + ' ' + Math.round(x.minutes) + ' min'; }).join(' + ') + ' at ' + g.greenLph + ' L/h green = ' + L(g.burnL) + ' L, + ' + g.marginPct + '% margin ' + L(g.marginL) + ' L, + ' + L(g.reserveL) + ' L reserve' +
+      (g.arrivalL ? ', - ' + L(g.arrivalL) + ' L already in the car' : '') + ' = ' + L(g.needL) + ' L, rounded up to whole cans. Every session is counted as green flag, so Safety Cars only add spare.</div>';
+    if (eng) h += '<div class="row" style="margin-top:6px"><button class="btn sm" data-sact="usestock">Use the suggestion</button><span class="small muted">Every pour logged during the weekend comes off this stock; the Fuel Plan tab shows what is left against what is still needed.</span></div>';
+    return h;
+  }
+
   function nextMemberId() { var n = 1; var ids = S.draft.members.map(function (m) { return m.id; }); while (ids.indexOf('m' + n) >= 0) n++; return 'm' + n; }
 
   S.onClick = function (e, el) {
@@ -205,6 +220,7 @@
     if (act === 'mup' && idx > 0) { var t = c.members[idx]; c.members[idx] = c.members[idx - 1]; c.members[idx - 1] = t; }
     if (act === 'addsession') c.sessions.push({ id: 's' + Date.now().toString(36), type: 'practice', name: 'Practice ' + (c.sessions.length + 1), plannedStart: null, durationMin: 30 });
     if (act === 'delsession') c.sessions.splice(idx, 1);
+    if (act === 'usestock') { c.strategy = c.strategy || {}; c.strategy.stockBroughtL = window.OrbEngine.stockSuggest(c).suggestedL; }
     if (act === 'newweekend') { S.begin(S.app, 'new'); }
     if (act === 'cancelnew') { S.begin(S.app, 'edit'); }
     if (act === 'save') { save(); return true; }
@@ -231,7 +247,7 @@
     }
     var rr = t.getAttribute && t.getAttribute('data-rerender');
     if (rr) { readInputs(el); applyRerender(rr); S.render(el); return true; }
-    if (t.id === 'su-nsets' || t.getAttribute('data-f') === 'driver') { readInputs(el); S.render(el); return true; }
+    if (t.id === 'su-nsets' || t.getAttribute('data-f') === 'driver' || t.getAttribute('data-f') === 'durationMin' || t.getAttribute('data-f') === 'type') { readInputs(el); S.render(el); return true; }
     return false;
   };
 

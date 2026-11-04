@@ -405,7 +405,23 @@
   function numv(id) { var v = val(id); return v === '' ? null : +v; }
   function checked(id) { var el = document.getElementById(id); return !!(el && el.checked); }
 
+  function stockModal(kind, title, help, label) {
+    U.modal('<h3 class="section-title">' + title + '</h3><p class="small muted">' + help + '</p>' +
+      '<div class="row" style="margin-top:10px"><label class="f" style="flex:1">' + label + '<input id="sk-l" type="number" step="0.5" min="0"></label><label class="f" style="flex:2">Note<input id="sk-note"></label></div>' +
+      '<div class="row" style="margin-top:12px"><button class="btn primary" data-act="stocksave" data-kind="' + kind + '">Log</button><button class="btn" data-act="modalclose">Cancel</button></div>');
+  }
+
   var A = {
+    stockfill: function () { stockModal('fill', 'Log a fill outside a stop', 'Litres poured into the car between sessions or before the start. It comes off the stock and is added to the fuel in the car.', 'Litres poured'); },
+    stockadd: function () { stockModal('add', 'Fuel bought', 'Litres added to the stock at the track (bought at the circuit or brought in later).', 'Litres bought'); },
+    stockcount: function () { stockModal('count', 'Recount stock', 'Litres physically left at the track right now, full and part cans together. It replaces the running count, so spills and guesses are corrected.', 'Litres at the track'); },
+    stocksave: function (b) {
+      var kind = b.getAttribute('data-kind'), l = numv('sk-l'), note = val('sk-note');
+      if (l == null || l < 0 || (kind !== 'count' && l === 0)) return U.toast('Enter litres', 'warn', null, false);
+      if (kind === 'fill') App.send('fuel.refuel', { litres: l, note: note || 'fill outside a stop' });
+      else App.send(kind === 'add' ? 'stock.add' : 'stock.count', { litres: l, note: note });
+      U.closeModal();
+    },
     resetcards: function () { saveCards(App.tab, null); App.layoutKey = null; renderAll(true); },
     savemodel: function () {
       var s = App.state, d = E.derive(s, App.now()), tid = s.config.track.id || 'default';

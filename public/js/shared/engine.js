@@ -940,6 +940,78 @@
     return { stops: out, canL: canL, method: P.method, maxPerStop: P.maxPerStop, maxAdd: Math.max(1, Math.min(P.maxPerStop, P.capacity - P.reserve)), capacity: P.capacity };
   }
 
+  /* ------------------------------------------------- fuel stock at the track */
+  // Suggested stock for the weekend: every session run at the green-flag burn (worst case),
+  // plus a safety margin on that burn, plus the reserve left in the tank at the flag,
+  // less the fuel already in the car on arrival, rounded up to whole cans.
+  function sessionMinutes(c, x, P) {
+    var race = c.race || {};
+    if (x.type !== 'race') return num(x.durationMin, 0);
+    if ((race.mode || 'time') === 'time') return num(race.durationMin, num(x.durationMin, 0));
+    var lapMin = P.expectedLapMs / MIN;
+    if (race.mode === 'laps') return num(race.laps, 0) * lapMin;
+    if (race.mode === 'distance' && P.lapKm) return num(race.distanceKm, 0) / P.lapKm * lapMin;
+    return num(x.durationMin, 0);
+  }
+  function stockSuggest(cfg) {
+    var P = params({ config: cfg }), st = cfg.strategy || {};
+    var canL = (P.method && P.method.canL) || 20;
+    var sessions = (cfg.sessions || []).map(function (x) {
+      var m = sessionMinutes(cfg, x, P);
+      return { id: x.id, name: x.name, type: x.type, minutes: m, litres: m / 60 * P.G0 };
+    });
+    var burnL = 0; sessions.forEach(function (x) { burnL += x.litres; });
+    var marginPct = num(st.stockMarginPct, 10), arrivalL = num(st.arrivalFuelL, 0);
+    var marginL = burnL * marginPct / 100;
+    var needL = Math.max(0, burnL + marginL + P.reserve - arrivalL);
+    var cans = Math.ceil(needL / canL - 1e-9);
+    return { sessions: sessions, greenLph: P.G0, burnL: burnL, marginPct: marginPct, marginL: marginL, reserveL: P.reserve, arrivalL: arrivalL,
+      needL: needL, canL: canL, cans: cans, suggestedL: cans * canL };
+  }
+
+  // Live stock: what was brought (or last recounted), plus fuel bought since, less every pour logged since.
+  // Still needed: the burn left in every unfinished session (the race through the live plan, so expected
+  // Safety Cars count), plus the reserve, less what is in the car now.
+  function stockView(s, now, P, model, pl, planStartL) {
+    var cfg = s.config || {}, st = cfg.strategy || {}, sug = stockSuggest(cfg);
+    var setL = st.stockBroughtL != null && st.stockBroughtL !== '' ? +st.stockBroughtL : null;
+    var broughtL = setL != null ? setL : sug.suggestedL;
+    var pours = [];
+    s.stops.forEach(function (x) {
+      if (x.voided || !x.service || !(x.service.fuelAdded > 0)) return;
+      pours.push({ ts: x.fuelInTs || x.service.ts, litres: +x.service.fuelAdded, stopId: x.id });
+    });
+    s.fuel.refuels.forEach(function (r) { if (!r.stopId && r.litres > 0) pours.push({ ts: r.ts, litres: +r.litres, note: r.note || '' }); });
+    var stock = s.stock || { adds: [], counts: [] };
+    var count = null; stock.counts.forEach(function (c) { if (c.ts <= now && (!count || c.ts >= count.ts)) count = c; });
+    var t0 = count ? count.ts : -Infinity, base = count ? count.litres : broughtL;
+    var poured = 0, pouredSince = 0, added = 0, addedSince = 0;
+    pours.forEach(function (x) { if (x.ts > now) return; poured += x.litres; if (x.ts > t0) pouredSince += x.litres; });
+    stock.adds.forEach(function (a) { if (a.ts > now) return; added += a.litres; if (a.ts > t0) addedSince += a.litres; });
+    var leftL = base + addedSince - pouredSince;
+
+    var started = Object.keys(s.sessions).length > 0;
+    var inCarL = started && model.nowL != null ? Math.max(0, model.nowL) : sug.arrivalL + poured;
+    var burnL = 0, rows = [];
+    (cfg.sessions || []).forEach(function (x) {
+      var si = sessionInfo(s, now, P, x.id);
+      if (si.finished) return;
+      var L;
+      if (si.isRace && pl) {
+        // the plan's own fuel balance: what it starts with, plus what it pours, less what is left at the flag
+        var adds = 0; pl.stops.forEach(function (x) { if (x.add > 0) adds += x.add; });
+        L = Math.max(0, num(planStartL, P.capacity) + adds - pl.finishFuelL);
+      }
+      else L = Math.max(0, si.durationMs - si.elapsedMs) / HOUR * model.G;
+      burnL += L; rows.push({ id: x.id, name: x.name, litres: L, running: si.running });
+    });
+    var needL = Math.max(0, burnL + P.reserve - inCarL);
+    var marginL = leftL - needL, canL = sug.canL;
+    return { set: setL != null, broughtL: broughtL, suggestion: sug, canL: canL, count: count, poured: poured, added: added, pours: pours,
+      leftL: leftL, leftCans: leftL / canL, inCarL: inCarL, burnL: burnL, reserveL: P.reserve, needL: needL, sessions: rows,
+      marginL: marginL, level: marginL < 0 ? 'crit' : marginL < canL ? 'warn' : 'ok' };
+  }
+
   function derive(s, now, whatIf, opts) {
     if (!(whatIf && whatIf.noScenario)) { var asc = activeScenario(s); if (asc) whatIf = mergeWhatIf(defToWhatIf(asc.cur), whatIf); }
     var P = params(s);
@@ -999,6 +1071,7 @@
       lapAt: lapAt, fuel: fuel, stint: stint, onDeck: onDeck, crew: crew, plan: pl, nextStop: nextStop, nextFuel: nextFuel,
       refuelCrew: rc, stops: SI, call: call, saveToDrop: save, tyres: tyres, issues: issues, inPits: inPits, carOnTrack: carOnTrack,
       driverStats: driverStats(s, cur, now) };
+    d.stock = stockView(s, now, P, model, pl, curFuel);
     d.alerts = alerts(s, d, P);
     if (opts && opts.trace) d.trace = fuelTrace(s, now, P, B, model, sess, pl);
     d.gates = gates(s, d, now);
@@ -1102,6 +1175,9 @@
     // fuel
     if (d.fuel.nowL <= P.reserve) add('fuel:reserve:' + (d.fuel.model.anchor ? d.fuel.model.anchor.ts : 0), 'crit', 'Fuel at reserve: ' + d.fuel.nowL.toFixed(1) + ' L estimated', 'fuel');
     if (d.plan && d.plan.warnings.length) add('plan:risk:' + Math.floor(now / (15 * MIN)), 'crit', d.plan.warnings[0], 'fuel');
+    var sk = d.stock;
+    if (sk && sk.marginL < 0) add('stock:short:' + Math.floor(now / (30 * MIN)), 'crit', 'Fuel stock SHORT: ' + sk.leftL.toFixed(0) + ' L left at the track, ' + sk.needL.toFixed(0) + ' L still needed to finish (' + (-sk.marginL).toFixed(0) + ' L short)', 'fuel');
+    else if (sk && sk.level === 'warn') add('stock:low:' + Math.floor(now / HOUR), 'warn', 'Fuel stock tight: ' + sk.leftL.toFixed(0) + ' L left, ' + sk.needL.toFixed(0) + ' L still needed (under one can spare)', 'fuel');
     var dev = d.fuel.model.deviation;
     if (dev && Math.abs(dev.pct) >= 10) add('model:dev:' + dev.ts, dev.pct > 0 ? 'crit' : 'warn', 'Consumption ' + (dev.pct > 0 ? '+' : '') + dev.pct.toFixed(0) + '% vs model over last stint (' + dev.measured.toFixed(1) + ' L vs ' + dev.predicted.toFixed(1) + ' L). Plan updated.', 'fuel');
     // call
@@ -1252,5 +1328,5 @@
     return out;
   }
 
-  return { derive: derive, draftShifts: draftShifts, fuelPlan: fuelPlan, canSplit: canSplit, scenarioTemplates: scenarioTemplates, defToWhatIf: defToWhatIf, gates: gates, pendingGates: pendingGates, GATE_S: GATE_S, params: params, memberName: memberName, memberById: memberById, MIN: MIN, HOUR: HOUR, refuelCrew: refuelCrew, classifyLap: classifyLap };
+  return { derive: derive, stockSuggest: stockSuggest, draftShifts: draftShifts, fuelPlan: fuelPlan, canSplit: canSplit, scenarioTemplates: scenarioTemplates, defToWhatIf: defToWhatIf, gates: gates, pendingGates: pendingGates, GATE_S: GATE_S, params: params, memberName: memberName, memberById: memberById, MIN: MIN, HOUR: HOUR, refuelCrew: refuelCrew, classifyLap: classifyLap };
 });

@@ -36,7 +36,7 @@ function clientIP(req) { return String(req.socket.remoteAddress || '').replace(/
 function isEngineer(req) { const ip = clientIP(req); if ((process.env.ORB_ENGINEER || process.env.PITWALL_ENGINEER) === 'loopback') return ip === '127.0.0.1' || ip === '::1'; return localIPs.has(ip) || (store.settings.engineerHosts || []).includes(ip); }
 
 // ------------------------------------------------------------------ actions
-const ACTIONS = new Set(['setup.update', 'session.start', 'session.end', 'flag.set', 'carstate', 'lap', 'stop.service', 'fuel.check', 'fuel.refuel',
+const ACTIONS = new Set(['setup.update', 'session.start', 'session.end', 'flag.set', 'carstate', 'lap', 'stop.service', 'fuel.check', 'fuel.refuel', 'stock.add', 'stock.count',
   'driver.set', 'driver.queue', 'crew.status', 'crew.shifts', 'crew.shiftsAll', 'crew.override', 'issue.add', 'issue.update', 'tyre.mount', 'tyre.unmount',
   'tyre.measure', 'tyre.status', 'pitmsg.send', 'penalty.add', 'note', 'alert.ack', 'stint.extend',
   'gate.ack', 'gate.cmd', 'stop.void', 'scenario.init', 'scenario.set', 'scenario.reset', 'scenario.activate']);

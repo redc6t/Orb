@@ -381,7 +381,7 @@
   var FEED_TYPES = { 'alert': 1, 'flag.set': 1, 'stop.service': 1, 'pitmsg.send': 1, 'pitmsg.ack': 1, 'issue.add': 1, 'penalty.add': 1, 'crew.status': 1, 'driver.set': 1, 'session.start': 1, 'session.end': 1, 'note': 1, 'gate.ack': 1, 'stop.void': 1, 'scenario.activate': 1 };
   // what changes the strategy timeline, what is only a message
   V.effectOf = function (e) {
-    if ({ 'flag.set': 1, 'stop.service': 1, 'gate.ack': 1, 'stop.void': 1, 'driver.set': 1, 'driver.queue': 1, 'scenario.activate': 1, 'scenario.set': 1, 'scenario.reset': 1, 'session.start': 1, 'session.end': 1, 'fuel.check': 1, 'carstate': 1, 'lap': 1, 'setup.update': 1 }[e.type]) return 'strat';
+    if ({ 'flag.set': 1, 'stop.service': 1, 'gate.ack': 1, 'stop.void': 1, 'driver.set': 1, 'driver.queue': 1, 'scenario.activate': 1, 'scenario.set': 1, 'scenario.reset': 1, 'session.start': 1, 'session.end': 1, 'fuel.check': 1, 'fuel.refuel': 1, 'stock.add': 1, 'stock.count': 1, 'carstate': 1, 'lap': 1, 'setup.update': 1 }[e.type]) return 'strat';
     if (e.type === 'pitmsg.send' || e.type === 'pitmsg.ack' || e.type === 'pitmsg.shown') return 'msg';
     return 'info';
   };
@@ -651,10 +651,41 @@
   };
   V.fuel = function (ctx) {
     var d = ctx.d;
-    if (!d.plan || !ctx.fp) return { layout: 'single', cols: [[{ id: 'fpnone', html: card('Fuel plan', '<div class="muted">No race session configured.</div>') }]] };
+    if (!d.plan || !ctx.fp) return { layout: 'single', cols: [[{ id: 'fpnone', html: card('Fuel plan', '<div class="muted">No race session configured.</div>') }, panelStock(ctx)]] };
     var sel = V.fuelSelected(ctx);
-    return { layout: 'plan-grid', top: [panelFuelTimeline(ctx, sel)], cols: [[panelFuelSteps(ctx, sel)], [panelFuelStop(ctx, sel), panelFuelCascade(ctx, sel)]] };
+    return { layout: 'plan-grid', top: [panelFuelTimeline(ctx, sel), panelStock(ctx)], cols: [[panelFuelSteps(ctx, sel)], [panelFuelStop(ctx, sel), panelFuelCascade(ctx, sel)]] };
   };
+
+  /* Fuel stock at the track: what was brought, what has been poured, what is left against what is still needed. */
+  function panelStock(ctx) {
+    var k = ctx.d.stock, st = ctx.s.stock || { adds: [], counts: [] };
+    if (!k) return { id: 'fpstock', html: card('Fuel stock at the track', '<div class="muted">No stock data.</div>') };
+    var cans = function (L) { return (L / k.canL).toFixed(1) + ' cans'; };
+    var spareCls = k.level === 'crit' ? 'crit-t' : k.level === 'warn' ? 'warn-t' : 'ok-t';
+    var chips = [
+      ['Brought', U.L(k.broughtL, 0) + ' L' + (k.set ? '' : ' <span class="tiny warn-t">suggested, not set</span>')],
+      ['Poured into the car', U.L(k.poured, 0) + ' L'],
+      ['Bought at the track', U.L(k.added, 0) + ' L'],
+      ['Left at the track', U.L(k.leftL, 0) + ' L <span class="tiny muted">' + cans(k.leftL) + '</span>'],
+      ['Still needed to finish', U.L(k.needL, 0) + ' L <span class="tiny muted">' + cans(k.needL) + '</span>'],
+      [k.marginL < 0 ? 'SHORT' : 'Spare', '<span class="' + spareCls + '">' + (k.marginL < 0 ? '-' : '+') + U.L(Math.abs(k.marginL), 0) + ' L</span> <span class="tiny muted">' + cans(Math.abs(k.marginL)) + '</span>']
+    ];
+    var h = '<div class="chips-sum">' + chips.map(function (c) { return '<div class="sumchip"><span class="lbl">' + c[0] + '</span><span class="v">' + c[1] + '</span></div>'; }).join('') + '</div>';
+    var parts = k.sessions.map(function (x) { return esc(x.name) + ' ' + U.L(x.litres, 0) + ' L' + (x.running ? ' (running)' : ''); });
+    h += '<div class="small muted" style="margin-top:6px">Still needed = burn left ' + U.L(k.burnL, 0) + ' L' + (parts.length ? ' (' + parts.join(', ') + ')' : '') +
+      ' + ' + U.L(k.reserveL, 0) + ' L reserve - ' + U.L(k.inCarL, 0) + ' L in the car. The race follows the live plan, so expected Safety Cars count; other sessions assume green flag.' +
+      (k.count ? ' Stock recounted at ' + U.clock(k.count.ts) + ': ' + U.L(k.count.litres, 0) + ' L.' : '') + '</div>';
+    if (k.marginL < 0) h += '<div class="note crit-t" style="margin-top:6px"><b>Not enough fuel at the track to finish.</b> Buy ' + U.L(-k.marginL, 0) + ' L (' + Math.ceil(-k.marginL / k.canL) + ' x ' + k.canL + ' L cans) or change the plan.</div>';
+    var moves = k.pours.map(function (x) { return { ts: x.ts, txt: 'Poured ' + U.L(x.litres) + ' L' + (x.stopId ? ' at stop ' + x.stopId : ' (fill outside a stop)') + (x.note ? ' - ' + esc(x.note) : ''), d: -x.litres }; })
+      .concat(st.adds.map(function (a) { return { ts: a.ts, txt: 'Bought ' + U.L(a.litres) + ' L' + (a.note ? ' - ' + esc(a.note) : ''), d: a.litres }; }))
+      .concat(st.counts.map(function (c) { return { ts: c.ts, txt: 'Recounted: ' + U.L(c.litres) + ' L at the track' + (c.note ? ' - ' + esc(c.note) : ''), d: null }; }))
+      .filter(function (m) { return m.ts <= ctx.d.now; })
+      .sort(function (a, b) { return b.ts - a.ts; }).slice(0, 8);
+    if (moves.length) h += '<table style="margin-top:8px"><thead><tr><th class="num">Time</th><th>Movement</th><th class="num">Stock</th></tr></thead><tbody>' + moves.map(function (m) {
+      return '<tr><td class="num">' + U.clock(m.ts) + '</td><td>' + m.txt + '</td><td class="num">' + (m.d == null ? '=' : (m.d > 0 ? '+' : '') + U.L(m.d)) + '</td></tr>'; }).join('') + '</tbody></table>';
+    if (ctx.eng) h += '<div class="row" style="margin-top:10px"><button class="btn sm" data-act="stockfill">Log a fill outside a stop</button><button class="btn sm" data-act="stockadd">Fuel bought</button><button class="btn sm" data-act="stockcount">Recount stock</button><span class="spacer"></span><span class="tiny muted">Pit stop litres come off the stock on their own. Set what you brought on Setup.</span></div>';
+    return { id: 'fpstock', html: card('Fuel stock at the track', h, 'every pour comes off the stock') };
+  }
 
   function fpLabel(ctx, x) { return 'F' + x.n + ' ' + U.clock(x.ts); }
   function panelFuelTimeline(ctx, sel) {
@@ -1061,6 +1092,9 @@
       case 'issue.add': return 'Issue: ' + p.text + ' (' + p.cat + ')';
       case 'issue.update': return 'Issue ' + p.id + ' ' + (p.status || (p.nextStop ? 'next stop' : 'updated'));
       case 'fuel.check': return 'Gauge reading ' + p.litres + ' L';
+      case 'fuel.refuel': return 'Fuel poured outside a stop: ' + p.litres + ' L' + (p.note ? ' (' + p.note + ')' : '');
+      case 'stock.add': return 'Fuel bought for the stock: ' + p.litres + ' L' + (p.note ? ' (' + p.note + ')' : '');
+      case 'stock.count': return 'Fuel stock recounted: ' + p.litres + ' L at the track' + (p.note ? ' (' + p.note + ')' : '');
       case 'pitmsg.send': return 'Pit board: ' + p.text + (p.kind === 'flag' ? (p.on ? ' ON' : ' OFF') : '') + (p.delivered === false ? ' (not delivered)' : '');
       case 'stint.extend': return 'Stint extended +' + p.laps + ' lap' + (p.laps > 1 ? 's' : '') + (p.stopK ? ' - stop ' + p.stopK : '') + ' moved to ~' + U.clock(p.untilTs);
       case 'pitmsg.ack': return 'Driver acknowledged pit board';
