@@ -54,6 +54,11 @@
       else if (msg.t === 'devices') { App.devices = msg.devices; renderHeader(); }
       else if (msg.t === 'tick') { App.offset = msg.now - Date.now(); }
       else if (msg.t === 'reset') { fetch('/api/meta').then(function () { ws.close(); }); }
+      else if (msg.t === 'plans') {
+        if (App.meta) App.meta.plans = msg.plans;
+        if (App.tab === 'setup' && !App.state) { if (!App.dirty.setup) SU.render(viewEl); }
+        else { App.dirty['export'] = false; App.formSeq.changed = true; scheduleRender(); }
+      }
       else if (msg.t === 'logo') { document.getElementById('logo').src = '/branding/logo?v=' + Date.now(); }
       else if (msg.t === 'error') U.toast(msg.msg, 'warn', null, false);
     };
@@ -614,8 +619,33 @@
       var fr = new FileReader();
       fr.onload = function () { fetch('/api/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: fr.result }).then(function (r) { return r.json(); }).then(function (j) { U.toast(j.error ? j.error : 'Weekend restored', j.error ? 'crit' : 'info'); }); };
       fr.readAsText(f.files[0]);
+    },
+    plansave: function () {
+      var n = document.getElementById('plan-note');
+      postJson('/api/plans/save', { note: n ? n.value : '' }).then(function (j) {
+        if (j.error) return U.toast(j.error, 'crit');
+        if (n) n.value = '';
+        App.dirty['export'] = false; U.toast('Plan saved: ' + j.file, 'info');
+      });
+    },
+    planstart: function (b) {
+      var p = (App.meta.plans || []).filter(function (x) { return x.file === b.getAttribute('data-file'); })[0];
+      if (!p || !confirm('Start a new weekend from the plan "' + p.name + '" saved ' + U.dayDate(p.savedTs) + '?\n\nThe weekend open now is kept and can be opened again from Log > Weekend files.')) return;
+      postJson('/api/plans/start', { file: p.file }).then(function (j) {
+        if (j.error) return U.toast(j.error, 'crit');
+        App.afterCreate = true; U.toast('Weekend started from the saved plan', 'info');
+      });
+    },
+    plandelete: function (b) {
+      var f = b.getAttribute('data-file');
+      if (!confirm('Delete the saved plan ' + f + '?\n\nIt is moved to data/plans/deleted, so it can still be recovered from that folder.')) return;
+      postJson('/api/plans/delete', { file: f }).then(function (j) { if (j.error) U.toast(j.error, 'crit'); });
     }
   };
+  function postJson(url, body) {
+    return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); }).catch(function (e) { return { error: e.message }; });
+  }
 
   function shiftRow(b) {
     return '<div class="row" data-blk style="margin-bottom:6px"><input type="datetime-local" class="b-s" value="' + U.toLocalInput(b.startTs) + '"><input type="datetime-local" class="b-e" value="' + U.toLocalInput(b.endTs) + '">' +

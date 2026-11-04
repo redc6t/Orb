@@ -62,7 +62,9 @@
     if (!c.car.fuelProfiles) c.car.fuelProfiles = {};
     if (!c.car.fuelProfiles[trackId]) c.car.fuelProfiles[trackId] = { greenLph: fp.greenLph || 18, scLph: fp.scLph || 11 };
 
-    var h = '<div class="grid2"><div class="col">';
+    var h = '';
+    if (S.mode === 'new' && m.plans && m.plans.length) h += '<div class="card" style="margin-bottom:12px"><h3><span>Start from a saved plan</span><span class="hint">a weekend prepared earlier, before its first session</span></h3>' + U.plansTable(m.plans, eng) + '</div>';
+    h += '<div class="grid2"><div class="col">';
     h += '<div class="card"><h3><span>' + (S.mode === 'new' ? 'New race weekend' : 'Race weekend setup') + '</span><span class="hint">' + (eng ? (S.mode === 'new' ? 'fill in once, edit any time' : 'changes are logged') : 'view only') + '</span></h3>';
     h += '<div class="section-title">Regulations</div><div class="fgrid">' + sel('rulesId', 'Rules profile', rulesOpts, ' data-rerender="rules"') + '</div>';
     h += '<div class="note" style="margin-top:8px"><b>' + esc(r.organiser) + '</b> - ' + esc(r.document) + ', ' + esc(r.version) + '<ul class="rules" style="margin-top:4px">' + r.notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul></div>';

@@ -23,6 +23,19 @@
     return ((h % 12) || 12) + ':' + U.pad(d.getMinutes()) + t + (h < 12 ? ' am' : ' pm');
   };
   U.dayClock = function (ts) { if (!ts) return '-'; var d = new Date(ts); return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()] + ' ' + U.clock(ts); };
+  U.dayDate = function (ts) { if (!ts) return '-'; var d = new Date(ts); return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()] + ' ' + d.getDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()] + ' ' + U.clock(ts); };
+  // Saved plans list (Log > Weekend files, and the New race weekend screen). Buttons are handled in app.js.
+  U.plansTable = function (plans, eng) {
+    if (!plans || !plans.length) return '<div class="small muted">No saved plans yet.</div>';
+    return '<div class="scroll"><table><tbody>' + plans.map(function (p) {
+      return '<tr><td>' + U.esc(p.name) + (p.auto ? ' <span class="tiny muted">(auto)</span>' : '') +
+        '<div class="tiny muted">Saved ' + U.esc(U.dayDate(p.savedTs)) + ' | ' + U.esc(p.team || '') + ' | race date ' + U.esc(p.date || '-') + ' | ' + p.members + ' people, ' + p.changes + ' changes</div>' +
+        (p.note ? '<div class="tiny">' + U.esc(p.note) + '</div>' : '') + '</td><td style="white-space:nowrap">' +
+        (eng ? '<button class="btn primary sm" data-act="planstart" data-file="' + U.esc(p.file) + '">Start a copy</button> ' : '') +
+        '<a class="btn sm" href="/api/plans/download?file=' + encodeURIComponent(p.file) + '">Download</a>' +
+        (eng ? ' <button class="btn danger sm" data-act="plandelete" data-file="' + U.esc(p.file) + '">Delete</button>' : '') + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
+  };
   U.lap = function (ms) { if (!ms) return '-:--.-'; var t = ms / 1000, m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); };
   U.L = function (v, d) { return v == null || isNaN(v) ? '-' : (+v).toFixed(d == null ? 1 : d); };
   U.toLocalInput = function (ts) { if (!ts) return ''; var d = new Date(ts); return d.getFullYear() + '-' + U.pad(d.getMonth() + 1) + '-' + U.pad(d.getDate()) + 'T' + U.pad(d.getHours()) + ':' + U.pad(d.getMinutes()); };

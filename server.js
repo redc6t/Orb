@@ -42,8 +42,14 @@ const ACTIONS = new Set(['setup.update', 'session.start', 'session.end', 'flag.s
   'gate.ack', 'gate.cmd', 'stop.void', 'scenario.init', 'scenario.set', 'scenario.reset', 'scenario.activate']);
 
 function broadcast(obj) { const s = JSON.stringify(obj); for (const c of wss.clients) if (c.readyState === 1) c.send(s); }
+function broadcastPlans() { broadcast({ t: 'plans', plans: store.listPlans() }); }
 function append(type, payload, by, src) {
   if (!store.eventId) return null;
+  // safety copy of the plan the moment the weekend first goes live, so it can always be started again from the top
+  if (type === 'session.start' && !store.events.some(x => x.type === 'session.start')) {
+    try { const f = store.savePlan(null, { auto: true, note: 'Saved automatically when the first session started' }); console.log('Plan saved: plans/' + f); broadcastPlans(); }
+    catch (err) { console.warn('Could not save the plan before the first session: ' + err.message); }
+  }
   const e = store.append(type, payload, by, src);
   broadcast({ t: 'evt', e });
   return e;
@@ -146,7 +152,7 @@ function readBody(req, limit) {
 function meta(req) {
   return { version: VERSION, role: isEngineer(req) ? 'engineer' : 'viewer', rules: D.loadRules(), tracks: D.TRACKS, formats: D.FORMATS,
     cars: [D.LANCER].concat(store.listCars().filter(c => c.id !== D.LANCER.id)).map(c => store.listCars().find(x => x.id === c.id) || c),
-    events: store.listEvents(), activeEventId: store.eventId, defaultConfig: defaultDraft(), serverTime: Date.now(), hostIPs: [...localIPs].filter(ip => /^\d+\.\d+\.\d+\.\d+$/.test(ip) && ip !== '127.0.0.1'), port: PORT };
+    events: store.listEvents(), plans: store.listPlans(), activeEventId: store.eventId, defaultConfig: defaultDraft(), serverTime: Date.now(), hostIPs: [...localIPs].filter(ip => /^\d+\.\d+\.\d+\.\d+$/.test(ip) && ip !== '127.0.0.1'), port: PORT };
 }
 function defaultDraft() {
   const members = [];
@@ -187,6 +193,11 @@ const server = http.createServer(async (req, res) => {
       const name = String((b.config && b.config.name) || id).replace(/[^a-z0-9]+/gi, '_') + '.orb.json';
       return send(res, 200, JSON.stringify(b), 'application/json', { 'Content-Disposition': 'attachment; filename="' + name + '"' });
     }
+    if (p === '/api/plans/download') {
+      const f = path.basename(String(url.searchParams.get('file') || ''));
+      const b = store.readPlan(f);
+      return send(res, 200, JSON.stringify(b), 'application/json', { 'Content-Disposition': 'attachment; filename="' + f.replace(/"/g, '') + '"' });
+    }
     if (p === '/api/log.csv') {
       if (!store.eventId) return send(res, 404, { error: 'no event' });
       const start = store.state.sessions.race ? store.state.sessions.race.startTs : null;
@@ -208,6 +219,13 @@ const server = http.createServer(async (req, res) => {
       if (p === '/api/events/activate') { store.open(body.id); resetAlertKeys(); configureDevices(); broadcast({ t: 'reset' }); return send(res, 200, { ok: true }); }
       if (p === '/api/events/close') { store.close(); configureDevices(); broadcast({ t: 'reset' }); return send(res, 200, { ok: true }); }
       if (p === '/api/import') { const id = store.importBundle(body); resetAlertKeys(); configureDevices(); broadcast({ t: 'reset' }); return send(res, 200, { id }); }
+      if (p === '/api/plans/save') {
+        if (!store.eventId) return send(res, 400, { error: 'Open a weekend first' });
+        const file = store.savePlan(null, { note: body.note });
+        broadcastPlans(); return send(res, 200, { file });
+      }
+      if (p === '/api/plans/start') { const id = store.startPlan(body.file); resetAlertKeys(); configureDevices(); broadcast({ t: 'reset' }); return send(res, 200, { id }); }
+      if (p === '/api/plans/delete') { store.deletePlan(body.file); broadcastPlans(); return send(res, 200, { ok: true }); }
       if (p === '/api/cars') { store.saveCar(body.car); return send(res, 200, { ok: true }); }
       if (p === '/api/branding/logo') {
         if (body.reset) {

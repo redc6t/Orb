@@ -1104,11 +1104,15 @@
 
   function panelExport(ctx) {
     var m = ctx.meta || {};
-    var evs = (m.events || []).map(function (e) { return '<tr' + (e.id === m.activeEventId ? ' class="current"' : '') + '><td>' + esc(e.name) + '<div class="tiny muted">' + esc(e.team || '') + ' | ' + esc(e.date || '') + ' | ' + e.events + ' events</div></td><td>' + (ctx.eng && e.id !== m.activeEventId ? '<button class="btn sm" data-act="activate" data-id="' + e.id + '">Open</button>' : (e.id === m.activeEventId ? '<span class="ok-t small">active</span>' : '')) + ' <a class="btn sm" href="/api/export?id=' + encodeURIComponent(e.id) + '">Export</a></td></tr>'; }).join('');
+    var evs = (m.events || []).map(function (e) { return '<tr' + (e.id === m.activeEventId ? ' class="current"' : '') + '><td>' + esc(e.name) + '<div class="tiny muted">' + esc(e.team || '') + ' | ' + esc(e.date || '') + ' | ' + e.events + ' events' + (e.fromPlanTs ? ' | from plan saved ' + esc(U.dayDate(e.fromPlanTs)) : '') + '</div></td><td>' + (ctx.eng && e.id !== m.activeEventId ? '<button class="btn sm" data-act="activate" data-id="' + e.id + '">Open</button>' : (e.id === m.activeEventId ? '<span class="ok-t small">active</span>' : '')) + ' <a class="btn sm" href="/api/export?id=' + encodeURIComponent(e.id) + '">Export</a></td></tr>'; }).join('');
     var body = '<div class="row"><a class="btn primary sm" href="/api/export">Download weekend file</a><a class="btn sm" href="/api/log.csv">Event log CSV</a></div>' +
       (ctx.eng ? '<div class="row" style="margin-top:10px"><label class="f" style="flex:1">Restore a weekend file<input id="imp-file" type="file" accept=".json,application/json"></label><button class="btn sm" data-act="import" style="align-self:flex-end">Import</button></div>' : '') +
-      '<div class="scroll" style="margin-top:10px"><table><tbody>' + evs + '</tbody></table></div>';
-    return { id: 'export', html: card('Weekend files', body) };
+      '<div class="scroll" style="margin-top:10px"><table><tbody>' + evs + '</tbody></table></div>' +
+      '<div class="section-title" style="margin-top:14px">Saved plans</div>' +
+      '<div class="tiny muted" style="margin-bottom:6px">A plan is this weekend as it stood before its first session: team, rotation, shifts, car, tyres and scenarios, without laps or anything logged during the race. Start a copy to run it again from the top; the weekend it came from is kept. Orb also saves one automatically when the first session starts.</div>' +
+      (ctx.eng && m.activeEventId ? '<div class="row" style="margin-bottom:8px"><input id="plan-note" placeholder="Note (optional), e.g. agreed with team owner" style="flex:1" maxlength="200"><button class="btn primary sm" data-act="plansave">Save plan</button></div>' : '') +
+      U.plansTable(m.plans, ctx.eng);
+    return { id: 'export', html: card('Weekend files', body), form: true };
   }
 
   window.OrbViews = V;

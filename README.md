@@ -7,7 +7,7 @@
 ![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)
 ![Node.js 18+](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)
 ![Runs offline](https://img.shields.io/badge/internet-not%20required-lightgrey.svg)
-![Version](https://img.shields.io/badge/version-2.2.12-informational.svg)
+![Version](https://img.shields.io/badge/version-2.2.13-informational.svg)
 
 ![The Race tab during a 36 h race: the call, fuel on board, the driver's stint, the next stop and the live track map](docs/screenshots/race.png)
 
@@ -189,7 +189,10 @@ data/settings.json                  port, engineer laptops, last weekend (resume
 data/cars/*.json                    car library, including learned fuel burn
 data/events/<id>/events.jsonl       the race log: every change, append-only
 data/events/<id>/config.json        the weekend as created
+data/plans/<date>_<time>_<name>.orb.json   saved plans: a weekend before its first session (Log > Weekend files)
 ```
+
+To prepare a weekend early, set it up, then click **Save plan** in **Log > Weekend files**. On race day, click **Start a copy** on that plan: you get a fresh weekend with the same team, rotation, shifts and car, even if you rehearsed on the original with the simulator.
 
 Copy the `data` folder to a USB stick or a second laptop at least once per session. If the laptop dies, copy the folder (or import the weekend file from **Log**) on another machine, start the server and carry on.
 
@@ -247,6 +250,7 @@ The full [user manual (PDF)](Pitwall_Strategy_Manager_User_Manual_v2.2.3.pdf) co
 
 ## Release notes
 
+- **2.2.13:** **saved plans**: prepare a weekend days early, save it, and start it fresh on race day. In **Log > Weekend files**, **Save plan** stores the open weekend as it stood before its first session (team, rotation, shifts, car, tyres and scenarios, but no laps, alerts or anything logged during a run) in `data/plans/` as `<date>_<time>_<name>.orb.json`, with an optional note. **Start a copy** opens a new weekend from that plan, so you can rehearse with the simulator and still go back to the clean plan; the weekend it came from is kept. Orb also saves a plan automatically (`..._auto.orb.json`) the moment a weekend's first session starts. Plans can be downloaded and imported on another laptop like any weekend file, and they are offered on the New race weekend screen. Deleting a plan moves it to `data/plans/deleted/`.
 - **2.2.12:** a car issue logged from the Race tab's Attention & feed card now appears there straight away, instead of only after switching to another tab and back.
 - **2.2.11:** the demo no longer counts the time Orb was closed: each time it opens, the race resumes from its last lap instead of showing a race that has been running for days. Only the demo is moved; real weekends keep their times. The old `start-pitwall.bat` and `stop-pitwall.bat` are removed, so there is one script for each job: `start-orb.bat` and `stop-orb.bat` (repoint any old desktop shortcut).
 - **2.2.10:** the app is now called **Orb - Pit Wall Strategy Manager** (Orb for short), and the repository moves to [github.com/redc6t/Orb](https://github.com/redc6t/Orb); the old address redirects. The scripts are now `start-orb.bat` and `stop-orb.bat`, weekend exports are saved as `.orb.json`, and the data folder can be set with `ORB_DATA`. Everything saved before still works: `.pitwall.json` files import, `start-pitwall.bat`, `stop-pitwall.bat`, `PITWALL_DATA`, `PITWALL_ENGINEER` and the simulator's `--pitwall` still work, and each browser keeps its tab and card layout.
