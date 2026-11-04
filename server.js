@@ -39,7 +39,8 @@ function isEngineer(req) { const ip = clientIP(req); if ((process.env.ORB_ENGINE
 const ACTIONS = new Set(['setup.update', 'session.start', 'session.end', 'flag.set', 'carstate', 'lap', 'stop.service', 'fuel.check', 'fuel.refuel', 'stock.add', 'stock.count',
   'driver.set', 'driver.queue', 'crew.status', 'crew.shifts', 'crew.shiftsAll', 'crew.override', 'issue.add', 'issue.update', 'tyre.mount', 'tyre.unmount',
   'tyre.measure', 'tyre.status', 'pitmsg.send', 'penalty.add', 'note', 'alert.ack', 'stint.extend',
-  'gate.ack', 'gate.cmd', 'stop.void', 'scenario.init', 'scenario.set', 'scenario.reset', 'scenario.activate']);
+  'gate.ack', 'gate.cmd', 'stop.void', 'scenario.init', 'scenario.set', 'scenario.reset', 'scenario.activate',
+  'scenario.undo', 'scenario.redo', 'scenario.clone', 'scenario.remove']);
 
 function broadcast(obj) { const s = JSON.stringify(obj); for (const c of wss.clients) if (c.readyState === 1) c.send(s); }
 function broadcastPlans() { broadcast({ t: 'plans', plans: store.listPlans() }); }

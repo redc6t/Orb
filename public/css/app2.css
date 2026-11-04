@@ -305,6 +305,11 @@ label.f[data-tip] { text-decoration: underline dotted #4a4d53; text-underline-of
 .pletter { width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; background: var(--well); border: 1px solid var(--line2); }
 .pletter.run { background: var(--cyan); color: #000; border-color: var(--cyan); }
 .plan-running { border-color: #0f5965; }
+.btn.xs { padding: 1px 7px; font-size: .72em; vertical-align: 1px; margin-left: 4px; }
+.plan-branch { margin-left: 34px; position: relative; border-left: 3px solid var(--line2); }
+.plan-branch::before { content: ''; position: absolute; left: -24px; top: -12px; width: 20px; height: 34px; border-left: 2px solid var(--line2); border-bottom: 2px solid var(--line2); border-bottom-left-radius: 8px; }
+.plan-branch-of { margin: -2px 0 4px; }
+.pletter { min-width: 30px; width: auto; padding: 0 5px; }
 .pbar { position: relative; height: 46px; background: var(--well); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; touch-action: none; user-select: none; }
 .pb-past { position: absolute; top: 0; bottom: 0; left: 0; background: rgba(255,255,255,.03); }
 .pb-ev { position: absolute; top: 0; height: 8px; border-radius: 0 0 3px 3px; }

@@ -381,7 +381,7 @@
   var FEED_TYPES = { 'alert': 1, 'flag.set': 1, 'stop.service': 1, 'pitmsg.send': 1, 'pitmsg.ack': 1, 'issue.add': 1, 'penalty.add': 1, 'crew.status': 1, 'driver.set': 1, 'session.start': 1, 'session.end': 1, 'note': 1, 'gate.ack': 1, 'stop.void': 1, 'scenario.activate': 1 };
   // what changes the strategy timeline, what is only a message
   V.effectOf = function (e) {
-    if ({ 'flag.set': 1, 'stop.service': 1, 'gate.ack': 1, 'stop.void': 1, 'driver.set': 1, 'driver.queue': 1, 'scenario.activate': 1, 'scenario.set': 1, 'scenario.reset': 1, 'session.start': 1, 'session.end': 1, 'fuel.check': 1, 'fuel.refuel': 1, 'stock.add': 1, 'stock.count': 1, 'carstate': 1, 'lap': 1, 'setup.update': 1 }[e.type]) return 'strat';
+    if ({ 'flag.set': 1, 'stop.service': 1, 'gate.ack': 1, 'stop.void': 1, 'driver.set': 1, 'driver.queue': 1, 'scenario.activate': 1, 'scenario.set': 1, 'scenario.reset': 1, 'scenario.undo': 1, 'scenario.redo': 1, 'scenario.clone': 1, 'scenario.remove': 1, 'session.start': 1, 'session.end': 1, 'fuel.check': 1, 'fuel.refuel': 1, 'stock.add': 1, 'stock.count': 1, 'carstate': 1, 'lap': 1, 'setup.update': 1 }[e.type]) return 'strat';
     if (e.type === 'pitmsg.send' || e.type === 'pitmsg.ack' || e.type === 'pitmsg.shown') return 'msg';
     return 'info';
   };
@@ -984,7 +984,7 @@
     var s = ctx.s, has = s.scenarios && s.scenarios.order.length;
     var h = '<div class="small">Six what-could-happen scenarios side by side. Each bar is the full race: driven stints (dim), the plan from now (driver colours), stops (drag a stop to move it - every later stop re-plans), fuel windows (lilac) and the plan\'s assumed events on top (orange Safety Car, red Red flag, purple repair or sin bin).</div>' +
       '<div class="small" style="margin-top:4px">The past is the same on every bar: real flags (solid, yellow included), real stops and who drove. A red flag parks the car (RED in the driver lane) until the restart. An assumed Safety Car or red flag is used up when a real one comes out; one that did not happen when assumed moves forward to the next likely spot (dashed outline).</div>' +
-      '<div class="small" style="margin-top:4px"><b>Run this scenario</b> makes it the live strategy: the call, the next stop, the timeline, the crew summons and the Garage display all follow it. <b>Assumptions</b> lets you drag the Safety Car, red flag or repair along the bar and stretch it from its right edge. <b>Reset</b> undoes your changes to that scenario.</div>';
+      '<div class="small" style="margin-top:4px"><b>Run this scenario</b> makes it the live strategy: the call, the next stop, the timeline, the crew summons and the Garage display all follow it. <b>Assumptions</b> lets you drag the Safety Car, red flag or repair along the bar and stretch it from its right edge. <b>Undo</b> / <b>Redo</b> step back and forward through your changes to it, <b>Reset</b> returns it to its original. <b>Clone</b> copies a scenario as it is now into a branch underneath it (A1, A2 ...) so you can try a change and compare it against the main line.</div>';
     if (!has) h += ctx.eng ? '<div class="row" style="margin-top:10px"><button class="btn primary" data-act="plansinit">Create scenarios A-F from now</button><span class="small muted">Event times are fixed when created; Reset brings a scenario back to that original.</span></div>' : '<div class="small muted" style="margin-top:8px">The engineer has not created the scenarios yet.</div>';
     return { id: 'planshead', html: card('Scenarios', h, has ? 'running: Scenario ' + (s.scenarios.active || 'A') : '') };
   }
@@ -994,9 +994,13 @@
     var d = p.d, pl = d.plan, s = ctx.s, rs = d.raceSession, run = p.active;
     var t0 = rs.startTs, t1 = pl.raceEndTs, span = Math.max(1, t1 - t0);
     var x = function (t) { return Math.max(0, Math.min(100, (t - t0) / span * 100)); };
-    var h = '<div class="row" style="margin-bottom:6px"><span class="pletter' + (run ? ' run' : '') + '">' + p.id + '</span><div style="flex:1;min-width:200px"><b>' + esc(p.name) + '</b>' + (p.dirty ? ' <span class="tag next">edited</span>' : '') + '<div class="tiny muted">' + esc(p.desc) + '</div></div>' +
+    var h = '<div class="row" style="margin-bottom:6px"><span class="pletter' + (run ? ' run' : '') + '">' + p.id + '</span><div style="flex:1;min-width:200px"><b>' + esc(p.name) + '</b>' + (p.dirty ? ' <span class="tag next">edited</span>' : '') +
+      (ctx.eng ? ' <button class="btn xs" data-act="planclone" data-id="' + p.id + '" title="Copy this scenario as it is now into a branch underneath it, to try a change and compare">Clone</button>' +
+        (p.branch ? ' <button class="btn xs" data-act="planremove" data-id="' + p.id + '"' + (run ? ' disabled title="The running scenario cannot be removed"' : ' title="Remove this branch"') + '>Remove</button>' : '') : '') + '<div class="tiny muted">' + esc(p.desc) + '</div></div>' +
       '<div class="chips-sum" style="margin:0">' + [['Stops', pl.stops.length], ['Fuel', pl.fuelStops], ['Stationary', U.mins(pl.stationaryMs)], ['Finish fuel', U.L(pl.finishFuelL) + ' L']].map(function (c) { return '<div class="sumchip"><span class="lbl">' + c[0] + '</span><span class="v">' + c[1] + '</span></div>'; }).join('') + '</div>' +
       (ctx.eng ? '<div class="row" style="gap:4px">' + (run ? '<span class="tag strat" style="font-size:.8em;padding:4px 8px">RUNNING</span>' : '<button class="btn primary sm" data-act="planrun" data-id="' + p.id + '">Run this scenario</button>') +
+        '<button class="btn sm" data-act="planundo" data-id="' + p.id + '" title="Undo the last change to this scenario"' + (p.canUndo ? '' : ' disabled') + '>&#8630; Undo</button>' +
+        '<button class="btn sm" data-act="planredo" data-id="' + p.id + '" title="Redo the change you undid"' + (p.canRedo ? '' : ' disabled') + '>Redo &#8631;</button>' +
         '<button class="btn sm" data-act="planedit" data-id="' + p.id + '">' + (ctx.planEdit === p.id ? 'Close' : 'Assumptions') + '</button><button class="btn sm" data-act="planreset" data-id="' + p.id + '"' + (p.dirty ? '' : ' disabled') + '>Reset</button></div>' : (run ? '<span class="tag strat">RUNNING</span>' : '')) + '</div>';
     var editing = ctx.eng && ctx.planEdit === p.id;
     // estimated lap number above the bar, at the same positions as the clock ticks below it
@@ -1037,7 +1041,7 @@
     var warn = pl.warnings.length ? '<div class="note warn" style="margin-top:6px">' + pl.warnings.slice(0, 3).map(esc).join('<br>') + '</div>' : '';
     var nx = pl.stops.filter(function (st) { return st.ts > d.now; })[0];
     var next = nx ? '<div class="tiny muted" style="margin-top:4px">Next: stop ' + nx.k + ' ' + stopType(nx.type) + ' ' + U.clock(nx.ts) + (nx.add ? ', ' + nx.add + ' L' : '') + (nx.change ? ', ' + esc(name(ctx, nx.driverIn)) + ' in' : '') + (p.pins ? ' | ' + p.pins + ' stop' + (p.pins > 1 ? 's' : '') + ' pinned by dragging' : '') + '</div>' : '';
-    return { id: 'plan-' + p.id, html: '<div class="card' + (run ? ' plan-running' : '') + '">' + h + b + ticks + next + warn + '</div>' };
+    return { id: 'plan-' + p.id, html: '<div class="card' + (run ? ' plan-running' : '') + (p.branch ? ' plan-branch' : '') + '">' + (p.branch ? '<div class="tiny muted plan-branch-of">branched from Scenario ' + esc(p.branch) + '</div>' : '') + h + b + ticks + next + warn + '</div>' };
   }
 
   function panelPlanEdit(ctx, p) {
@@ -1101,6 +1105,10 @@
       case 'scenario.activate': return 'Strategy switched to Scenario ' + p.id;
       case 'scenario.set': return 'Scenario ' + p.id + ' edited';
       case 'scenario.reset': return 'Scenario ' + p.id + ' reset to its original';
+      case 'scenario.undo': return 'Scenario ' + p.id + ': last change undone';
+      case 'scenario.redo': return 'Scenario ' + p.id + ': change redone';
+      case 'scenario.clone': return 'Scenario ' + p.src + ' cloned into a branch';
+      case 'scenario.remove': return 'Branch Scenario ' + p.id + ' removed';
       case 'scenario.init': return 'Scenarios A-F created';
       case 'issue.add': return 'Issue: ' + p.text + ' (' + p.cat + ')';
       case 'issue.update': return 'Issue ' + p.id + ' ' + (p.status || (p.nextStop ? 'next stop' : 'updated'));
@@ -1157,7 +1165,7 @@
       '<div class="scroll" style="margin-top:10px"><table><tbody>' + evs + '</tbody></table></div>' +
       '<div class="section-title" style="margin-top:14px">Saved plans</div>' +
       '<div class="tiny muted" style="margin-bottom:6px">A plan is this weekend as it stood before its first session: team, rotation, shifts, car, tyres and scenarios, without laps or anything logged during the race. Start a copy to run it again from the top; the weekend it came from is kept. Orb also saves one automatically when the first session starts.</div>' +
-      (ctx.eng && m.activeEventId ? '<div class="row" style="margin-bottom:8px"><input id="plan-note" placeholder="Note (optional), e.g. agreed with team owner" style="flex:1" maxlength="200"><button class="btn primary sm" data-act="plansave">Save plan</button></div>' : '') +
+      (ctx.eng && m.activeEventId ? '<div class="row" style="margin-bottom:8px"><input id="plan-note" placeholder="Note (optional), e.g. agreed with team owner" style="flex:1" maxlength="200"><button class="btn primary sm" data-act="weekendplansave">Save plan</button></div>' : '') +
       U.plansTable(m.plans, ctx.eng);
     return { id: 'export', html: card('Weekend files', body), form: true };
   }

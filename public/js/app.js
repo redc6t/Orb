@@ -138,7 +138,8 @@
       App.scenCache = { key: key, val: { list: s.scenarios.order.map(function (id) {
         var pl = s.scenarios.plans[id];
         var dd = E.derive(s, now, Object.assign({ noScenario: true }, E.defToWhatIf(pl.cur, s, now, pl.createdTs)));
-        return { id: id, name: pl.name, desc: pl.desc, def: pl.cur, d: dd, active: s.scenarios.active === id, dirty: JSON.stringify(pl.cur) !== JSON.stringify(pl.orig), pins: (pl.cur.pins || []).length };
+        return { id: id, name: pl.name, desc: pl.desc, def: pl.cur, d: dd, active: s.scenarios.active === id, dirty: JSON.stringify(pl.cur) !== JSON.stringify(pl.orig), pins: (pl.cur.pins || []).length,
+          canUndo: !!(pl.undo && pl.undo.length), canRedo: !!(pl.redo && pl.redo.length), branch: pl.root ? pl.from : null };
       }) } };
     }
     return App.scenCache.val;
@@ -504,6 +505,10 @@
     debrief: function (b) { var k = b.getAttribute('data-k'); App.debrief[k] = !App.debrief[k]; renderAll(false); },
     svcfix: function (b) { App.svcFix = b.getAttribute('data-stop'); App.layoutKey = null; renderAll(true); },
     plansinit: function () { App.send('scenario.init', { plans: E.scenarioTemplates(App.state, App.now()) }); },
+    planundo: function (b) { var id = b.getAttribute('data-id'); App.dirty['planedit-' + id] = false; App.send('scenario.undo', { id: id }); },
+    planredo: function (b) { var id = b.getAttribute('data-id'); App.dirty['planedit-' + id] = false; App.send('scenario.redo', { id: id }); },
+    planclone: function (b) { App.send('scenario.clone', { src: b.getAttribute('data-id') }); },
+    planremove: function (b) { var id = b.getAttribute('data-id'); if (confirm('Remove branch Scenario ' + id + '?')) { if (App.planEdit === id) App.planEdit = null; App.send('scenario.remove', { id: id }); } },
     planrun: function (b) { App.send('scenario.activate', { id: b.getAttribute('data-id') }); },
     planedit: function (b) { var id = b.getAttribute('data-id'); App.planEdit = App.planEdit === id ? null : id; App.layoutKey = null; renderAll(true); },
     planreset: function (b) { var id = b.getAttribute('data-id'); if (confirm('Reset Scenario ' + id + ' to its original assumptions and remove every dragged stop and event change?')) App.send('scenario.reset', { id: id }); },
@@ -645,7 +650,7 @@
       fr.onload = function () { fetch('/api/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: fr.result }).then(function (r) { return r.json(); }).then(function (j) { U.toast(j.error ? j.error : 'Weekend restored', j.error ? 'crit' : 'info'); }); };
       fr.readAsText(f.files[0]);
     },
-    plansave: function () {
+    weekendplansave: function () {
       var n = document.getElementById('plan-note');
       postJson('/api/plans/save', { note: n ? n.value : '' }).then(function (j) {
         if (j.error) return U.toast(j.error, 'crit');

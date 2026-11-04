@@ -387,13 +387,40 @@
         });
         break;
       }
-      case 'scenario.set': { var sp = s.scenarios.plans[p.id]; if (sp) sp.cur = clone(p.def); break; }
-      case 'scenario.reset': { var rp = s.scenarios.plans[p.id]; if (rp) rp.cur = clone(rp.orig); break; }
+      // every change to a scenario's assumptions goes on its undo stack (Reset too); a new change clears redo
+      case 'scenario.set': { var sp = s.scenarios.plans[p.id]; if (sp) scenPush(sp, clone(p.def)); break; }
+      case 'scenario.reset': { var rp = s.scenarios.plans[p.id]; if (rp) scenPush(rp, clone(rp.orig)); break; }
+      case 'scenario.undo': { var up = s.scenarios.plans[p.id]; if (up && up.undo && up.undo.length) { (up.redo = up.redo || []).push(up.cur); up.cur = up.undo.pop(); } break; }
+      case 'scenario.redo': { var dp = s.scenarios.plans[p.id]; if (dp && dp.redo && dp.redo.length) { (dp.undo = dp.undo || []).push(dp.cur); dp.cur = dp.redo.pop(); } break; }
+      // branch a scenario: A -> A1, A2 ... (a branch of A1 is still in the A family), listed under its family
+      case 'scenario.clone': {
+        var src = s.scenarios.plans[p.src]; if (!src) break;
+        var root = String(src.root || src.id).replace(/\d+$/, ''), n = 0;
+        s.scenarios.order.forEach(function (id) { var m = id.match(/^([A-Z]+)(\d+)$/); if (m && m[1] === root) n = Math.max(n, +m[2]); });
+        var nid = root + (n + 1), base = s.scenarios.plans[root] || src;
+        s.scenarios.plans[nid] = { id: nid, root: root, from: src.id, name: base.name, desc: 'Branch of Scenario ' + src.id + '. ' + base.desc,
+          orig: clone(src.cur), cur: clone(src.cur), createdTs: src.createdTs, undo: [], redo: [] };
+        var at = -1; s.scenarios.order.forEach(function (id, i) { if (id === root || (s.scenarios.plans[id] && s.scenarios.plans[id].root === root)) at = i; });
+        s.scenarios.order.splice(at + 1, 0, nid);
+        break;
+      }
+      case 'scenario.remove': {
+        var xp = s.scenarios.plans[p.id]; if (!xp || !xp.root || s.scenarios.active === p.id) break;   // only branches, never the running one
+        delete s.scenarios.plans[p.id]; s.scenarios.order = s.scenarios.order.filter(function (id) { return id !== p.id; });
+        break;
+      }
       case 'scenario.activate': { if (s.scenarios.plans[p.id] || p.id === 'A') s.scenarios.active = p.id; break; }
       case 'sentinel.alarm': s.sentinelAlarms.push({ ts: ts, corner: p.corner, kind: p.kind, value: p.value, level: p.level }); break;
       default: break;
     }
     return s;
+  }
+
+  var SCEN_HIST = 50;
+  function scenPush(sp, def) {
+    if (JSON.stringify(def) === JSON.stringify(sp.cur)) return;      // nothing changed: nothing to undo
+    sp.undo = sp.undo || []; sp.undo.push(sp.cur); if (sp.undo.length > SCEN_HIST) sp.undo.shift();
+    sp.redo = []; sp.cur = def;
   }
 
   function reduce(config, events, uptoTs) {
