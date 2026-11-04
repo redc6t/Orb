@@ -419,6 +419,8 @@
     U.modal('<h3 class="section-title">' + title + '</h3><p class="small muted">' + help + '</p>' +
       '<div class="row" style="margin-top:10px"><label class="f" style="flex:1">' + label + '<input id="sk-l" type="number" step="0.5" min="0"></label><label class="f" style="flex:2">Note<input id="sk-note"></label></div>' +
       '<div class="row" style="margin-top:12px"><button class="btn primary" data-act="stocksave" data-kind="' + kind + '">Log</button><button class="btn" data-act="modalclose">Cancel</button></div>');
+    var cur = document.querySelector('#shift-rows .shift-cur');
+    if (cur) cur.scrollIntoView({ block: 'center' });
   }
 
   var A = {
@@ -678,7 +680,8 @@
   }
 
   function shiftRow(b) {
-    return '<div class="row" data-blk style="margin-bottom:6px"><input type="datetime-local" class="b-s" value="' + U.toLocalInput(b.startTs) + '"><input type="datetime-local" class="b-e" value="' + U.toLocalInput(b.endTs) + '">' +
+    var now = App.now(), cur = b.startTs <= now && now < b.endTs;
+    return '<div class="row' + (cur ? ' shift-cur' : '') + '" data-blk style="margin-bottom:6px"' + (cur ? ' title="Current block"' : '') + '><input type="datetime-local" class="b-s" value="' + U.toLocalInput(b.startTs) + '"><input type="datetime-local" class="b-e" value="' + U.toLocalInput(b.endTs) + '">' +
       '<select class="b-k">' + ['duty', 'resting', 'sleeping', 'offline', 'flag', 'unavailable'].map(function (k) { return '<option value="' + k + '"' + (k === b.kind ? ' selected' : '') + '>' + k + '</option>'; }).join('') + '</select><input class="b-n" placeholder="note" value="' + U.esc(b.note || '') + '" style="flex:1"><button class="btn sm" data-act="shiftdel">Remove</button></div>';
   }
   function openShiftEditor(id) {
