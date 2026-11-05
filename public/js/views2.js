@@ -264,7 +264,58 @@
     var ox = (W - w * sc) / 2, oy = (H - h * sc) / 2;
     return { W: W, H: H, f: function (lat, lon) { return [ox + (lon - lo0) * k * sc, oy + (la1 - lat) * sc]; } };
   };
-  function metres(a, b) { var k = Math.cos(a[0] * Math.PI / 180); var dy = (a[0] - b[0]) * 111320, dx = (a[1] - b[1]) * 111320 * k; return Math.sqrt(dx * dx + dy * dy); }
+  // distance (m) from a point to a closed path, measured to the segments (so a sparse path is not penalised)
+  function distToPath(q, path) {
+    var k = Math.cos(q[0] * Math.PI / 180), M = 111320, best = Infinity;
+    for (var i = 0; i < path.length; i++) {
+      var a = path[i], b = path[(i + 1) % path.length];
+      var ax = (a[1] - q[1]) * M * k, ay = (a[0] - q[0]) * M, bx = (b[1] - q[1]) * M * k, by = (b[0] - q[0]) * M;
+      var ex = bx - ax, ey = by - ay, l2 = ex * ex + ey * ey, t = l2 ? Math.max(0, Math.min(1, -(ax * ex + ay * ey) / l2)) : 0;
+      var px = ax + ex * t, py = ay + ey * t, d = px * px + py * py;
+      if (d < best) best = d;
+    }
+    return Math.sqrt(best);
+  }
+  /* Preset-to-Agile alignment. The preset outline's shape and orientation are true but its GPS anchor is approximate,
+     so once Agile's reference lap arrives, fit a pure shift (iterative closest point, translation only) of the preset
+     onto it. Returns the shift in metres (dx east, dy north) and degrees, the fit residuals, and ok when the shapes agree. */
+  V.alignPreset = function (preset, path) {
+    if (!preset || preset.length < 10 || !path || path.length < 10) return null;
+    var lat0 = path[0][0], lon0 = path[0][1], M = 111320, k = Math.cos(lat0 * Math.PI / 180);
+    var xy = function (p) { return [(p[1] - lon0) * M * k, (p[0] - lat0) * M]; };
+    var P = path.map(xy), Q = [], step = Math.max(1, Math.floor(preset.length / 120)), i, j;
+    for (i = 0; i < preset.length; i += step) Q.push(xy(preset[i]));
+    // closest point on Agile's path (segments) to (x, y)
+    var nearest = function (x, y) {
+      var bd = Infinity, bx = 0, by = 0;
+      for (j = 0; j < P.length; j++) {
+        var a = P[j], b = P[(j + 1) % P.length], ex = b[0] - a[0], ey = b[1] - a[1], l2 = ex * ex + ey * ey;
+        var t = l2 ? Math.max(0, Math.min(1, ((x - a[0]) * ex + (y - a[1]) * ey) / l2)) : 0;
+        var px = a[0] + ex * t, py = a[1] + ey * t, d = (px - x) * (px - x) + (py - y) * (py - y);
+        if (d < bd) { bd = d; bx = px; by = py; }
+      }
+      return [bx, by, Math.sqrt(bd)];
+    };
+    // start from the centroid difference, then refine
+    var cen = function (A) { var sx = 0, sy = 0; A.forEach(function (p) { sx += p[0]; sy += p[1]; }); return [sx / A.length, sy / A.length]; };
+    var cp = cen(P), cq = cen(Q), dx = cp[0] - cq[0], dy = cp[1] - cq[1], res = [];
+    for (var it = 0; it < 30; it++) {
+      var sx = 0, sy = 0; res = [];
+      Q.forEach(function (q) { var n = nearest(q[0] + dx, q[1] + dy); sx += n[0] - (q[0] + dx); sy += n[1] - (q[1] + dy); res.push(n[2]); });
+      sx /= Q.length; sy /= Q.length; dx += sx; dy += sy;
+      if (Math.sqrt(sx * sx + sy * sy) < 0.02) break;
+    }
+    res = Q.map(function (q) { return nearest(q[0] + dx, q[1] + dy)[2]; }).sort(function (a, b) { return a - b; });
+    var med = res[Math.floor(res.length / 2)], p90 = res[Math.floor(res.length * 0.9)], dist = Math.sqrt(dx * dx + dy * dy);
+    return { dx: dx, dy: dy, dist: dist, dLat: dy / M, dLon: dx / (M * k), fit: med, p90: p90, ok: p90 < 20 && dist < 500 };
+  };
+  var alignCache = { key: '', val: null };
+  function alignFor(tr, path) {
+    var key = (tr.id || tr.name || '') + '|' + tr.outline.length + '|' + path.length + '|' + path[0].join() + '|' + path[path.length - 1].join();
+    if (alignCache.key !== key) { alignCache.key = key; alignCache.val = V.alignPreset(tr.outline, path); }
+    return alignCache.val;
+  }
+  function compass(dx, dy) { return ['E', 'NE', 'N', 'NW', 'W', 'SW', 'S', 'SE'][Math.round(((Math.atan2(dy, dx) * 180 / Math.PI) + 360) % 360 / 45) % 8]; }
   function panelMap(ctx) {
     var m = ctx.map, hist = ctx.posHist || [], tr = ctx.s.config.track || {};
     if (ctx.replay) return { id: 'map', html: card('Track', '<div class="muted small">Live only - positions are not stored in the race log.</div>') };
@@ -272,11 +323,24 @@
     var src = m && m.path.length ? 'agile' : (tr.outline && tr.outline.length ? 'preset' : 'trail');
     var path = src === 'agile' ? m.path : src === 'preset' ? tr.outline : [];
     var zones = m ? m.zones : [];
-    var sf = (m && m.sf) || tr.sf || null;
+    // on Agile's lap, shift the preset overlays (turns, pits, S/F) by the fitted offset when the shapes agree
+    var al = src === 'agile' && tr.outline && tr.outline.length ? alignFor(tr, path) : null;
+    var S = al && al.ok ? function (p) { return [p[0] + al.dLat, p[1] + al.dLon]; } : function (p) { return p; };
+    var SA = function (arr) { return arr.map(S); };
+    var near = function (q) { return path.length ? distToPath(q, path) : Infinity; };
+    var pg = tr.pit ? { lane: SA(tr.pit.lane), pits: SA(tr.pit.pits), fuel: SA(tr.pit.fuel), entry: SA(tr.pit.entry), exit: SA(tr.pit.exit) } : null;
+    // preset pit geometry is used only when its lane ends sit on the drawn circuit
+    var pitOk = !!(pg && path.length && near(pg.lane[0]) < 60 && near(pg.lane[pg.lane.length - 1]) < 60);
+    var trSf = tr.sf ? S(tr.sf) : null, sfLine = tr.sfLine ? SA(tr.sfLine) : null;
+    if (src === 'agile') {
+      if (trSf && near(trSf) > 40) trSf = null;
+      if (sfLine && near([(sfLine[0][0] + sfLine[1][0]) / 2, (sfLine[0][1] + sfLine[1][1]) / 2]) > 40) sfLine = null;
+    }
+    var sf = (m && m.sf) || trSf || null;
     var pts = path.slice();
     zones.forEach(function (z) { pts = pts.concat(z.v); });
     if (sf) pts.push(sf);
-    if (tr.pit) pts = pts.concat(tr.pit.pits, tr.pit.fuel);
+    if (pitOk) pts = pts.concat(pg.pits, pg.fuel);
     if (src === 'trail') pts = pts.concat(hist.map(function (p) { return [p.lat, p.lon]; }));
     if (pts.length < 3) return { id: 'map', html: card('Track', '<div class="muted small">Waiting for Agile position. The outline appears once Agile has recorded its reference lap.</div>') };
     var pr = V.mapProjection(pts); window.PWMapProj = pr;
@@ -288,27 +352,23 @@
       else if (z.v.length === 2) svg += '<polyline points="' + poly(z.v) + '" stroke="' + c + '" stroke-width="3"><title>' + esc(z.label || '') + '</title></polyline>';
     });
     // pit geometry from the track preset (pit lane, pits area, fuel area, entry/exit lines), drawn when it lines up with the circuit
-    var pg = tr.pit;
-    if (pg && path.length) {
-      var nearPath = function (q) { var b = Infinity; for (var j = 0; j < path.length; j += 2) b = Math.min(b, metres(q, path[j])); return b; };
-      if (nearPath(pg.lane[0]) < 60 && nearPath(pg.lane[pg.lane.length - 1]) < 60) {
-        if (!zones.length) {
-          svg += '<polygon points="' + poly(pg.pits) + '" fill="#4fc3f7" fill-opacity="0.18" stroke="#4fc3f7" stroke-opacity="0.8"><title>Pits</title></polygon>';
-          svg += '<polygon points="' + poly(pg.fuel) + '" fill="#CE93D8" fill-opacity="0.22" stroke="#CE93D8" stroke-opacity="0.9"><title>Fuel area</title></polygon>';
-          svg += '<polyline points="' + poly(pg.entry) + '" stroke="#FFA500" stroke-width="3"><title>Pit entry</title></polyline><polyline points="' + poly(pg.exit) + '" stroke="#FFD54F" stroke-width="3"><title>Pit exit</title></polyline>';
-        }
-        svg += '<polyline points="' + poly(pg.lane) + '" fill="none" stroke="#8a6fc0" stroke-width="2" stroke-dasharray="4 3"><title>Pit lane</title></polyline>';
+    if (pitOk) {
+      if (!zones.length) {
+        svg += '<polygon points="' + poly(pg.pits) + '" fill="#4fc3f7" fill-opacity="0.18" stroke="#4fc3f7" stroke-opacity="0.8"><title>Pits</title></polygon>';
+        svg += '<polygon points="' + poly(pg.fuel) + '" fill="#CE93D8" fill-opacity="0.22" stroke="#CE93D8" stroke-opacity="0.9"><title>Fuel area</title></polygon>';
+        svg += '<polyline points="' + poly(pg.entry) + '" stroke="#FFA500" stroke-width="3"><title>Pit entry</title></polyline><polyline points="' + poly(pg.exit) + '" stroke="#FFD54F" stroke-width="3"><title>Pit exit</title></polyline>';
       }
+      svg += '<polyline points="' + poly(pg.lane) + '" fill="none" stroke="#8a6fc0" stroke-width="2" stroke-dasharray="4 3"><title>Pit lane</title></polyline>';
     }
-    if (tr.sfLine && path.length) svg += '<polyline points="' + poly(tr.sfLine) + '" stroke="#fff" stroke-width="2"><title>Start / finish line</title></polyline>';
+    if (sfLine && path.length) svg += '<polyline points="' + poly(sfLine) + '" stroke="#fff" stroke-width="2"><title>Start / finish line</title></polyline>';
     if (path.length) { var loop = poly(path.concat([path[0]])); svg += '<polyline points="' + loop + '" fill="none" stroke="#2c2f34" stroke-width="9" stroke-linejoin="round"/><polyline points="' + loop + '" fill="none" stroke="#6a6f78" stroke-width="2" stroke-linejoin="round"/>'; }
     // turn numbers: only where the preset turn sits on the drawn outline (always true for the preset; true for the Agile path when it matches)
     if (tr.turns && path.length) {
       var cxy = pr.f(pts.reduce(function (a, p) { return a + p[0]; }, 0) / pts.length, pts.reduce(function (a, p) { return a + p[1]; }, 0) / pts.length);
       tr.turns.forEach(function (t) {
-        var best = Infinity; for (var i = 0; i < path.length; i += 2) best = Math.min(best, metres([t.lat, t.lon], path[i]));
-        if (best > 40) return;
-        var q = pr.f(t.lat, t.lon), dx = q[0] - cxy[0], dy = q[1] - cxy[1], dl = Math.sqrt(dx * dx + dy * dy) || 1;
+        var tp = S([t.lat, t.lon]);
+        if (near(tp) > 40) return;
+        var q = pr.f(tp[0], tp[1]), dx = q[0] - cxy[0], dy = q[1] - cxy[1], dl = Math.sqrt(dx * dx + dy * dy) || 1;
         var lx = q[0] + dx / dl * 13, ly = q[1] + dy / dl * 13;
         svg += '<text x="' + lx.toFixed(1) + '" y="' + (ly + 3).toFixed(1) + '" text-anchor="middle" class="turn">' + esc(t.n) + '</text>';
       });
@@ -317,6 +377,12 @@
     svg += '<polyline id="mm-trail" points="" fill="none" stroke="#9aa0aa" stroke-opacity="0.5" stroke-width="3" stroke-linecap="round"/><circle id="mm-car" cx="-20" cy="-20" r="7" fill="#00C846" stroke="#000" stroke-width="2"/></svg>';
     var hint = src === 'agile' ? 'Agile reference lap' : src === 'preset' ? esc(tr.name || 'track') + ' layout' : 'live trail';
     var foot = src === 'preset' ? '<div class="tiny muted">' + esc(tr.layout || '') + '. Replaced by the Agile reference lap once recorded.</div>' : '';
+    if (al) {
+      window.PWPresetAlign = al;
+      foot = '<div class="tiny muted" id="mm-align">' + (al.ok
+        ? esc(tr.name || 'Preset') + ' preset ' + (al.dist < 1 ? 'matches the Agile lap' : 'aligned to the Agile lap: shifted ' + Math.round(al.dist) + ' m ' + compass(al.dx, al.dy)) + ', shapes agree within ' + Math.max(1, Math.round(al.p90)) + ' m.'
+        : esc(tr.name || 'Preset') + ' preset does not match the Agile lap (' + (al.dist >= 500 ? Math.round(al.dist) + ' m away' : 'shapes differ by up to ' + Math.round(al.p90) + ' m') + '): preset turns, pits and S/F hidden.') + '</div>';
+    }
     return { id: 'map', html: card('Track', svg + '<div class="tiny muted" id="mm-info" style="margin-top:4px">-</div>' + foot, hint) };
   }
 

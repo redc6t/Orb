@@ -11,7 +11,7 @@ body:
     attributes:
       label: Version
       description: From the README badge or `package.json`.
-      placeholder: "2.2.19"
+      placeholder: "2.2.20"
     validations:
       required: true
   - type: dropdown

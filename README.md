@@ -7,7 +7,7 @@
 ![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)
 ![Node.js 18+](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)
 ![Runs offline](https://img.shields.io/badge/internet-not%20required-lightgrey.svg)
-![Version](https://img.shields.io/badge/version-2.2.19-informational.svg)
+![Version](https://img.shields.io/badge/version-2.2.20-informational.svg)
 
 ![The Race tab during a 36 h race: the call, fuel on board, the driver's stint, the next stop and the live track map](docs/screenshots/race.png)
 
@@ -221,7 +221,7 @@ Copy the `data` folder to a USB stick or a second laptop at least once per sessi
 The app is written to adapt to how your team, your car and your events work:
 
 - **Series rules:** each regulation set is a JSON file in `rules/` (two are included). Copy one, edit the stint limit, fuel stop minimum, mandatory stops and flag rules, and restart.
-- **Tracks:** track presets and the outline used by the map are in `lib/defaults.js` and `lib/tracks/`. With Agile, the device records its own reference lap and geofences at the track.
+- **Tracks:** track presets and the outline used by the map are in `lib/defaults.js` and `lib/tracks/`. With Agile, the device records its own reference lap and geofences at the track; Orb then shifts the preset's turns, pits and start/finish onto that lap and shows the offset on the Track card.
 - **Car:** tank sizes, fuel baseline per track, refuel method and pour rate are set in **Setup** and saved to the car library for next time.
 - **Tooltips:** hover any field for an explanation; the texts are in `public/js/tips.js`.
 - **Code:** the strategy engine and the state reducer in `public/js/shared/` run identically on the server and in every browser. `npm test` runs pre-race plans and full simulated races against both included rule sets.
@@ -274,6 +274,7 @@ Other documents: [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_O
 
 ## Release notes
 
+- **2.2.20:** **Track map alignment**: the Collie preset's shape is true but its GPS position was only approximate. When Agile's reference lap arrives, Orb now fits the preset onto it (a pure shift, no rotation or stretch) and moves the preset turn numbers, pit lane, pits, fuel area and start/finish by that amount. The Track card says how far it moved and how well the shapes agree, e.g. *"aligned to the Agile lap: shifted 29 m SE, shapes agree within 2 m"*. If the shapes don't match (the wrong track, or Agile is somewhere else), the preset overlays are hidden and the card says so. **Fixed**: the preset start/finish line could be drawn off the Agile lap, and preset pit points that were not drawn still shrank and off-centred the map. Simulator: new `--gpsShift E,N` (metres) moves everything the fake Agile reports, to rehearse an offset preset.
 - **2.2.19:** documentation only. The user manual is rebuilt for Orb 2.2.19 (the new name, Agile and Sentinel, and everything from 2.2.4 to 2.2.18: movable cards, stint debriefs, saved plans, fuel stock, the red flag, scenario Undo/Redo and branches, the shifts editor) and is now kept as an editable HTML source in `docs/manual/`. Fresh README screenshots, with new ones for the fuel stock and a red flag. No change to the app.
 - **2.2.18:** **Shifts editor**: opening a member's shifts now highlights the block happening right now (cyan outline) and scrolls straight to it.
 - **2.2.17:** simulator fixes. **Red flag during a pit stop**: the car no longer gets fuelled or serviced under red. Whatever the crew was doing stops where it is (the car stays where it is, in the fuel bay if it was fuelling) and nothing happens until GREEN, when the stop carries on from the same point and the car leaves as normal. **Brakes and tyres**: a parked car now cools towards ambient (brakes over a few minutes, tyres more slowly) instead of holding at about 120 °C with on-track jitter; the pit lane runs cool, and slower laps under yellow, Safety Car, red or fuel saving run cooler than race pace; brake spikes only happen at race pace. **Agile deltas**: the live delta is now the time lost to the reference lap so far this lap (it grows under a Safety Car or red flag and shows saving or pushing), and there is none in the pit lane. Micro-sectors are recorded as the car crosses each one, including the time a flag is costing (slow sectors show red), nothing runs in the pit lane, and the sectors before pit exit on an out-lap stay grey.

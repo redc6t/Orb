@@ -1,6 +1,6 @@
 'use strict';
 // Fake Agile + Sentinel on this machine so Orb can be exercised without the car. Track: Collie Motorplex long circuit.
-//   node tools/simulate.js [--lap 92] [--fuelmin 8] [--agile 8081] [--sentinel 8082] [--startLap N] [--orb http://127.0.0.1:8080]
+//   node tools/simulate.js [--lap 92] [--fuelmin 8] [--agile 8081] [--sentinel 8082] [--startLap N] [--gpsShift E,N] [--orb http://127.0.0.1:8080]
 // Point the weekend devices at Agile 127.0.0.1:8081 and Sentinel 127.0.0.1:8082 (the demo does this).
 // The simulated driver obeys the pit board: any message containing BOX pits at the end of the lap.
 // Raising SAFETY CAR / YELLOW from Orb slows the car (flags mirror to Agile). RED neutralises the race: the car drives
@@ -120,6 +120,9 @@ const COLLIE = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'lib', 'tra
 const TRACK = COLLIE.outline;                    // [lat, lon], evenly spaced, index 0 = start/finish, racing direction
 const LAT0 = TRACK.reduce((a, p) => a + p[0], 0) / TRACK.length, LON0 = TRACK.reduce((a, p) => a + p[1], 0) / TRACK.length;
 const MLAT = 1 / 111320, MLON = 1 / (111320 * Math.cos(LAT0 * Math.PI / 180));
+// --gpsShift E,N (metres) moves everything the fake Agile reports, to rehearse a preset whose GPS anchor is off
+const GPS_SHIFT = String(arg('gpsShift', '0,0')).split(',').map(Number);
+const gps = p => [p[0] + (GPS_SHIFT[1] || 0) * MLAT, p[1] + (GPS_SHIFT[0] || 0) * MLON];
 const at = f => TRACK[Math.floor(((f % 1) + 1) % 1 * TRACK.length)];
 // offset a track point towards the infield by m metres (perpendicular to the local direction)
 function inward(f, m) {
@@ -145,7 +148,7 @@ const ZONES = [
   { type: 1, label: 'Pit exit', colour: '#FFD54F', v: PIT.exit },
   { type: 2, label: 'Pits', colour: '#4fc3f7', v: PIT.pits },
   { type: 3, label: 'Fuel area', colour: '#CE93D8', v: PIT.fuel }
-].map(z => ({ type: z.type, label: z.label, colour: z.colour, vertices: z.v.map(v => ({ lat: v[0], lon: v[1] })) }));
+].map(z => ({ type: z.type, label: z.label, colour: z.colour, vertices: z.v.map(gps).map(v => ({ lat: v[0], lon: v[1] })) }));
 function carPos() {
   if (car.pit) {
     const p = car.pit, t = Date.now() - p.t0;
@@ -160,11 +163,11 @@ function carPos() {
 
 // ------------------------------------------------------------------ fake Agile
 const agile = http.createServer((req, res) => {
-  if (req.url.startsWith('/refpath')) { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify(TRACK.map(p => ({ lat: +p[0].toFixed(6), lon: +p[1].toFixed(6) })))); }
+  if (req.url.startsWith('/refpath')) { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify(TRACK.map(gps).map(p => ({ lat: +p[0].toFixed(6), lon: +p[1].toFixed(6) })))); }
   if (req.url.startsWith('/geozones')) { res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ zones: ZONES })); }
-  if (req.url.startsWith('/sf/get')) { const p = COLLIE.sf; res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ valid: true, lat: p[0], lon: p[1] })); }
+  if (req.url.startsWith('/sf/get')) { const p = gps(COLLIE.sf); res.writeHead(200, { 'Content-Type': 'application/json' }); return res.end(JSON.stringify({ valid: true, lat: p[0], lon: p[1] })); }
   if (req.url.startsWith('/data')) {
-    const p = carPos();
+    const p = gps(carPos());
     // micro-sectors: each is recorded when the car crosses its end, with the driver's small variation plus whatever the
     // lap is losing to the reference (yellow / SC / red / saving = red cells). In the pit lane nothing runs.
     const NSEC = 26, cur = car.pit ? 0 : Math.min(NSEC - 1, Math.max(0, Math.floor((Date.now() - car.posStart) / car.curLapMs * NSEC)));
