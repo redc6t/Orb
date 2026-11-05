@@ -254,15 +254,35 @@
 
   /* map (stable html, the dot is moved by app.js) */
   function zoneColour(c) { if (typeof c === 'number') return '#' + ('000000' + (c >>> 0).toString(16)).slice(-6); return c || '#888'; }
-  V.mapProjection = function (pts) {
+  /* The Track card is wide and short. A track that is long north-south would be drawn small, so the map is turned
+     (clockwise by rot degrees, screen convention) to fill the card. Both the schematic and the satellite view use it. */
+  var MAP_W = 400, MAP_H = 220, MAP_PAD = 24;
+  function screenXY(pts) {   // metres, x right (east), y down (south), around the points' centre
+    var la = 0, lo = 0; pts.forEach(function (p) { la += p[0]; lo += p[1]; }); la /= pts.length; lo /= pts.length;
+    var k = Math.cos(la * Math.PI / 180) * 111320;
+    return { la: la, lo: lo, k: k, f: function (lat, lon) { return [(lon - lo) * k, (la - lat) * 111320]; } };
+  }
+  function rotXY(q, rot) { var a = rot * Math.PI / 180, c = Math.cos(a), s = Math.sin(a); return [q[0] * c - q[1] * s, q[0] * s + q[1] * c]; }
+  function fitScale(xy, rot, W, H) {
+    var x0 = 1e18, x1 = -1e18, y0 = 1e18, y1 = -1e18;
+    xy.forEach(function (q) { var r = rotXY(q, rot); x0 = Math.min(x0, r[0]); x1 = Math.max(x1, r[0]); y0 = Math.min(y0, r[1]); y1 = Math.max(y1, r[1]); });
+    return { sc: Math.min(W / Math.max(1e-6, x1 - x0), H / Math.max(1e-6, y1 - y0)), x0: x0, x1: x1, y0: y0, y1: y1 };
+  }
+  // the turn (whole degrees, -90..90) that draws the track biggest in the card; 0 unless it gains at least 15%
+  V.bestRotation = function (pts) {
+    if (pts.length < 3) return 0;
+    var S = screenXY(pts), xy = pts.map(function (p) { return S.f(p[0], p[1]); }), W = MAP_W - 2 * MAP_PAD, H = MAP_H - 2 * MAP_PAD;
+    var s0 = fitScale(xy, 0, W, H).sc, best = 0, bs = s0;
+    for (var r = -90; r < 90; r++) { var s = fitScale(xy, r, W, H).sc; if (s > bs * 1.03 || (s > bs * 0.97 && Math.abs(r) < Math.abs(best) && s >= bs)) { best = r; bs = s; } }
+    return bs >= s0 * 1.15 ? best : 0;
+  };
+  V.mapProjection = function (pts, rot) {
     if (!pts.length) return null;
-    var la0 = 1e9, la1 = -1e9, lo0 = 1e9, lo1 = -1e9;
-    pts.forEach(function (p) { la0 = Math.min(la0, p[0]); la1 = Math.max(la1, p[0]); lo0 = Math.min(lo0, p[1]); lo1 = Math.max(lo1, p[1]); });
-    var k = Math.cos((la0 + la1) / 2 * Math.PI / 180);
-    var w = Math.max(1e-6, (lo1 - lo0) * k), h = Math.max(1e-6, la1 - la0);
-    var W = 400, H = 220, pad = 24, sc = Math.min((W - 2 * pad) / w, (H - 2 * pad) / h);
-    var ox = (W - w * sc) / 2, oy = (H - h * sc) / 2;
-    return { W: W, H: H, f: function (lat, lon) { return [ox + (lon - lo0) * k * sc, oy + (la1 - lat) * sc]; } };
+    rot = rot || 0;
+    var S = screenXY(pts), xy = pts.map(function (p) { return S.f(p[0], p[1]); });
+    var W = MAP_W, H = MAP_H, b = fitScale(xy, rot, W - 2 * MAP_PAD, H - 2 * MAP_PAD), sc = b.sc;
+    var ox = (W - (b.x1 - b.x0) * sc) / 2 - b.x0 * sc, oy = (H - (b.y1 - b.y0) * sc) / 2 - b.y0 * sc;
+    return { W: W, H: H, rot: rot, f: function (lat, lon) { var r = rotXY(S.f(lat, lon), rot); return [ox + r[0] * sc, oy + r[1] * sc]; } };
   };
   // distance (m) from a point to a closed path, measured to the segments (so a sparse path is not penalised)
   function distToPath(q, path) {
@@ -357,12 +377,14 @@
     if (pit) pts = pts.concat(pit.pits, pit.fuel);
     var trail = hist.map(function (p) { return [p.lat, p.lon]; });
     if (src === 'trail') pts = pts.concat(trail);
-    var sig = [src, path.length, path[0] || '', path[path.length - 1] || '', zones.length, sf || '', pit ? 1 : 0, turns.length, al ? al.dLat.toFixed(7) + ',' + al.dLon.toFixed(7) : ''].join('|');
-    return { src: src, tr: tr, path: path, zones: zones, pit: pit, sfLine: sfLine, sf: sf, turns: turns, pts: pts, al: al, sig: sig, trail: trail };
+    // turned to fill the card, unless this browser chose north-up; a live trail alone is never turned (it would keep swinging)
+    var rot = V.mapNorthUp || src === 'trail' ? 0 : V.bestRotation(pts);
+    var sig = [src, path.length, path[0] || '', path[path.length - 1] || '', zones.length, sf || '', pit ? 1 : 0, turns.length, al ? al.dLat.toFixed(7) + ',' + al.dLon.toFixed(7) : '', rot].join('|');
+    return { src: src, tr: tr, path: path, zones: zones, pit: pit, sfLine: sfLine, sf: sf, turns: turns, pts: pts, al: al, sig: sig, trail: trail, rot: rot };
   }
   V.mapGeometry = mapGeometry;
   function schematicSvg(g) {
-    var pr = V.mapProjection(g.pts); window.PWMapProj = pr;
+    var pr = V.mapProjection(g.pts, g.rot); window.PWMapProj = pr;
     var poly = function (arr) { return arr.map(function (p) { var q = pr.f(p[0], p[1]); return q[0].toFixed(1) + ',' + q[1].toFixed(1); }).join(' '); };
     var svg = '<svg viewBox="0 0 ' + pr.W + ' ' + pr.H + '" class="minimap" role="img" aria-label="Track map">';
     g.zones.forEach(function (z) {
@@ -389,8 +411,16 @@
       });
     }
     if (g.sf) { var q2 = pr.f(g.sf[0], g.sf[1]); svg += '<rect x="' + (q2[0] - 4) + '" y="' + (q2[1] - 4) + '" width="8" height="8" fill="#fff"><title>Start / finish</title></rect>'; }
+    svg += V.northArrow(g.rot, 'svg');
     return svg + '<polyline id="mm-trail" points="" fill="none" stroke="#9aa0aa" stroke-opacity="0.5" stroke-width="3" stroke-linecap="round"/><circle id="mm-car" cx="-20" cy="-20" r="7" fill="#00C846" stroke="#000" stroke-width="2"/></svg>';
   }
+  // north arrow: turned with the map, so you can always tell which way is north (clicking it toggles North up)
+  V.northArrow = function (rot, kind) {
+    var g = '<g transform="rotate(' + rot + ')"><path d="M0,-10 L5,4 L0,1 L-5,4 Z" fill="#e4e4e4" stroke="#000" stroke-width="1"/></g><text x="0" y="' + (rot === 0 ? 16 : 17) + '" text-anchor="middle" class="turn">N</text>';
+    if (kind === 'svg') return '<g class="north" transform="translate(16,16)"><title>' + (rot ? 'North (map turned ' + Math.abs(rot) + '° to fit)' : 'North') + '</title>' + g + '</g>';
+    return '<svg viewBox="-12 -12 24 32" width="22" height="29" class="minimap-n">' + g + '</svg>';
+  };
+  V.mapNorthUp = false;      // per browser, set by app.js
   V.mapMode = 'schematic';   // per browser, set by app.js
   function panelMap(ctx) {
     if (ctx.replay) return { id: 'map', html: card('Track', '<div class="muted small">Live only - positions are not stored in the race log.</div>') };
@@ -398,6 +428,7 @@
     var wantSat = V.mapMode === 'satellite', satDown = wantSat ? (!window.L || !Sat ? 'nolib' : Sat.unavailable()) : false;
     var useSat = wantSat && !satDown;
     var modeSw = '<span class="seg mapmode"><button class="btn sm' + (wantSat ? '' : ' active') + '" data-act="mapmode" data-mode="schematic">Schematic</button><button class="btn sm' + (wantSat ? ' active' : '') + '" data-act="mapmode" data-mode="satellite">Satellite</button></span>';
+    modeSw += '<button class="btn sm mapnorth' + (V.mapNorthUp ? ' active' : '') + '" data-act="mapnorth" title="' + (V.mapNorthUp ? 'North is up. Press to turn the map to fill the card.' : 'The map is turned to fill the card. Press for north up.') + '">North up</button>';
     var hint = (g.src === 'agile' ? 'Agile reference lap' : g.src === 'preset' ? esc(tr.name || 'track') + ' layout' : 'live trail') + ' ' + modeSw;
     if (g.pts.length < 3 && !(useSat && g.trail.length)) { window.PWMapGeo = null; return { id: 'map', html: card('Track', '<div class="muted small">Waiting for Agile position. The outline appears once Agile has recorded its reference lap.</div>', modeSw) }; }
     var foot = g.src === 'preset' ? '<div class="tiny muted">' + esc(tr.layout || '') + '. Replaced by the Agile reference lap once recorded.</div>' : '';

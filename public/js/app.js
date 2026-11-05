@@ -433,7 +433,9 @@
 
   // Track card view: schematic (SVG) or satellite, per browser
   V.mapMode = lsGet('mapMode') === 'satellite' ? 'satellite' : 'schematic';
+  V.mapNorthUp = lsGet('mapNorthUp') === '1';
   var A = {
+    mapnorth: function () { V.mapNorthUp = !V.mapNorthUp; lsSet('mapNorthUp', V.mapNorthUp ? '1' : null); scheduleRender(); },
     mapmode: function (b) {
       V.mapMode = b.getAttribute('data-mode') === 'satellite' ? 'satellite' : 'schematic'; lsSet('mapMode', V.mapMode);
       if (V.mapMode === 'satellite' && window.OrbSat) OrbSat.retry();

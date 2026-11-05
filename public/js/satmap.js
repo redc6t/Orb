@@ -5,7 +5,7 @@
 (function () {
   'use strict';
   var Sat = {}, L = window.L;
-  var map = null, el = null, tiles = null, over = null, car = null, trailLine = null, ctl = null;
+  var map = null, el = null, tiles = null, over = null, car = null, trailLine = null, ctl = null, north = null;
   var sig = null, follow = false, userMoved = false, centred = false, src = { url: '', maxZoom: 19, attribution: '' };
   var ok = 0, err = 0, downSince = 0, health = null;
   var RETRY_MS = 60000;
@@ -45,7 +45,9 @@
 
   function create() {
     el = document.createElement('div'); el.className = 'satmap';
-    map = L.map(el, { zoomControl: true, scrollWheelZoom: false, zoomSnap: 0.25, maxZoom: 21, attributionControl: true });
+    // rotate: the map is turned like the schematic so a long north-south track fills the wide card (leaflet-rotate)
+    map = L.map(el, { zoomControl: true, scrollWheelZoom: false, zoomSnap: 0.25, maxZoom: 21, attributionControl: true,
+      rotate: true, bearing: 0, rotateControl: false, touchRotate: false, shiftKeyRotate: false });
     map.setView([0, 0], 2);   // vector layers need a view before they are added; fit() moves to the track straight after
     makeTiles();
     over = L.layerGroup().addTo(map);
@@ -70,18 +72,42 @@
       }
     });
     ctl = new C(); map.addControl(ctl);
+    // north arrow, turned with the map; a click toggles North up (handled by the page, like the card's button)
+    var N = L.Control.extend({
+      options: { position: 'topleft' },
+      onAdd: function () { var d = L.DomUtil.create('div', 'sat-north'); d.setAttribute('data-act', 'mapnorth'); d.setAttribute('role', 'button'); L.DomEvent.disableScrollPropagation(d); return d; }
+    });
+    north = new N(); map.addControl(north);
+    map.on('rotate', paintNorth);
     map.on('dragstart', function () { userMoved = true; follow = false; paintCtl(); });
     // turn numbers only when zoomed in enough to read them
     map.on('zoomend', function () { el.classList.toggle('far', map.getZoom() < 15); });
     if (window.ResizeObserver) new ResizeObserver(function () { map.invalidateSize(); }).observe(el);
     checkHealth();
   }
+  function paintNorth() {
+    var d = north && north.getContainer(); if (!d || !window.OrbViews) return;
+    var b = Math.round(map.getBearing ? map.getBearing() : 0); if (b > 180) b -= 360;
+    d.innerHTML = window.OrbViews.northArrow(b, 'html'); d.title = b ? 'North (map turned ' + Math.abs(b) + '° to fit the card). Click for north up.' : 'North up. Click to turn the map to fit the card.';
+  }
   function paintCtl() { var b = el && el.querySelector('[data-sat="follow"]'); if (b) b.classList.toggle('on', follow); }
 
   function fit(g) {
     if (!g || !map.getSize().x) return;
     var pts = g.pts.length >= 2 ? g.pts : g.trail;
-    if (pts.length >= 2) { map.fitBounds(L.latLngBounds(pts), { padding: [14, 14] }); centred = true; }
+    if (pts.length < 2) return;
+    // fit the turned track by hand (Leaflet's fitBounds ignores the bearing): extents in metres along the screen axes
+    var rot = g.rot || 0, a = rot * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+    var la = 0, lo = 0; pts.forEach(function (p) { la += p[0]; lo += p[1]; }); la /= pts.length; lo /= pts.length;
+    var k = Math.cos(la * Math.PI / 180) * 111320, x0 = 1e18, x1 = -1e18, y0 = 1e18, y1 = -1e18;
+    pts.forEach(function (p) { var x = (p[1] - lo) * k, y = (la - p[0]) * 111320, rx = x * c - y * s, ry = x * s + y * c;
+      x0 = Math.min(x0, rx); x1 = Math.max(x1, rx); y0 = Math.min(y0, ry); y1 = Math.max(y1, ry); });
+    var mx = (x0 + x1) / 2, my = (y0 + y1) / 2, cx = mx * c + my * s, cy = -mx * s + my * c;   // centre back to east/south metres
+    var size = map.getSize(), mpp = Math.max((x1 - x0) / Math.max(40, size.x - 110), (y1 - y0) / Math.max(40, size.y - 44), 0.05);   // room for the side controls
+    var z = Math.log(156543.03392 * Math.cos(la * Math.PI / 180) / mpp) / Math.LN2;
+    map.setBearing(rot);
+    map.setView([la - cy / 111320, lo + cx / k], Math.min(map.getMaxZoom(), Math.floor(z * 4) / 4), { animate: false });
+    centred = true;
   }
 
   function draw(g) {
@@ -123,7 +149,8 @@
       checkHealth();
       if (!centred) fit(g);
     }
-    if (g.sig !== sig) { sig = g.sig; draw(g); if (!userMoved) fit(g); }
+    if (g.sig !== sig) { sig = g.sig; draw(g); if (!userMoved) fit(g); else map.setBearing(g.rot || 0); }
+    paintNorth();
     if (!g.path.length && !userMoved) follow = true;
     paintCtl();
   };

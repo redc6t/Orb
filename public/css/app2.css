@@ -172,6 +172,12 @@ svg.minimap text.turn { fill: #9aa0aa; font-size: 9px; font-weight: 700; font-fa
 .satmap .leaflet-control-attribution a { color: var(--text2); }
 .satmap .sat-turn { color: #fff; font-size: 10px; font-weight: 700; text-align: center; text-shadow: 0 0 3px #000, 0 0 2px #000; }
 .satmap.far .sat-turn { display: none; }
+/* north arrow: turned with the map (schematic and satellite); North up toggles in the card header and on the arrow */
+.card h3 .hint .mapnorth { margin-left: 4px; padding: 1px 7px; font-size: .9em; }
+.card h3 .hint .mapnorth.active { outline: none; background: var(--line2); color: var(--text); }
+svg.minimap g.north text, svg.minimap-n text { fill: #e4e4e4; font-size: 8px; font-weight: 700; font-family: var(--sans); }
+.satmap .sat-north { background: rgba(0, 0, 0, .55); border: 1px solid var(--line2); border-radius: 6px; padding: 2px 3px 0; cursor: pointer; line-height: 0; }
+.satmap .sat-north:hover { border-color: var(--sub); }
 .satmap .leaflet-tooltip { background: #1b1d21; color: var(--text); border-color: var(--line2); }
 @media (prefers-reduced-motion: reduce) { svg.minimap text.turn { fill: #9aa0aa; font-size: 9px; font-weight: 700; font-family: var(--sans); }
 #mm-car { transition: none; } }
