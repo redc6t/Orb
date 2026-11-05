@@ -157,6 +157,22 @@ button.pchip { cursor: pointer; } button.pchip:hover { border-color: var(--cyan)
 .minimap { width: 100%; height: auto; max-height: 260px; display: block; background: var(--well); border-radius: 8px; }
 svg.minimap text.turn { fill: #9aa0aa; font-size: 9px; font-weight: 700; font-family: var(--sans); }
 #mm-car { transition: cx .24s linear, cy .24s linear; }
+/* satellite Track view (Leaflet): imagery dimmed so the overlays and the car read first, also at night */
+.card h3 .hint .mapmode { margin-left: 6px; vertical-align: middle; }
+.mapmode .btn.sm { padding: 1px 7px; font-size: .9em; }
+.mapmode .btn.active { outline: none; background: var(--line2); color: var(--text); }
+.satholder { width: 100%; height: 260px; border-radius: 8px; overflow: hidden; background: var(--well); }
+.satmap { width: 100%; height: 100%; background: var(--well); font-family: var(--sans); }
+.satmap .sat-tiles { filter: brightness(.6) saturate(.75) contrast(1.05); }
+.satmap .leaflet-bar a { background: #1b1d21; color: var(--text2); border-bottom-color: var(--line2); width: auto; min-width: 26px; padding: 0 6px; font-size: 12px; }
+.satmap .leaflet-bar a:hover { background: var(--line2); color: var(--text); }
+.satmap .leaflet-bar { border: 1px solid var(--line2); box-shadow: none; }
+.satmap .sat-ctl a.on { color: var(--cyan); }
+.satmap .leaflet-control-attribution { background: rgba(0, 0, 0, .55); color: var(--sub); font-size: 9px; }
+.satmap .leaflet-control-attribution a { color: var(--text2); }
+.satmap .sat-turn { color: #fff; font-size: 10px; font-weight: 700; text-align: center; text-shadow: 0 0 3px #000, 0 0 2px #000; }
+.satmap.far .sat-turn { display: none; }
+.satmap .leaflet-tooltip { background: #1b1d21; color: var(--text); border-color: var(--line2); }
 @media (prefers-reduced-motion: reduce) { svg.minimap text.turn { fill: #9aa0aa; font-size: 9px; font-weight: 700; font-family: var(--sans); }
 #mm-car { transition: none; } }
 .corners { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }

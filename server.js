@@ -1,7 +1,7 @@
 'use strict';
 /* Mullaloo Motorsport Engineering - Orb server
  * node server.js  ->  http://localhost:8080 (engineer)  |  http://<laptop-ip>:8080 (view-only devices)
- * Fully offline: no CDN, no cloud. Only dependency: ws.
+ * Fully offline: no CDN, no cloud (the optional satellite map fetches imagery while online and caches it). Only dependency: ws; Leaflet is bundled in public/vendor.
  */
 const http = require('http');
 const fs = require('fs');
@@ -14,6 +14,7 @@ const E = require('./public/js/shared/engine.js');
 const AgileAdapter = require('./lib/adapters/agile');
 const SentinelAdapter = require('./lib/adapters/sentinel');
 const UdpAdapter = require('./lib/adapters/udp');
+const Tiles = require('./lib/tiles');
 const BRAND = require('./public/js/brand.js');
 
 const VERSION = require('./package.json').version;
@@ -22,6 +23,7 @@ const PUBLIC = path.join(ROOT, 'public');
 const DATA = process.env.ORB_DATA || process.env.PITWALL_DATA || path.join(ROOT, 'data');
 const store = new Store(DATA);
 const PORT = +process.env.PORT || store.settings.port || 8080;
+const tiles = new Tiles(DATA, store, 'Orb-PitWall/' + VERSION);
 
 // ------------------------------------------------------------------ roles
 let localIPs = new Set();
@@ -153,7 +155,7 @@ function readBody(req, limit) {
 function meta(req) {
   return { version: VERSION, role: isEngineer(req) ? 'engineer' : 'viewer', rules: D.loadRules(), tracks: D.TRACKS, formats: D.FORMATS,
     cars: [D.LANCER].concat(store.listCars().filter(c => c.id !== D.LANCER.id)).map(c => store.listCars().find(x => x.id === c.id) || c),
-    events: store.listEvents(), plans: store.listPlans(), activeEventId: store.eventId, defaultConfig: defaultDraft(), serverTime: Date.now(), hostIPs: [...localIPs].filter(ip => /^\d+\.\d+\.\d+\.\d+$/.test(ip) && ip !== '127.0.0.1'), port: PORT };
+    events: store.listEvents(), plans: store.listPlans(), activeEventId: store.eventId, defaultConfig: defaultDraft(), serverTime: Date.now(), tiles: tiles.source(), hostIPs: [...localIPs].filter(ip => /^\d+\.\d+\.\d+\.\d+$/.test(ip) && ip !== '127.0.0.1'), port: PORT };
 }
 function defaultDraft() {
   const members = [];
@@ -185,6 +187,17 @@ const server = http.createServer(async (req, res) => {
       if (!g) return send(res, 200, { open: false, plannedAdd: d.nextStop ? d.nextStop.add : 0 });
       const svc = g.stop.service;
       return send(res, 200, { open: !g.stop.outTs, stopId: g.stop.id, plannedAdd: (g.planned || {}).add || 0, fuelOn: !!st.gates[g.stop.id + ':fuelon'], fuelDone: !!svc, fuelAdded: svc ? svc.fuelAdded : 0, pitOut: !!st.gates[g.stop.id + ':pitout'] });
+    }
+    // satellite tiles: served from the cache, fetched from the provider (and cached) while online
+    const tm = /^\/tiles\/(\d+)\/(\d+)\/(\d+)$/.exec(p);
+    if (tm) {
+      const t = await tiles.get(+tm[1], +tm[2], +tm[3]);
+      if (!t) return send(res, 404, 'No tile', 'text/plain');
+      return send(res, 200, t.buf, t.type, { 'Cache-Control': 'public, max-age=600' });
+    }
+    if (p === '/api/tiles/status') {
+      const bb = url.searchParams.get('bbox');
+      return send(res, 200, tiles.status(bb ? bb.split(',') : null));
     }
     if (p === '/branding/logo') { const f = logoFile(); return send(res, 200, fs.readFileSync(f), TYPES[path.extname(f)]); }
     if (p === '/api/export') {
@@ -227,6 +240,11 @@ const server = http.createServer(async (req, res) => {
       }
       if (p === '/api/plans/start') { const id = store.startPlan(body.file); resetAlertKeys(); configureDevices(); broadcast({ t: 'reset' }); return send(res, 200, { id }); }
       if (p === '/api/plans/delete') { store.deletePlan(body.file); broadcastPlans(); return send(res, 200, { ok: true }); }
+      if (p === '/api/tiles/source') { const src = tiles.setSource(body); broadcast({ t: 'tiles', source: src }); return send(res, 200, { source: src }); }
+      if (p === '/api/tiles/prefetch') {
+        const job = tiles.prefetch(body.bbox || [], j => broadcast({ t: 'tiles', job: j }));
+        broadcast({ t: 'tiles', job }); return send(res, 200, { job });
+      }
       if (p === '/api/cars') { store.saveCar(body.car); return send(res, 200, { ok: true }); }
       if (p === '/api/branding/logo') {
         if (body.reset) {

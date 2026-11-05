@@ -32,7 +32,7 @@
     ws.onmessage = function (m) {
       var msg; try { msg = JSON.parse(m.data); } catch (e) { return; }
       if (msg.t === 'init') {
-        App.role = msg.role; App.meta = msg.meta; document.getElementById('brandver').textContent = msg.meta && msg.meta.version ? 'v' + msg.meta.version : ''; App.map = msg.map || null; App.config0 = msg.config0; App.events = msg.events || []; App.devices = msg.devices || {};
+        App.role = msg.role; App.meta = msg.meta; V.trackPresets = (msg.meta && msg.meta.tracks) || []; if (window.OrbSat && msg.meta) OrbSat.setSource(msg.meta.tiles); document.getElementById('brandver').textContent = msg.meta && msg.meta.version ? 'v' + msg.meta.version : ''; App.map = msg.map || null; App.config0 = msg.config0; App.events = msg.events || []; App.devices = msg.devices || {};
         App.offset = msg.now - Date.now();
         App.state = App.config0 ? R.reduce(App.config0, App.events) : null;
         if (App.state) U.setClock24(!(App.state.config.ui && App.state.config.ui.clock24 === false || (App.state.config.ui && App.state.config.ui.clock24 === 'false')));
@@ -51,6 +51,10 @@
         scheduleRender();
       } else if (msg.t === 'live') { App.live = { agile: msg.agile, sentinel: msg.sentinel }; App.devices.agile = msg.agile; updateMapDot(); }
       else if (msg.t === 'map') { App.map = msg.map; }
+      else if (msg.t === 'tiles') {
+        if (msg.source) { if (App.meta) App.meta.tiles = msg.source; if (window.OrbSat) OrbSat.setSource(msg.source); }
+        if (msg.job) { App.tileJob = msg.job; if (SU.tileProgress) SU.tileProgress(msg.job); }
+      }
       else if (msg.t === 'devices') { App.devices = msg.devices; renderHeader(); }
       else if (msg.t === 'tick') { App.offset = msg.now - Date.now(); }
       else if (msg.t === 'reset') { fetch('/api/meta').then(function () { ws.close(); }); }
@@ -257,6 +261,7 @@
         if (el._html !== p.html) { el.innerHTML = p.html; el._html = p.html; if (movable && ci > 0) addGrip(el); if (window.PWTips) PWTips.apply(el); if (p.id === 'map') updateMapDot(); }
       });
     });
+    if (window.OrbSat && window.PWMapGeo) OrbSat.mount();
     if (App.tab === 'race') fitFeed();
   }
 
@@ -385,16 +390,19 @@
     if (!pos) return;
     var last = App.posHist[App.posHist.length - 1];
     if (!last || last.ts !== pos.ts) { App.posHist.push(pos); if (App.posHist.length > 600) App.posHist.shift(); }
-    var car = document.getElementById('mm-car'), pr = window.PWMapProj;
-    if (!car || !pr || App.replay) return;
-    var q = pr.f(pos.lat, pos.lon);
-    var stale = Date.now() - pos.ts > 3000;
-    car.setAttribute('cx', q[0].toFixed(1)); car.setAttribute('cy', q[1].toFixed(1));
-    car.setAttribute('fill', stale ? '#555' : (V.CS_COLOUR[App.state && App.state.carState.current] || '#00C846'));
-    var tr = App.posHist.slice(-40).filter(function (p) { return Date.now() - p.ts < 25000; }).map(function (p) { var z = pr.f(p.lat, p.lon); return z[0].toFixed(1) + ',' + z[1].toFixed(1); }).join(' ');
-    document.getElementById('mm-trail').setAttribute('points', tr);
+    var stale = Date.now() - pos.ts > 3000, colour = V.CS_COLOUR[App.state && App.state.carState.current] || '#00C846';
+    var recent = App.posHist.slice(-40).filter(function (p) { return Date.now() - p.ts < 25000; });
     var info = document.getElementById('mm-info');
     if (info) info.textContent = (stale ? 'Position ' + Math.round((Date.now() - pos.ts) / 1000) + ' s old' : (pos.src === 'Sentinel' ? 'Sentinel GNSS' : 'Agile GNSS')) + (pos.sats != null ? ' | ' + pos.sats + ' sats' : '') + (pos.spd != null ? ' | ' + Math.round(pos.spd) + ' km/h' : '');
+    if (App.replay) return;
+    if (window.OrbSat && window.PWMapGeo) { OrbSat.update(pos, colour, recent.map(function (p) { return [p.lat, p.lon]; }), stale); return; }
+    var car = document.getElementById('mm-car'), pr = window.PWMapProj;
+    if (!car || !pr) return;
+    var q = pr.f(pos.lat, pos.lon);
+    car.setAttribute('cx', q[0].toFixed(1)); car.setAttribute('cy', q[1].toFixed(1));
+    car.setAttribute('fill', stale ? '#555' : colour);
+    var tr = recent.map(function (p) { var z = pr.f(p.lat, p.lon); return z[0].toFixed(1) + ',' + z[1].toFixed(1); }).join(' ');
+    document.getElementById('mm-trail').setAttribute('points', tr);
   }
 
   /* ------------------------------------------------------------ replay */
@@ -423,7 +431,14 @@
     if (cur) cur.scrollIntoView({ block: 'center' });
   }
 
+  // Track card view: schematic (SVG) or satellite, per browser
+  V.mapMode = lsGet('mapMode') === 'satellite' ? 'satellite' : 'schematic';
   var A = {
+    mapmode: function (b) {
+      V.mapMode = b.getAttribute('data-mode') === 'satellite' ? 'satellite' : 'schematic'; lsSet('mapMode', V.mapMode);
+      if (V.mapMode === 'satellite' && window.OrbSat) OrbSat.retry();
+      scheduleRender();
+    },
     stockfill: function () { stockModal('fill', 'Log a fill outside a stop', 'Litres poured into the car between sessions or before the start. It comes off the stock and is added to the fuel in the car.', 'Litres poured'); },
     stockadd: function () { stockModal('add', 'Fuel bought', 'Litres added to the stock at the track (bought at the circuit or brought in later).', 'Litres bought'); },
     stockcount: function () { stockModal('count', 'Recount stock', 'Litres physically left at the track right now, full and part cans together. It replaces the running count, so spills and guesses are corrected.', 'Litres at the track'); },

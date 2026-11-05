@@ -125,6 +125,7 @@
       inp('devices.udp.enabled', 'UDP input', 'checkbox') + inp('devices.udp.port', 'UDP port', 'number') + '</div>';
     h += '<div class="small muted" style="margin-top:6px">The laptop must be on the same network as the devices (VDG / MME_AP, 192.168.0.x). Agile: WebSocket ws://IP/ws. Sentinel: HTTP /data.</div>';
     if (eng) h += '<div class="section-title" style="margin-top:14px">Branding</div><div class="row"><img src="/branding/logo?v=' + Date.now() + '" style="width:48px;height:48px;border-radius:8px;background:#0e0e0e;object-fit:contain"><label class="f" style="flex:1">Logo (default: ' + esc(window.OrbBrand.line) + ' - upload PNG/SVG to replace)<input id="su-logo" type="file" accept="image/png,image/svg+xml,image/jpeg"></label><button class="btn sm" data-sact="logoreset" style="align-self:flex-end">Use default logo</button></div>';
+    if (eng) h += tilesSection();
     h += '</div>';
 
     var w = warnings();
@@ -134,6 +135,7 @@
     h += '</div></div>';
     el.innerHTML = h;
     if (window.PWTips) window.PWTips.apply(el);
+    if (eng) tileStatus();
   };
 
   function readInputs(el) {
@@ -198,6 +200,66 @@
     return h;
   }
 
+  /* ---- satellite imagery for the Track card: tile source, and pre-download of the track area so it works offline */
+  // area to download: Agile's lap, else the track preset (with its pits), else around the car's last position; padded 400 m
+  function trackArea() {
+    var app = S.app, tr = window.OrbViews.trackGeometry((S.draft && S.draft.track) || {}), pts = [];
+    if (app.map && app.map.path && app.map.path.length) pts = app.map.path.slice();
+    else if (tr.outline && tr.outline.length) pts = tr.outline.concat(tr.pit ? tr.pit.pits.concat(tr.pit.fuel, tr.pit.lane) : []);
+    else { var h = app.posHist || [], p = h[h.length - 1]; if (p) pts = [[p.lat, p.lon]]; }
+    if (!pts.length) return null;
+    var s = 90, w = 180, n = -90, e = -180;
+    pts.forEach(function (q) { s = Math.min(s, q[0]); n = Math.max(n, q[0]); w = Math.min(w, q[1]); e = Math.max(e, q[1]); });
+    var padLat = 400 / 111320, padLon = 400 / (111320 * Math.cos((s + n) / 2 * Math.PI / 180));
+    var what = app.map && app.map.path && app.map.path.length ? 'Agile reference lap' : tr.outline && tr.outline.length ? (tr.name || 'track') + ' layout' : 'the car\'s last position';
+    return { bbox: [s - padLat, w - padLon, n + padLat, e + padLon].map(function (v) { return +v.toFixed(6); }), what: what };
+  }
+  function tilesSection() {
+    var t = (S.app.meta && S.app.meta.tiles) || {}, area = trackArea();
+    return '<div class="section-title" style="margin-top:14px">Track map imagery</div>' +
+      '<div class="small muted">The Track card\'s <b>Satellite</b> view uses these tiles. Each tile is fetched once while this laptop is online and kept in <code>data/tiles</code>, so the map keeps working if the internet drops; other devices get the tiles from this laptop. Check the imagery provider\'s terms of use for your team.</div>' +
+      '<div class="fgrid" style="margin-top:8px"><label class="f" style="grid-column:span 2">Tile URL ({z} {x} {y})<input id="su-tile-url" value="' + esc(t.url || '') + '"></label>' +
+      '<label class="f">Max zoom<input id="su-tile-z" type="number" min="14" max="20" step="1" value="' + esc(t.maxZoom || 19) + '"></label>' +
+      '<label class="f" style="grid-column:span 3">Attribution (shown on the map)<input id="su-tile-attr" value="' + esc(t.attribution || '') + '"></label></div>' +
+      '<div class="row" style="margin-top:6px"><button class="btn sm" data-sact="tilesave">Save imagery source</button>' + (t.isDefault ? '<span class="tiny muted">Default source (Esri World Imagery)</span>' : '<button class="btn sm" data-sact="tiledefault">Use the default source</button>') + '</div>' +
+      '<div class="row" style="margin-top:10px"><button class="btn" data-sact="tileprefetch"' + (area ? '' : ' disabled') + '>Download track tiles</button>' +
+      '<span class="small" id="su-tiles-status">' + (area ? 'Area: ' + esc(area.what) + ' + 400 m. Checking what is stored...' : 'No track geometry yet: pick a track with a layout, or connect Agile.') + '</span></div>';
+  }
+  function tileStatus() {
+    var area = trackArea(), out = document.getElementById('su-tiles-status');
+    if (!area || !out) return;
+    fetch('/api/tiles/status?bbox=' + area.bbox.join(',')).then(function (r) { return r.json(); }).then(function (j) {
+      if (j.error) { out.textContent = j.error; return; }
+      if (j.job && j.job.running) return S.tileProgress(j.job);
+      var full = j.have + j.none >= j.total;
+      out.className = 'small ' + (full ? 'ok-t' : 'warn-t');
+      out.textContent = 'Area: ' + area.what + ' + 400 m. ' + (full ? 'Ready offline: ' + j.have + ' tiles stored, imagery up to zoom ' + j.maxImageryZoom + '.' : j.have + ' tiles stored, ' + (j.total - j.have - j.none) + ' still to download.') + (j.online === false ? ' This laptop looks offline.' : '');
+    }).catch(function () { /* server restarting */ });
+  }
+  S.tileProgress = function (job) {
+    var out = document.getElementById('su-tiles-status');
+    if (!out) return;
+    if (job.running) { out.className = 'small'; out.textContent = 'Downloading: ' + (job.have + (job.none || 0) + job.failed) + ' of ' + job.total + ' tiles checked, ' + job.have + ' stored...'; return; }
+    out.className = 'small ' + (job.failed ? 'warn-t' : 'ok-t');
+    out.textContent = 'Download finished: ' + job.have + ' tiles stored' + (job.none ? ', ' + job.none + ' not offered by the provider (no imagery that close here)' : '') + (job.failed ? '. ' + job.failed + ' could not be fetched (no internet?): run it again when online.' : ': ready offline.');
+  };
+  function postJson(url, body) {
+    return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { return r.json(); });
+  }
+  function tileAction(act, el) {
+    if (act === 'tilesave' || act === 'tiledefault') {
+      var body = act === 'tiledefault' ? { reset: true } : { url: document.getElementById('su-tile-url').value, attribution: document.getElementById('su-tile-attr').value, maxZoom: +document.getElementById('su-tile-z').value };
+      postJson('/api/tiles/source', body).then(function (j) {
+        if (j.error) return U.toast(j.error, 'warn');
+        S.app.meta.tiles = j.source; U.toast('Imagery source saved', 'info'); S.render(el);
+      });
+    }
+    if (act === 'tileprefetch') {
+      var area = trackArea(); if (!area) return;
+      postJson('/api/tiles/prefetch', { bbox: area.bbox }).then(function (j) { if (j.error) U.toast(j.error, 'warn'); else S.tileProgress(j.job); });
+    }
+  }
+
   function nextMemberId() { var n = 1; var ids = S.draft.members.map(function (m) { return m.id; }); while (ids.indexOf('m' + n) >= 0) n++; return 'm' + n; }
 
   S.onClick = function (e, el) {
@@ -213,6 +275,7 @@
     var b = e.target.closest('[data-sact]');
     if (!b) return false;
     var act = b.getAttribute('data-sact'), idx = +b.getAttribute('data-i');
+    if (/^tile/.test(act)) { tileAction(act, el); return true; }
     readInputs(el);
     var c = S.draft;
     if (act === 'addmember') c.members.push({ id: nextMemberId(), name: 'New member', driver: false, roles: ['mechanic'] });

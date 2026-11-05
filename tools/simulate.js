@@ -114,7 +114,7 @@ function tick() {
 }
 
 // ------------------------------------------------------------------ simulated track: Collie Motorplex long circuit (2.55 km, anti-clockwise)
-// Outline traced from the official layout diagram (lib/tracks/collie-long.json). The pit lane position is simulated:
+// Outline from real GNSS laps of the long circuit (lib/tracks/collie-long.json). The pit lane follows the preset:
 // a lane on the infield side of the start/finish straight.
 const COLLIE = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'lib', 'tracks', 'collie-long.json'), 'utf8'));
 const TRACK = COLLIE.outline;                    // [lat, lon], evenly spaced, index 0 = start/finish, racing direction
@@ -247,7 +247,7 @@ setInterval(sentinelTick, 500);
 const sentinel = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'application/json' });
   if (req.url.startsWith('/config')) return res.end(JSON.stringify({ br_t1: 100, br_t2: 300, br_t3: 500, br_t4: 700, ty_t1: 40, ty_t2: 70, ty_t3: 100, ty_t4: 130, pr_t1: 20, pr_t2: 26, pr_t3: 29, pr_t4: 32 }));
-  const c = ['fl', 'fr', 'rl', 'rr'], o = { sats: 14, speed: '120.0', lat: '-33.36', lon: '116.15', tpms_trusted: true };
+  const c = ['fl', 'fr', 'rl', 'rr'], o = { sats: 14, speed: '120.0', lat: '-33.4311', lon: '116.2437', tpms_trusted: true };
   c.forEach((k, i) => {
     o['br_' + k + '_temp'] = bt.brake[i].toFixed(1); o['ti_' + k + '_temp'] = bt.tyre[i].toFixed(1);
     o['tp_' + k + '_psi'] = (28.5 + (bt.tyre[i] - 70) * 0.06 + (Math.random() - 0.5) * 0.2).toFixed(1); o['tp_' + k + '_tc'] = Math.round(bt.tyre[i] - 20);
