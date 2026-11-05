@@ -11,7 +11,7 @@
 Open the file in Chrome or Edge and print it to PDF (A4, margins *Default*, headers and footers off, background graphics on), or from a terminal:
 
 ```bash
-"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --headless=new --no-pdf-header-footer --print-to-pdf="Orb_User_Manual_v2.2.19.pdf" "docs\manual\orb-user-manual.html"
+"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --headless=new --no-pdf-header-footer --print-to-pdf="Orb_User_Manual_v2.2.23.pdf" "docs\manual\orb-user-manual.html"
 ```
 
 Run it from the repository root, then delete the previous PDF and update the link in `README.md` and `.github/ISSUE_TEMPLATE/config.yml`.

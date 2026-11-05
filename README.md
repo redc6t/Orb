@@ -2,7 +2,7 @@
 
 *by Mullaloo Motorsport Engineering*
 
-**An offline, self-hosted pit wall for endurance racing.** One laptop runs a small server; the engineer works in a browser on that laptop, and any phone, tablet or TV on the same Wi-Fi sees the same screens, view-only. No internet, no cloud account, no subscription.
+**An offline, self-hosted pit wall for endurance racing.** One laptop runs a small server; the engineer works in a browser on that laptop, and any phone, tablet or TV on the same Wi-Fi sees the same screens, view-only. No internet at the track, no cloud account, no subscription (the optional satellite track map is downloaded beforehand and kept on the laptop).
 
 ![License: GPL v3](https://img.shields.io/badge/license-GPLv3-blue.svg)
 ![Node.js 18+](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)
@@ -47,12 +47,13 @@ Orb answers, every second, the questions a pit wall asks during a long race:
 | **Who is fit to drive?** | Driver rotation, crew presence, rest and sleep, and alerts before anyone goes over their limits. |
 | **What happened?** | An append-only race log you can export, import on another laptop and replay through the whole app. |
 | **Can we prepare before race day?** | Save the weekend as a plan, rehearse on it with the simulator, and start a fresh copy on race day. |
+| **Where is the car?** | A live track map with turn numbers, pit lane and geofences, as a clean schematic or on satellite imagery that works offline, turned to fill the card. |
 
 It works with nothing but a keyboard. Add the Mullaloo Motorsport Engineering in-car devices, the **[Agile](https://github.com/redc6t/Agile)** lap timer and the **[Sentinel](https://github.com/redc6t/Sentinel)** brake and tyre temperature and pressure monitor, and laps, pit lane entries, flags and temperatures arrive by themselves (see [Connecting devices](#connecting-devices)).
 
 ## Quick start
 
-**You need:** a Windows 10/11 laptop and [Node.js 18 or newer (LTS)](https://nodejs.org). The one dependency (`ws`) is already in the repo, so nothing else is downloaded.
+**You need:** a Windows 10/11 laptop and [Node.js 18 or newer (LTS)](https://nodejs.org). The one dependency (`ws`) and the map library (Leaflet) are already in the repo, so nothing else is downloaded.
 
 1. **Get the code.** Download the ZIP from GitHub (green **Code** button, **Download ZIP**) and unzip it, or `git clone` the repository.
 2. **Start the server.** Double-click `start-orb.bat`. Your browser opens `http://localhost:8080`, and the console prints the address other devices can use, for example `http://192.168.0.23:8080`.
@@ -105,6 +106,14 @@ The **Race** tab has three columns, each with one job:
 - **Track and feed:** the live map, Race control (flags and pit board messages), and the attention list: alerts stay there until someone presses **Ack**.
 
 That is the default layout. To change it, press and hold the grip (nine dots) at the right of any card's header and drag the card to another place or column: the other cards slide out of the way as you move, and a dashed outline shows where it will land. The layout is saved in that browser, so the engineer's laptop and the garage screen can each have their own. Cards that only appear during a stop come back where you last put them, so a pit stop no longer pushes the rest of the page around. **Reset layout** at the bottom of the page restores the default. The Car tab works the same way.
+
+#### The track map
+
+![Track card, satellite view: the Collie long circuit turned to fill the card, with turn numbers, pit lane, pits and fuel area, start/finish and the north arrow](docs/screenshots/track-map.png)
+
+The **Track** card (Race and Car tabs) shows the circuit, its turn numbers, the pit lane, pits, fuel area and start/finish, and the car with a short trail. **Schematic** draws clean lines; **Satellite** puts the same overlays on dimmed satellite imagery, with zoom, **Fit** and **Follow**. A track that runs north-south is turned to fill the wide card; the arrow shows north and **North up** puts it back. Each browser remembers its choices.
+
+The outline starts from the track preset (the Collie long circuit is built from real GNSS laps) and switches to the Agile's own reference lap once it has one; the preset's turns and pits are then slid onto that lap, and the card says by how much. Satellite imagery is fetched once through the pit wall laptop and kept in `data/tiles`: press **Setup > Track map imagery > Download track tiles** before the weekend and the map works with no internet, on every device on the pit Wi-Fi.
 
 The status strip at the top (time remaining, lap, car state, flag, device lights) never moves, whatever tab you are on.
 
@@ -210,6 +219,7 @@ data/events/<id>/events.jsonl       the race log: every change, append-only
 data/events/<id>/config.json        the weekend as created
 data/plans/<date>_<time>_<name>.orb.json   saved plans: a weekend before its first session (Log > Weekend files)
 data/plans/deleted/                 plans you deleted, kept in case you want them back
+data/tiles/                         satellite imagery for the track map (safe to delete; download again in Setup)
 ```
 
 To prepare a weekend early, set it up, then click **Save plan** in **Log > Weekend files**. On race day, click **Start a copy** on that plan: you get a fresh weekend with the same team, rotation, shifts and car, even if you rehearsed on the original with the simulator.
@@ -244,6 +254,8 @@ npm test
 | Agile or Sentinel light is red | Wrong IP, the laptop is not on the car network, or the device is off. Check the IP on the device screen and in **Setup**. |
 | Agile light is amber ("stale") | Connected, but no data for 3 s: weak Wi-Fi or a busy device. |
 | No track map or micro-sectors | Agile has not recorded its reference lap yet; it does so after the first clean lap. A live trail is drawn meanwhile. |
+| The map says the preset "does not match the Agile lap" | Agile's lap is another track, or Agile is away from the circuit (a test drive). Its own lap and geofences are still drawn; only the preset's turns, pits and start/finish are hidden. |
+| The track map is sideways | It is turned to fill the card; the arrow shows north. Press **North up** in the card header. |
 | Satellite view shows the schematic with "No satellite imagery here" | The laptop is offline and this area was not downloaded. At home, open **Setup > Track map imagery** and press **Download track tiles** until it reads *ready offline*. |
 | A refuel role shows **UNASSIGNED** | Nobody tagged with that role is available. Press **FIX** for one-click options, or tag more people in **Setup**. |
 | The fuel stock card reads "suggested, not set" or turns red | Set what you actually bring in **Setup > Fuel stock for the weekend**. Log fuel bought at the track with **Fuel bought**, and spills or part cans with **Recount stock**, on the Fuel Plan tab. |
@@ -269,7 +281,7 @@ npm test
 
 ## Documentation
 
-The full [user manual (PDF)](Orb_User_Manual_v2.2.19.pdf) covers every screen, the pit stop workflow, the fuel model and the planner in detail, plus a guided demo and a feedback template. Its source is [docs/manual/orb-user-manual.html](docs/manual/orb-user-manual.html): edit it and print it to PDF as described in [docs/manual/README.md](docs/manual/README.md).
+The full [user manual (PDF)](Orb_User_Manual_v2.2.23.pdf) covers every screen, the pit stop workflow, the fuel model and the planner in detail, plus a guided demo and a feedback template. Its source is [docs/manual/orb-user-manual.html](docs/manual/orb-user-manual.html): edit it and print it to PDF as described in [docs/manual/README.md](docs/manual/README.md).
 
 Other documents: [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [SECURITY.md](SECURITY.md) and [ACCESSIBILITY.md](ACCESSIBILITY.md).
 

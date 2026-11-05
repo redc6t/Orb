@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Orb - Pit Wall Strategy Manager - User Manual v2.2.19</title>
+<title>Orb - Pit Wall Strategy Manager - User Manual v2.2.23</title>
 <meta name="author" content="Mullaloo Motorsport Engineering - Pietro Gambarin">
-<meta name="description" content="User manual for Orb - Pit Wall Strategy Manager 2.2.19">
+<meta name="description" content="User manual for Orb - Pit Wall Strategy Manager 2.2.23">
 <meta name="keywords" content="endurance racing, pit wall, strategy, fuel plan, Agile, Sentinel">
 <style>
   @page { size: A4; margin: 16mm 15mm 18mm 15mm;
-    @bottom-left { content: "Orb - Pit Wall Strategy Manager - User Manual - v2.2.19"; font: 8pt Arial, sans-serif; color: #777; }
+    @bottom-left { content: "Orb - Pit Wall Strategy Manager - User Manual - v2.2.23"; font: 8pt Arial, sans-serif; color: #777; }
     @bottom-right { content: "Mullaloo Motorsport Engineering - 2026 Pietro Gambarin    " counter(page) " / " counter(pages); font: 8pt Arial, sans-serif; color: #777; white-space: pre; }
   }
   @page cover { @bottom-left { content: none; } @bottom-right { content: none; } }
@@ -59,7 +59,7 @@
   <img src="img/mullaloo-logo.png" alt="Mullaloo Motorsport Engineering logo">
   <h1>Orb - Pit Wall Strategy Manager</h1>
   <p class="sub">User manual - endurance race strategy, live pit wall, fuel planning and crew management</p>
-  <p class="ver"><b>Version 2.2.19</b><br>Mullaloo Motorsport Engineering - 2026 Pietro Gambarin<br>November 2026</p>
+  <p class="ver"><b>Version 2.2.23</b><br>Mullaloo Motorsport Engineering - 2026 Pietro Gambarin<br>November 2026</p>
 </section>
 
 <h1 id="contents" style="break-before:auto">Contents</h1>
@@ -107,7 +107,7 @@
 
 <!-- ============================================================ 1 -->
 <h1 id="s1">1. Introduction</h1>
-<p><b>Orb - Pit Wall Strategy Manager</b> (Orb for short) is a self-hosted race engineering application for endurance racing. One laptop runs a small server; the engineer works in a browser on that laptop, and any phone, tablet or TV on the same network can open the same screens view-only. It runs completely offline: no internet, no cloud account and no map tiles are needed at the track.</p>
+<p><b>Orb - Pit Wall Strategy Manager</b> (Orb for short) is a self-hosted race engineering application for endurance racing. One laptop runs a small server; the engineer works in a browser on that laptop, and any phone, tablet or TV on the same network can open the same screens view-only. It runs completely offline: no internet and no cloud account are needed at the track. The optional satellite view of the track map uses imagery that the laptop downloads beforehand and keeps (section 5.5). <span class="new">NEW</span></p>
 <p>It continuously answers the questions a pit wall asks during a long race:</p>
 <ul>
   <li><b>Should the car stop now?</b> A single call (STAY OUT, WINDOW OPEN, BOX IN 3 LAPS, NOTIFY DRIVER: BOX BOX ...) recalculated every second.</li>
@@ -132,7 +132,7 @@
 <h2 id="s1-2">1.2 Names and versions</h2>
 <p>Version 2 is a redesign of the user interface of the original version 1.x, following control-room design practice (ISA-101 "high performance HMI"): calm neutral screens, colour only when something needs attention, gauges with limits instead of bare numbers, and every piece of information in exactly one place. Both versions open the same race weekend files, but only one of them can run at a time.</p>
 <p>The application was called Pit Wall Pro2 up to 2.1.4 and Pitwall Strategy Manager from 2.2.0. From <b>2.2.10</b> it is <b>Orb - Pit Wall Strategy Manager</b>, at <a href="https://github.com/redc6t/Orb">github.com/redc6t/Orb</a>. From <b>2.2.9</b> the in-car devices are called <b>Agile</b> (was PLTD) and <b>Sentinel</b> (was BTTM). Everything saved under the old names still loads: <code>.pitwall.json</code> files import, the old start/stop scripts' environment variables and the simulator's <code>--pltd</code>, <code>--bttm</code> and <code>--pitwall</code> options still work.</p>
-<p>The version number lives in one place (<code>package.json</code>); the server console and the footer at the bottom of every page show it, for example <i>Orb - Pit Wall Strategy Manager v2.2.19 | Mullaloo Motorsport Engineering - 2026 Pietro Gambarin</i>.</p>
+<p>The version number lives in one place (<code>package.json</code>); the server console and the footer at the bottom of every page show it, for example <i>Orb - Pit Wall Strategy Manager v2.2.23 | Mullaloo Motorsport Engineering - 2026 Pietro Gambarin</i>.</p>
 
 <h2 id="s1-3">1.3 Conventions</h2>
 <ul>
@@ -162,6 +162,10 @@
   <tr><td>2.2.17</td><td>Simulator: a red flag freezes a pit stop; realistic brake and tyre cooling; real Agile live deltas and micro-sectors.</td><td>4.3</td></tr>
   <tr><td>2.2.18</td><td>Shifts editor highlights the block happening right now and scrolls to it.</td><td>5.9</td></tr>
   <tr><td>2.2.19</td><td>This manual, rebuilt for Orb with new screenshots; the manual source is now in the repository (<code>docs/manual/</code>).</td><td>-</td></tr>
+  <tr><td>2.2.20</td><td>Track map: the preset turns, pits and start/finish are shifted onto the Agile's reference lap, and the card says how far and how well they agree (or that they do not match). Simulator <code>--gpsShift</code>.</td><td>5.5, 4.4</td></tr>
+  <tr><td>2.2.21</td><td><b>Satellite track map</b> with an offline tile cache on the laptop; <b>Setup - Track map imagery</b> with <b>Download track tiles</b>.</td><td>5.5, 5.13, 6.1</td></tr>
+  <tr><td>2.2.22</td><td><b>Collie layout rebuilt from real GNSS laps</b>: the old preset was about 9.4 km off and turned about 80&deg;.</td><td>5.14</td></tr>
+  <tr><td>2.2.23</td><td>The track map is <b>turned to fit the card</b>, with a north arrow and a <b>North up</b> switch.</td><td>5.5</td></tr>
 </table>
 
 <!-- ============================================================ 2 -->
@@ -193,13 +197,13 @@
   <tr><td><code>package.json</code></td><td>Holds the version number shown in the console and the page footer.</td></tr>
   <tr><td><code>README.md</code></td><td>Overview, troubleshooting and the release notes.</td></tr>
 </table>
-<div class="box"><b>Upgrading</b>Unzip the new version into a new folder and copy your existing <code>data</code> folder into it. Weekends, plans, cars and logo carry over. A 2.1.x or 2.2.x data folder opens unchanged in 2.2.19; weekends saved with the PLTD/BTTM names are moved to Agile/Sentinel the first time they open.</div>
+<div class="box"><b>Upgrading</b>Unzip the new version into a new folder and copy your existing <code>data</code> folder into it. Weekends, plans, cars and logo carry over. A 2.1.x or 2.2.x data folder opens unchanged in 2.2.23; weekends saved with the PLTD/BTTM names are moved to Agile/Sentinel the first time they open.</div>
 
 <!-- ============================================================ 3 -->
 <h1 id="s3">3. Starting, stopping and access</h1>
 <h2>3.1 Start</h2>
 <p>Double-click <code>start-orb.bat</code>. A console window titled <i>Orb - Pit Wall Strategy Manager server</i> opens and prints the addresses, and the browser opens the engineer screen:</p>
-<pre>Orb - Pit Wall Strategy Manager v2.2.19 - Mullaloo Motorsport Engineering - 2026 Pietro Gambarin
+<pre>Orb - Pit Wall Strategy Manager v2.2.23 - Mullaloo Motorsport Engineering - 2026 Pietro Gambarin
 Engineer (this laptop): http://localhost:8080
 View-only devices:      http://192.168.0.23:8080
 Data folder:            C:\Orb\data</pre>
@@ -270,6 +274,7 @@ Data folder:            C:\Orb\data</pre>
   <tr><td><code>--startLap N</code></td><td>last demo lap</td><td>Lap number to continue from.</td></tr>
   <tr><td><code>--agile 8081</code> / <code>--sentinel 8082</code></td><td>8081 / 8082</td><td>Ports of the simulated devices (<code>--pltd</code> / <code>--bttm</code> still work). If you change them, change the device addresses in Setup to match.</td></tr>
   <tr><td><code>--orb URL</code></td><td><code>http://127.0.0.1:8080</code></td><td>Where the server runs, if not on the default port (<code>--pitwall</code> still works).</td></tr>
+  <tr><td><code>--gpsShift E,N</code> <span class="new">NEW</span></td><td><code>0,0</code></td><td>Moves everything the simulated Agile reports by E metres east and N metres north (negative for west and south), to rehearse a track preset that does not sit exactly on the Agile's lap. Example: <code>--gpsShift 25,-15</code>.</td></tr>
 </table>
 
 <h2 id="s4-5">4.5 Guided exercises</h2>
@@ -470,8 +475,12 @@ Data folder:            C:\Orb\data</pre>
 <figure><img src="img/pittimers.png" alt="Pit lane card"><figcaption>Pit lane card: fuelling against the regulation minimum, planned and recorded, jobs and refuel crew</figcaption></figure>
 
 <h3>Track map and Car feed summary</h3>
-<figure><img src="img/map.png" alt="Track map"><figcaption>Track map (top of the right column)</figcaption></figure>
+<figure><img src="img/map.png" alt="Track map, schematic"><figcaption>Track map, Schematic view (top of the right column), turned to fill the card <span class="new">NEW</span></figcaption></figure>
 <p>The track map shows the circuit with its turn numbers, the start/finish line and the pit zones; the dot is the car (coloured by car state, grey if the position is old) with a short trail. Until the Agile has recorded its own reference lap the outline comes from the track preset; after that the Agile's recorded lap is used, which is exact for the car's own GPS.</p>
+<p><b>Preset aligned to the Agile lap</b> <span class="new">NEW</span>. When the Agile's lap arrives, Orb slides the preset onto it (a pure shift, no turning or stretching) and moves the preset turn numbers, pit lane, pits, fuel area and start/finish by the same amount. The line under the map says how far it moved and how well the shapes agree, for example <i>aligned to the Agile lap: shifted 12 m SE, shapes agree within 2 m</i>. If they do not match (another track, or the Agile somewhere else) the preset overlays are hidden and the line says why; the Agile's own geofences and start/finish are still drawn.</p>
+<figure><img src="img/map-satellite.png" alt="Track map, satellite"><figcaption>Track map, Satellite view: the same overlays on dimmed imagery, with zoom, Fit, Follow and the north arrow <span class="new">NEW</span></figcaption></figure>
+<p><b>Schematic or Satellite</b> <span class="new">NEW</span>. The two buttons in the card header switch the view; each browser remembers its choice. Satellite draws the same circuit, geofences, turns, pits, start/finish, car and trail on darkened satellite imagery. <b>+</b> / <b>-</b> zoom, drag to pan, <b>Fit</b> shows the whole track again and <b>Follow</b> keeps the car centred. The imagery comes through the pit wall laptop, which fetches each piece once while it is online and keeps it (<code>data\tiles</code>); phones and tablets on the pit Wi-Fi get it from the laptop and need no internet of their own. Download the track before the weekend (section 5.13, <b>Track map imagery</b>). With no imagery at all (offline and not downloaded) the card shows the schematic with a note and tries again every minute.</p>
+<p><b>Turned to fit, North up</b> <span class="new">NEW</span>. The card is wide and short, so a track that runs north-south is turned to the angle that draws it biggest (Collie: 82&deg;, about twice the size). The <b>north arrow</b> in the corner turns with the map. <b>North up</b> in the card header, or a click on the arrow in the satellite view, puts north at the top again; each browser remembers it. A live trail with no outline is never turned.</p>
 <figure><img src="img/telemetry.png" alt="Car feed summary"><figcaption>Car feed summary with micro-sectors and the four Sentinel corners</figcaption></figure>
 <p>The <b>Car feed summary</b> gives last lap, best lap, reference pace (median of recent clean green laps), live delta and speed; the micro-sectors of the current lap (green faster, red slower, purple best, grey not yet run, white outline = the sector the car is in); and the four corners from the Sentinel: brake and tyre temperature and TPMS pressure. Corner values are grey when in range, amber in the Sentinel red band and flashing red above the top band.</p>
 
@@ -628,14 +637,16 @@ Data folder:            C:\Orb\data</pre>
   <tr><td>Team members</td><td>Name, driver yes/no, roles (driver, mechanic, refueller, assistant, cutoff, pump, fire, raceceiver, engineer, timing, other). Drivers' order is the rotation.</td></tr>
   <tr><td>Tyres, policies &amp; devices</td><td>Tyre sets, new and minimum tread; rest after hours on duty; minimum driver rest; crew shift length; max stint; when to change drivers; stint safety margin; fill to brim; clock format; Agile, Sentinel and UDP addresses.</td></tr>
   <tr><td>Branding</td><td>The Mullaloo Motorsport Engineering logo is built in; upload a PNG/SVG only to replace it, <b>Use default logo</b> to go back.</td></tr>
+  <tr><td>Track map imagery <span class="new">NEW</span></td><td>Engineer only. <b>Download track tiles</b> stores the satellite imagery of the track and 400 m around it (the Agile's lap if there is one, else the track preset, else around the car's last position), from zoom 14 up to the best the provider has there, and reports progress, then <i>Ready offline</i>. Tile URL, attribution and max zoom set the imagery source (Esri World Imagery by default; <b>Use the default source</b> goes back). Check the provider's terms of use for your team. Where the provider has no imagery that close (at Collie, above zoom 18), the map uses its closest real zoom.</td></tr>
   <tr><td>Checks</td><td>Warnings before you race: too few drivers for the format, tank over the regulation maximum, tank sizes not confirmed, refuel roles nobody holds, no Raceceiver relay (BEERS), headlights for 24 h+ races.</td></tr>
 </table>
 <figure><img src="img/setup-stock.png" alt="Fuel stock in Setup"><figcaption>Fuel stock for the weekend, with the suggestion worked out <span class="new">NEW</span></figcaption></figure>
 
 <h2 id="s5-14">5.14 Track layout - Collie Motorplex long circuit</h2>
-<p>The Collie Motorplex preset is the long circuit: 2.55 km, 13 turns, run anti-clockwise, start/finish on the straight between T13 and T1. The centreline was fitted to satellite imagery of the venue (true shape and orientation, north up) using the official layout for the turn order, and scaled to 2.55 km. The pit lane, pits area, fuel area, pit entry and exit lines and the start/finish line come from the team's own mark-ups of the pit complex. The pit lane is about 460 m from entry to exit and runs alongside the start/finish straight; the pits area comes before the fuel area, then the exit.</p>
+<p>The Collie Motorplex preset is the long circuit: 2.55 km, 13 turns, run anti-clockwise, start/finish on the straight between T13 and T1. <span class="new">NEW</span> From 2.2.22 the centreline is the median of 11 laps of Sentinel GNSS (10 Hz, 12-16 satellites) recorded at the 26 April 2026 Collie test: 2.543 km, and the laps agree within about 1.3 m. It lies on the asphalt in satellite imagery. The turn numbers, pit lane, pits area, fuel area, pit entry and exit lines and the start/finish line come from the earlier traced layout and the team's mark-ups of the pit complex, turned onto the GNSS line (the shapes agree within 2.3 m); the turns and start/finish sit on the line. The pit geometry is good to about 5-8 m. The pit lane is about 460 m from entry to exit and runs alongside the start/finish straight; the pits area comes before the fuel area, then the exit.</p>
+<div class="box"><b>Fixed in 2.2.22</b>Before 2.2.22 the preset was drawn about 9.4 km north-east of the circuit and turned about 80&deg;. Weekends created before then keep their settings, but the map now always draws the Collie layout from the current track file.</div>
 <figure class="half"><img src="img/collie-official-layout.png" alt="Official Collie layout"><figcaption>Figure 13 - Collie Motorplex long circuit, official layout (red). The grey link is the short-circuit connection and is not part of the long circuit.</figcaption></figure>
-<p>The map uses the preset until the Agile has recorded its own reference lap, then the Agile's lap (exact for the car's GPS). Turn numbers and the pit lane stay on the map whenever they line up with the drawn circuit. The preset's absolute GPS position is approximate; at the track the Agile's recorded lap and its stored geofences are what the app uses.</p>
+<p>The map uses the preset until the Agile has recorded its own reference lap, then the Agile's lap (exact for the car's GPS). Turn numbers, the pit lane and the start/finish line are moved onto the Agile's lap (section 5.5) and stay on the map whenever they line up with it. At the track the Agile's recorded lap and its stored geofences are what the app uses.</p>
 
 <!-- ============================================================ 6 -->
 <h1 id="s6">6. Running a real race weekend</h1>
@@ -648,6 +659,7 @@ Data folder:            C:\Orb\data</pre>
   <li>Clear all warnings in <b>Checks</b>, then <b>Create race weekend</b>.</li>
   <li>In <b>Team</b>, press <b>Draft shifts from the plan</b> and adjust blocks as needed. Open <b>Fuel Plan</b> and check the crew forecast for each fuel stop.</li>
   <li>In <b>Log - Saved plans</b> press <b>Save plan</b>. Rehearse with the simulator if you like; on race day press <b>Start a copy</b> on the plan for a clean weekend. <span class="new">NEW</span></li>
+  <li>While you still have internet, open <b>Setup - Track map imagery</b> and press <b>Download track tiles</b> until it reads <i>Ready offline</i>, so the satellite map works at the track. <span class="new">NEW</span></li>
 </ol>
 
 <h2>6.2 At the track: connect the car</h2>
@@ -762,7 +774,7 @@ Data folder:            C:\Orb\data</pre>
 <h1 id="s9">9. Data, backup and recovery</h1>
 <table>
   <tr><th style="width:40%">Path (inside the data folder)</th><th>Content</th></tr>
-  <tr><td><code>settings.json</code></td><td>Port, engineer hosts, last weekend (resumed automatically)</td></tr>
+  <tr><td><code>settings.json</code></td><td>Port, engineer hosts, last weekend (resumed automatically), satellite imagery source</td></tr>
   <tr><td><code>cars\</code></td><td>Car library with learned fuel profiles per track</td></tr>
   <tr><td><code>events\&lt;id&gt;\config.json</code></td><td>The weekend as created</td></tr>
   <tr><td><code>events\&lt;id&gt;\events.jsonl</code></td><td>Every change, one line each: the race log and replay source (scenario undo history and fuel stock movements included)</td></tr>
@@ -770,6 +782,7 @@ Data folder:            C:\Orb\data</pre>
   <tr><td><code>plans\&lt;date&gt;_&lt;time&gt;_&lt;name&gt;.orb.json</code> <span class="new">NEW</span></td><td>Saved plans (and <code>_auto</code> plans saved at the first session)</td></tr>
   <tr><td><code>plans\deleted\</code> <span class="new">NEW</span></td><td>Plans you deleted</td></tr>
   <tr><td><code>branding\</code></td><td>Your logo</td></tr>
+  <tr><td><code>tiles\</code> <span class="new">NEW</span></td><td>Satellite imagery cache for the Track map, one folder per imagery source. Safe to delete; download it again before the weekend.</td></tr>
 </table>
 <ul>
   <li>Changes are written to disk the moment they are made; a power cut loses at most the last change.</li>
@@ -792,6 +805,9 @@ Data folder:            C:\Orb\data</pre>
   <tr><td>Agile or Sentinel light red</td><td>Wrong IP, laptop not on the car network, or device off. Check the IP on the device screen and in Setup.</td></tr>
   <tr><td>Agile amber ("stale")</td><td>Connected but no live data for 3 s: weak Wi-Fi or the device is busy.</td></tr>
   <tr><td>No track map / no micro-sectors</td><td>The Agile has no reference lap yet; it records one after the first clean lap. The live trail is drawn meanwhile.</td></tr>
+  <tr><td>Satellite view shows the schematic with "No satellite imagery here" <span class="new">NEW</span></td><td>The laptop is offline and this area was not downloaded. When online, press <b>Setup - Track map imagery - Download track tiles</b> until it reads <i>Ready offline</i>.</td></tr>
+  <tr><td>The map says the preset "does not match the Agile lap" <span class="new">NEW</span></td><td>The Agile's lap is a different track, or the Agile is somewhere else (a test away from the circuit). The Agile's own lap and geofences are still drawn; only the preset's turns, pits and start/finish are hidden.</td></tr>
+  <tr><td>The map is sideways <span class="new">NEW</span></td><td>It is turned to fill the card; the arrow shows north. Press <b>North up</b> in the card header for north at the top.</td></tr>
   <tr><td>Handshake step stays amber</td><td>The geofence saw the step and you have not confirmed it. Press the step's button, or leave it: it becomes AUTO once the car moves on.</td></tr>
   <tr><td>+1 lap greyed out</td><td>The extra lap would bring the fuel below the reserve or the stint over the maximum; the tooltip gives the reason.</td></tr>
   <tr><td>Refuel crew UNASSIGNED</td><td>Nobody is tagged with that role, or everyone tagged is resting, sleeping, offline, driving or barred by the rules. Press <b>FIX</b>, or tag more people in Setup.</td></tr>
@@ -816,13 +832,14 @@ Data folder:            C:\Orb\data</pre>
   <li>One server at a time: versions 1.x and 2.x use the same port and the same data folder.</li>
   <li>Crew for fuel stops after the next one is a forecast from the shift plan; the real crew is assigned from who is Available at the 5-minute summon.</li>
   <li>The fuel stock counts every session at the green-flag burn; Safety Cars outside the race plan only add spare.</li>
-  <li>The Collie preset's absolute GPS position is approximate. The Agile's recorded lap and geofences replace it at the track.</li>
+  <li>The Collie preset's pit geometry is good to about 5-8 m (the circuit outline itself comes from real GNSS laps). The Agile's recorded lap and geofences take over at the track. <span class="new">NEW</span></li>
+  <li>The satellite view needs its imagery downloaded while online (<b>Download track tiles</b>); without it, offline, the card shows the schematic. Satellite imagery can itself be a few metres off true GNSS. <span class="new">NEW</span></li>
 </ul>
 
 <!-- ============================================================ 12 -->
 <h1 id="s12">12. Reporting feedback</h1>
 <p>When something is wrong or unclear, open an issue at <a href="https://github.com/redc6t/Orb/issues">github.com/redc6t/Orb/issues</a> or send the following. The weekend file and the CSV let the problem be replayed exactly.</p>
-<pre>Orb - Pit Wall Strategy Manager v2.2.19 - test report
+<pre>Orb - Pit Wall Strategy Manager v2.2.23 - test report
 Tester:
 Date / time of the problem (laptop clock):
 Weekend: demo / real (name):
@@ -910,6 +927,10 @@ Weekend file (.orb.json) and event log CSV: attached (Log tab - Weekend files)</
 <h1 id="appC">Appendix C - Version history</h1>
 <table>
   <tr><th style="width:12%">Version</th><th>Change</th></tr>
+  <tr><td>2.2.23</td><td>Track map turned to fit the card; north arrow and North up.</td></tr>
+  <tr><td>2.2.22</td><td>Collie layout rebuilt from real GNSS laps.</td></tr>
+  <tr><td>2.2.21</td><td>Satellite track map with an offline tile cache; Download track tiles.</td></tr>
+  <tr><td>2.2.20</td><td>Preset turns, pits and S/F aligned to the Agile lap; simulator <code>--gpsShift</code>.</td></tr>
   <tr><td>2.2.19</td><td>Manual rebuilt for Orb; source kept in <code>docs/manual/</code>; fresh screenshots.</td></tr>
   <tr><td>2.2.18</td><td>Shifts editor highlights the current block.</td></tr>
   <tr><td>2.2.17</td><td>Simulator: red flag freezes a stop; realistic brake/tyre cooling; real Agile deltas and micro-sectors.</td></tr>
@@ -930,7 +951,7 @@ Weekend file (.orb.json) and event log CSV: attached (Log tab - Weekend files)</
   <tr><td>2.1.x</td><td>Draggable scenarios, lap countdown call, stop gates, Collie preset.</td></tr>
   <tr><td>2.0</td><td>UI redesign following ISA-101 practice.</td></tr>
 </table>
-<p style="margin-top:20px" class="muted">Orb is free and open source software, released under the GNU General Public License v3.0. Designed and developed by Pietro Gambarin, Mullaloo Motorsport Engineering.</p>
+<p style="margin-top:20px" class="muted">Orb is free and open source software, released under the GNU General Public License v3.0. Designed and developed by Pietro Gambarin, Mullaloo Motorsport Engineering. The satellite map uses Leaflet 1.9.4 (BSD-2-Clause) and leaflet-rotate 0.2.8 (GPL-3.0), bundled in <code>public/vendor/</code> with their licences; the default imagery is Esri World Imagery, credited on the map.</p>
 
 </body>
 </html>
