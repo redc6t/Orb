@@ -53,6 +53,9 @@ function append(type, payload, by, src) {
     try { const f = store.savePlan(null, { auto: true, note: 'Saved automatically when the first session started' }); console.log('Plan saved: plans/' + f); broadcastPlans(); }
     catch (err) { console.warn('Could not save the plan before the first session: ' + err.message); }
   }
+  // the car may be sitting in the pits or fuel bay when the session starts: take Agile's state first,
+  // logged before the start so it sets the header without opening a pit stop
+  if (type === 'session.start') syncAgileCarState();
   const e = store.append(type, payload, by, src);
   broadcast({ t: 'evt', e });
   return e;
@@ -65,13 +68,26 @@ function configureDevices() {
   const dv = (store.state && store.state.config.devices) || {};
   agile.configure(dv.agile); sentinel.configure(dv.sentinel); udp.configure(dv.udp);
 }
-const sessionActive = () => !!(store.state && store.state.activeSessionId);
+const PIT_STATES = new Set(['PIT ENTRY', 'PITS', 'FUELLING']);
+const sessionActive = () =>!!(store.state && store.state.activeSessionId);
 [agile, sentinel, udp].forEach(a => a.on('status', () => broadcast({ t: 'devices', devices: devices() })));
 // each lap carries the Sentinel peaks seen during it, so stint debriefs survive replay
 const withPeaks = l => { const pk = sentinel.takePeaks(); return pk ? Object.assign({}, l, { peaks: pk }) : l; };
-agile.on('lap', l => { if (sessionActive()) append('lap', withPeaks(l), 'agile', 'agile'); });
-agile.on('carstate', cs => { if (store.state && store.state.carState.current !== cs) append('carstate', { cs }, 'agile', 'agile'); });
-agile.on('carstate-initial', cs => { if (store.state && sessionActive() && store.state.carState.current !== cs && cs !== 'RUNNING') append('carstate', { cs }, 'agile', 'agile'); });
+agile.on('lap', l => {
+  if (!sessionActive()) return;
+  // a lap the car finished reporting RUNNING proves it is out: clears a pit state Orb missed the exit of
+  if (agile.lastCs === 'RUNNING' && PIT_STATES.has(store.state.carState.current)) append('carstate', { cs: 'RUNNING' }, 'agile', 'agile');
+  append('lap', withPeaks(l), 'agile', 'agile');
+});
+const followAgile = cs => { if (store.state && store.state.carState.current !== cs) append('carstate', { cs }, 'agile', 'agile'); };
+agile.on('carstate', followAgile);
+// first frame after (re)connecting: Agile's state wins, RUNNING included - Orb may have restarted or lost
+// the link while the car was in the pits, and skipping RUNNING left the header stuck on PITS
+agile.on('carstate-initial', followAgile);
+function syncAgileCarState() {
+  const cs = agile.status === 'connected' && !agile.stale() && agile.lastCs;
+  if (cs && store.state && !sessionActive() && store.state.carState.current !== cs) append('carstate', { cs }, 'agile', 'agile');
+}
 agile.on('flagstate', f => {
   if (!store.state) return;
   if (agile.flagSentAt && Date.now() - agile.flagSentAt < 2500) return;   // echo of our own flag change, still settling
