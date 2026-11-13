@@ -305,7 +305,7 @@ Data folder:            C:\Orb\data</pre>
 <div class="ex"><h3>Exercise 4 - Safety Car (5 min)</h3>
 <ol>
   <li>Press <b>SC</b> in Race control. The flag turns orange and the simulated car slows down; the live delta grows.</li>
-  <li>Under BEERS rules refuelling is closed under Yellow/SC, so if a fuel stop is near the call says STAY OUT - refuelling closed. Under B4B rules the same situation gives BOX NOW.</li>
+  <li>Under BEERS rules refuelling is closed under Yellow/SC, so if a fuel stop is near the call says STAY OUT - refuelling closed. Orb never calls BOX NOW because of a caution: you decide whether to stop under Safety Car and send BOX BOX yourself.</li>
   <li>Open <b>Scenarios</b>: the Safety Car is drawn on every bar as real past. Press <b>GREEN</b> to resume.</li>
 </ol></div>
 <div class="ex"><h3>Exercise 5 - Red flag (5 min) <span class="new">NEW</span></h3>
@@ -379,7 +379,7 @@ Data folder:            C:\Orb\data</pre>
   <tr><td>MESSAGE</td><td>Pit board: BOX BOX, BOX NEXT LAP, STAY OUT, PUSH, SAVE FUEL, custom text.</td><td>None. Shown on the Agile dash and logged with the driver's acknowledgement. BOX BOX does not create a stop: the stop starts when the car crosses the pit-entry geofence.</td></tr>
   <tr><td>Information</td><td>Car issues, penalties, crew status, tyre measurements, fuel stock movements, notes.</td><td>No direct effect on stop timing (crew status and driver availability change who is assigned and the rotation; the fuel stock raises its own alert).</td></tr>
 </table>
-<div class="box"><b>Why flags are strategy, not messages</b>A track flag changes the strategy because the rules and the car change: under Safety Car or Yellow the car burns less fuel, under BEERS rules refuelling is closed, and the call may become BOX NOW. A red flag neutralises the race and holds the car in the pits. The flag is also shown on the Agile dash, but that is a side effect.</div>
+<div class="box"><b>Why flags are strategy, not messages</b>A track flag changes the strategy because the rules and the car change: under Safety Car or Yellow the car burns less fuel, under BEERS rules refuelling is closed. Whether to stop under caution is your call: Orb does not turn it into BOX NOW. A red flag neutralises the race and holds the car in the pits. The flag is also shown on the Agile dash, but that is a side effect.</div>
 
 <h2 id="s5-3">5.3 Status bar</h2>
 <figure><img src="img/status.png" alt="Status bar"><figcaption>Figure 1 - Status bar</figcaption></figure>
@@ -505,6 +505,7 @@ Data folder:            C:\Orb\data</pre>
   <li><b>Laps</b> - lap history with each lap's class: push, green, slow, SC, pit.</li>
   <li><b>Fuel trace</b> - fuel level over the race: solid so far, dashed planned, red reserve line.</li>
   <li><b>Fuel model</b> - green and Safety Car burn rates, every measurement used to learn them, <b>Log gauge reading</b>, and <b>Save learned burn to this car</b>.</li>
+  <li><b>Burn per tank</b> - each tank from fill to fill: drivers, laps, time, the litres the next fill put back, L/h and L/lap. Press <b>Filled to full</b> on a fill when the tank was full after it; full to full, the fuel model learns the real burn from it.</li>
   <li><b>What-if</b> - lap time change, a Safety Car of N minutes with a fuel saving, or a green burn change. Local to the screen and never saved.</li>
   <li><b>Regulations</b> - the profile in force and its key rules.</li>
 </ul>
@@ -710,6 +711,8 @@ Data folder:            C:\Orb\data</pre>
 <h1 id="s7">7. How the strategy works</h1>
 <h2>7.1 Fuel model</h2>
 <p>Burn starts from the car's baseline for the track (green and Safety Car litres per hour). Every lap is classified by its time against the live reference pace: push, green, slow, Safety Car or pit lap; stationary time in the pits burns nothing. Each brim fill or gauge reading is a measurement of the fuel actually used since the previous one; a regression then refits the green and Safety Car rates, with the baseline as a starting point. A stint that used more than 10% more or less than predicted raises an alert. The estimate shows its uncertainty, which grows with time since the last measurement.</p>
+<p>Taking the fuel off a stop (0 L on the Fuel tab, or <b>Make it a stop without fuel</b> on the Plans tab) moves the fuel to the next stop of the plan, with its driver change. If the fuel left cannot reach that stop, it comes forward to the time the car reaches the reserve.</p>
+<p>Once a tank has been measured full to full, the plan uses the average burn of those tanks per hour on track (slow laps and Safety Cars included) instead of the race-pace green rate.</p>
 <h2>7.2 Planner</h2>
 <p>From the current moment to the flag, the planner searches the number of stops, how many of them are fuel stops and where they fall, and picks the plan with the least total time stationary while respecting:</p>
 <ul>
@@ -895,7 +898,6 @@ Weekend file (.orb.json) and event log CSV: attached (Log tab - Weekend files)</
   <tr><td>NOTIFY DRIVER: BOX BOX</td><td>The planned stop is at the end of this lap and the driver has not been told yet. Send BOX BOX, or press +1 lap.</td></tr>
   <tr><td>BOX THIS LAP (amber)</td><td>Last lap, BOX BOX already sent; shows when it was sent and whether the driver acknowledged.</td></tr>
   <tr><td>BOX THIS LAP (red)</td><td>Fuel at reserve, or the driver at the stint limit.</td></tr>
-  <tr><td>BOX NOW (caution)</td><td>Yellow / Safety Car and a stop is near: stopping under caution loses less time (only where refuelling is allowed under that flag).</td></tr>
   <tr><td>STAY OUT - refuelling closed</td><td>A fuel stop is near but the flag forbids refuelling.</td></tr>
   <tr><td>IN PITS</td><td>The car is in the pit lane.</td></tr>
   <tr><td>RED FLAG</td><td>Race neutralised - car to the pits, engine off, wait for the restart (no refuelling where the rules forbid it).</td></tr>

@@ -11,6 +11,7 @@ const { WebSocketServer } = require('ws');
 const Store = require('./lib/store');
 const D = require('./lib/defaults');
 const E = require('./public/js/shared/engine.js');
+const R = require('./public/js/shared/reducer.js');
 const AgileAdapter = require('./lib/adapters/agile');
 const SentinelAdapter = require('./lib/adapters/sentinel');
 const UdpAdapter = require('./lib/adapters/udp');
@@ -38,9 +39,9 @@ function clientIP(req) { return String(req.socket.remoteAddress || '').replace(/
 function isEngineer(req) { const ip = clientIP(req); if ((process.env.ORB_ENGINEER || process.env.PITWALL_ENGINEER) === 'loopback') return ip === '127.0.0.1' || ip === '::1'; return localIPs.has(ip) || (store.settings.engineerHosts || []).includes(ip); }
 
 // ------------------------------------------------------------------ actions
-const ACTIONS = new Set(['setup.update', 'session.start', 'session.end', 'flag.set', 'carstate', 'lap', 'stop.service', 'fuel.check', 'fuel.refuel', 'stock.add', 'stock.count',
-  'driver.set', 'driver.queue', 'crew.status', 'crew.shifts', 'crew.shiftsAll', 'crew.override', 'issue.add', 'issue.update', 'tyre.mount', 'tyre.unmount',
-  'tyre.measure', 'tyre.status', 'pitmsg.send', 'penalty.add', 'note', 'alert.ack', 'stint.extend',
+const ACTIONS = new Set(['setup.update', 'session.start', 'session.end', 'flag.set', 'carstate', 'lap', 'stop.service', 'fuel.check', 'fuel.full', 'fuel.refuel', 'stock.add', 'stock.count',
+  'driver.set', 'driver.queue', 'crew.status', 'crew.shifts', 'crew.shiftsAll', 'crew.override', 'crew.pick', 'issue.add', 'issue.update', 'tyre.mount', 'tyre.unmount',
+  'tyre.measure', 'tyre.status', 'pitmsg.send', 'penalty.add', 'note', 'alert.ack', 'stint.extend', 'lap.set',
   'gate.ack', 'gate.cmd', 'stop.void', 'scenario.init', 'scenario.set', 'scenario.reset', 'scenario.activate',
   'scenario.undo', 'scenario.redo', 'scenario.clone', 'scenario.remove']);
 
@@ -56,6 +57,14 @@ function append(type, payload, by, src) {
   // the car may be sitting in the pits or fuel bay when the session starts: take Agile's state first,
   // logged before the start so it sets the header without opening a pit stop
   if (type === 'session.start') syncAgileCarState();
+  // one pit visit = one stop: a pit state moments after the last stop closed reopens that stop (pit state flicker)
+  if (type === 'carstate' && store.state && store.state.activeSessionId && !store.state.openStopId && R.PIT_STATES.indexOf(payload.cs) >= 0) {
+    const sts = store.state.stops, last = sts[sts.length - 1];
+    if (last && !last.voided && !last.red && last.outTs && last.sessionId === store.state.activeSessionId && Date.now() - last.outTs < R.PIT_MERGE_MS) {
+      payload = Object.assign({}, payload, { reopen: last.id });
+      console.log('Car back in the pits ' + Math.round((Date.now() - last.outTs) / 1000) + ' s after stop ' + last.id + ' closed - same pit visit, stop reopened');
+    }
+  }
   const e = store.append(type, payload, by, src);
   broadcast({ t: 'evt', e });
   return e;

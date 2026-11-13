@@ -36,9 +36,21 @@
   }
   V.iconKey = iconKey;
   function fixBtn(ctx) { return ctx.eng ? ' <button class="btn sm danger" data-act="crewfix">FIX</button>' : ''; }
+  // engineer: every name is a dropdown - pick anyone for the role (held until the next fuel stop is done), or Auto to let Orb choose
+  function crewPick(ctx, a) {
+    var byId = {}; (ctx.d.crew || []).forEach(function (c) { byId[c.id] = c; });
+    var opts = '<option value="">' + (a.manual ? 'Auto (Orb picks)' : a.name ? esc(a.name) + ' (auto)' : 'UNASSIGNED (auto)') + '</option>';
+    (ctx.s.config.members || []).forEach(function (m) {
+      var c = byId[m.id], st = c && c.status !== 'available' ? ' - ' + (U.STATUS_LABEL[c.status] || c.status).toLowerCase() : '';
+      opts += '<option value="' + esc(m.id) + '"' + (a.manual && a.memberId === m.id ? ' selected' : '') + '>' + esc(m.name) + st + '</option>';
+    });
+    return '<select class="crew-pick' + (a.manual ? ' manual' : '') + (a.name ? '' : ' crit-t') + '" data-act-change="crewpick" data-role="' + esc(a.key) + '" aria-label="' + esc(a.label) + '" title="Change who does this at the next fuel stop">' + opts + '</select>';
+  }
   function crewLines(rc, ctx) {
+    var eng = ctx && ctx.eng;
     return '<div class="crew-line">' + rc.assign.map(function (a) {
-      return '<span class="r">' + esc(a.label.replace(' (9 kg foam)', '')) + '</span><span>' + (a.name ? '<b>' + esc(a.name) + '</b>' : '<b class="crit-t">UNASSIGNED</b>' + (ctx ? fixBtn(ctx) : '') + ' <span class="tiny muted">' + esc(a.reason || '') + (a.suggest && a.suggest.length ? ' - available: ' + esc(a.suggest.join(', ')) : '') + '</span>') + '</span>';
+      var who = eng ? crewPick(ctx, a) + (a.manual ? ' <span class="tiny muted">set by hand</span>' : '') + (a.ruleWarn ? ' <span class="tiny crit-t">' + esc(a.ruleWarn) + '</span>' : '') : (a.name ? '<b>' + esc(a.name) + '</b>' : '<b class="crit-t">UNASSIGNED</b>');
+      return '<span class="r">' + esc(a.label.replace(' (9 kg foam)', '')) + '</span><span>' + who + (a.name ? '' : (ctx ? fixBtn(ctx) : '') + ' <span class="tiny muted">' + esc(a.reason || '') + (a.suggest && a.suggest.length ? ' - available: ' + esc(a.suggest.join(', ')) : '') + '</span>') + '</span>';
     }).join('') + '</div>';
   }
   function pitTarget(d) { var os = d.stops.open, last = d.stops.list[d.stops.list.length - 1]; return os || (last && !last.serviced ? last : null); }
@@ -178,6 +190,7 @@
     }
     var st = g.stop, pl = g.planned || {};
     var h = '<div class="small">Stop ' + st.id + ' opened by the ' + (st.src === 'manual' ? 'engineer' : 'pit-entry geofence') + ' at ' + U.clock(st.inTs, true) + '. Planned: ' + stopType(pl.type || 'stop') + (pl.add ? ', ' + (pl.brim ? 'brim ' : '') + pl.add + ' L (' + (pl.cans || '-') + ' cans)' : ', no fuel') + (pl.change ? ', ' + esc(name(ctx, pl.driverIn)) + ' in' : '') + '.</div>';
+    if (g.held && !g.driverAck) h += '<div class="tiny muted" style="margin-top:2px">Driver held: ' + esc(name(ctx, s.drivers.pendingIn || s.drivers.activeId)) + ' stays unless you change it here (your last driver call stands until the car does a racing lap).</div>';
     h += '<div class="hsrows">' + g.list.map(function (x) { return gateRow(ctx, g, x, agileOn); }).join('') + '</div>';
     if (g.done) h += '<div class="small ok-t" style="margin-top:6px">Stop ' + st.id + ' complete - the car has left the pit lane.</div>';
     else if (g.allSteps) h += '<div class="small warn-t" style="margin-top:6px">All steps confirmed - waiting for the pit-exit geofence.</div>';
@@ -507,7 +520,7 @@
   var FEED_TYPES = { 'alert': 1, 'flag.set': 1, 'stop.service': 1, 'pitmsg.send': 1, 'pitmsg.ack': 1, 'issue.add': 1, 'penalty.add': 1, 'crew.status': 1, 'driver.set': 1, 'session.start': 1, 'session.end': 1, 'note': 1, 'gate.ack': 1, 'stop.void': 1, 'scenario.activate': 1 };
   // what changes the strategy timeline, what is only a message
   V.effectOf = function (e) {
-    if ({ 'flag.set': 1, 'stop.service': 1, 'gate.ack': 1, 'stop.void': 1, 'driver.set': 1, 'driver.queue': 1, 'scenario.activate': 1, 'scenario.set': 1, 'scenario.reset': 1, 'scenario.undo': 1, 'scenario.redo': 1, 'scenario.clone': 1, 'scenario.remove': 1, 'session.start': 1, 'session.end': 1, 'fuel.check': 1, 'fuel.refuel': 1, 'stock.add': 1, 'stock.count': 1, 'carstate': 1, 'lap': 1, 'setup.update': 1 }[e.type]) return 'strat';
+    if ({ 'flag.set': 1, 'stop.service': 1, 'gate.ack': 1, 'stop.void': 1, 'driver.set': 1, 'driver.queue': 1, 'scenario.activate': 1, 'scenario.set': 1, 'scenario.reset': 1, 'scenario.undo': 1, 'scenario.redo': 1, 'scenario.clone': 1, 'scenario.remove': 1, 'session.start': 1, 'session.end': 1, 'fuel.check': 1, 'fuel.full': 1, 'fuel.refuel': 1, 'stock.add': 1, 'stock.count': 1, 'carstate': 1, 'lap': 1, 'setup.update': 1 }[e.type]) return 'strat';
     if (e.type === 'pitmsg.send' || e.type === 'pitmsg.ack' || e.type === 'pitmsg.shown') return 'msg';
     return 'info';
   };
@@ -542,7 +555,7 @@
 
   /* ================================================================== PLAN */
   V.plan = function (ctx) {
-    return { layout: 'plan-grid', cols: [[panelStints(ctx), panelLaps(ctx)], [panelTrace(ctx), panelModel(ctx), panelWhatIf(ctx), panelRules(ctx)]] };
+    return { layout: 'plan-grid', cols: [[panelStints(ctx), panelLaps(ctx)], [panelTrace(ctx), panelModel(ctx), panelTanks(ctx), panelWhatIf(ctx), panelRules(ctx)]] };
   };
 
   function panelStints(ctx) {
@@ -731,14 +744,32 @@
   function panelModel(ctx) {
     var d = ctx.d, m = d.fuel.model;
     var rows = m.periods.slice(-6).reverse().map(function (p) {
-      var pred = m.G * p.g + m.S * p.s;
+      var pred = m.avg != null ? m.avg * (p.g + p.s) : m.G * p.g + m.S * p.s;
       return '<tr><td class="num">' + U.clock(p.t1) + '</td><td>' + esc(p.kind) + '</td><td class="num">' + U.L(p.M) + '</td><td class="num">' + U.L(pred) + '</td><td class="num">' + U.L((p.g + p.s), 2) + ' h</td></tr>';
     }).join('');
-    var body = '<div class="row"><div><span class="lbl">Green</span><b class="mono" style="font-size:1.2em">' + U.L(m.G, 2) + '</b> <span class="small muted">L/h (baseline ' + U.L(m.G0, 2) + ')</span></div><span class="spacer"></span><div><span class="lbl">Safety car</span><b class="mono" style="font-size:1.2em">' + U.L(m.S, 2) + '</b> <span class="small muted">L/h</span></div></div>';
+    var body = '<div class="row"><div><span class="lbl">' + (m.avg != null ? 'Plan burn' : 'Green') + '</span><b class="mono" style="font-size:1.2em">' + U.L(m.G, 2) + '</b> <span class="small muted">L/h (baseline ' + U.L(m.G0, 2) + ')</span></div><span class="spacer"></span><div><span class="lbl">Safety car</span><b class="mono" style="font-size:1.2em">' + U.L(m.S, 2) + '</b> <span class="small muted">L/h</span></div></div>';
+    if (m.avg != null) body += '<div class="small muted" style="margin-top:6px">Average of ' + m.nAvg + ' tank' + (m.nAvg > 1 ? 's' : '') + ' measured full to full: ' + U.L(m.avgL, 0) + ' L in ' + U.L(m.avgH, 2) + ' h on track (' + U.L(m.avg, 2) + ' L/h, slow laps and Safety Cars included). Race-pace green rate from the same data: ' + U.L(m.Gfit, 2) + ' L/h.</div>';
     if (m.deviation && Math.abs(m.deviation.pct) >= 5) body += '<div class="note ' + (Math.abs(m.deviation.pct) >= 10 ? 'warn' : '') + '" style="margin-top:8px">Last measured stint: ' + U.L(m.deviation.measured) + ' L vs ' + U.L(m.deviation.predicted) + ' L predicted (' + (m.deviation.pct > 0 ? '+' : '') + m.deviation.pct.toFixed(0) + '%).</div>';
     body += rows ? '<table style="margin-top:8px"><thead><tr><th class="num">At</th><th>Measured by</th><th class="num">Used L</th><th class="num">Model L</th><th class="num">Span</th></tr></thead><tbody>' + rows + '</tbody></table>' : '<div class="small muted" style="margin-top:8px">No measurements yet. Brim fills and gauge readings calibrate the model.</div>';
     if (ctx.eng) body += '<div class="row" style="margin-top:8px">' + (d.session.running ? '<button class="btn sm" data-act="gauge">Log gauge reading</button>' : '') + (m.nCal ? '<button class="btn sm" data-act="savemodel">Save learned burn to this car</button>' : '') + '</div>';
     return { id: 'model', html: card('Fuel model', body, m.nCal ? m.nCal + ' measured stint' + (m.nCal > 1 ? 's' : '') : 'baseline') };
+  }
+
+  // Burn per tank: laps and time between fills, and what the next fill put back. Full to full, that is the real burn.
+  function panelTanks(ctx) {
+    var d = ctx.d, tk = d.fuel.tanks, m = d.fuel.model;
+    if (!tk || (!tk.rows.length && !tk.current)) return { id: 'tanks', html: card('Burn per tank', '<div class="small muted">Starts when the race session starts.</div>') };
+    var hm = function (ms) { var mm = Math.round(ms / MIN); return Math.floor(mm / 60) + 'h' + ('0' + mm % 60).slice(-2); };
+    var rows = tk.rows.map(function (r) {
+      var btn = ctx.eng && r.stopId ? '<button class="btn sm' + (r.full ? '' : ' primary') + '" data-act="fuelfull" data-stop="' + esc(r.stopId) + '" data-full="' + (r.full ? '0' : '1') + '" title="' + (r.full ? 'This fill did not fill the tank' : 'The tank was full after this fill: the litres poured are what the car burned since the last fill') + '">' + (r.full ? 'Not full' : 'Filled to full') + '</button>' : '';
+      return '<tr><td class="num">' + U.clock(r.fromTs) + '-' + U.clock(r.toTs) + '</td><td>' + esc(r.drivers.join(' + ')) + '</td><td class="num">' + r.laps + '</td><td class="num">' + hm(r.wallMs) + '</td><td class="num">' + U.L(r.usedL) + '</td>' +
+        '<td class="num">' + (r.lph != null ? U.L(r.lph, 1) : '-') + '</td><td class="num">' + (r.lpl != null ? U.L(r.lpl, 2) : '-') + '</td><td>' + (r.fullToFull ? '<span class="tiny">full to full</span>' : '<span class="tiny muted">' + (r.fromFull ? 'not filled to full' : 'not from full') + '</span>') + '</td><td>' + btn + '</td></tr>';
+    }).join('');
+    var c = tk.current;
+    if (c) rows += '<tr class="muted"><td class="num">' + U.clock(c.fromTs) + '-now</td><td>' + esc(c.drivers.join(' + ')) + '</td><td class="num">' + c.laps + '</td><td class="num">' + hm(c.wallMs) + '</td><td class="num">~' + U.L(c.estUsedL) + '</td><td class="num">' + U.L(m.G, 1) + '</td><td class="num">' + (c.laps ? U.L(c.estUsedL / c.laps, 2) : '-') + '</td><td><span class="tiny">this tank (model)</span></td><td></td></tr>';
+    var body = '<table><thead><tr><th class="num">Tank</th><th>Drivers</th><th class="num">Laps</th><th class="num">Time</th><th class="num">Litres</th><th class="num">L/h</th><th class="num">L/lap</th><th></th><th></th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      '<div class="tiny muted" style="margin-top:6px">Litres = what the next fill put back. L/h is per hour on track (pit time left out). Mark a fill <b>Filled to full</b> when the tank was full after it: full to full, the fuel model learns the burn from it.</div>';
+    return { id: 'tanks', html: card('Burn per tank', body, tk.rows.filter(function (r) { return r.fullToFull; }).length + ' full to full') };
   }
 
   function panelWhatIf(ctx) {
@@ -956,6 +987,7 @@
   function panelCrewFix(ctx) {
     var d = ctx.d, rc = d.refuelCrew, s = ctx.s, nf = d.nextFuel;
     var h = '<div class="small" style="margin-bottom:8px">Stop ' + (nf ? nf.k + ' at ~' + U.clock(nf.ts) : '') + ' needs every refuel role filled. Pick a fix - each one is logged.</div>';
+    rc.assign.filter(function (a) { return a.ruleWarn; }).forEach(function (a) { h += '<div class="note warn" style="margin-bottom:6px">' + esc(a.ruleWarn) + '. Change it in the Next stop card on the Race tab.</div>'; });
     rc.assign.filter(function (a) { return !a.name; }).forEach(function (a) {
       h += '<div class="gline"><span class="gl-n" style="width:180px">' + esc(a.label.replace(' (9 kg foam)', '')) + '</span><div class="row" style="gap:6px">';
       (a.taggedIds || []).forEach(function (id) { h += '<button class="btn sm" data-act="crewwake" data-id="' + id + '">Wake ' + esc(name(ctx, id)) + ' (set Available)</button>'; });
@@ -1218,7 +1250,8 @@
   V.summarise = function (ctx, e) {
     var p = e.payload || {};
     switch (e.type) {
-      case 'lap': return 'Lap ' + p.n + ' ' + U.lap(p.ms) + (p.pitted ? ' (pit)' : '');
+      case 'lap': return 'Lap ' + p.n + ' ' + U.lap(p.ms) + (p.pitted ? ' (pit)' : '') + (e.src === 'agile' || e.src === 'udp' ? '' : ' (manual)');
+      case 'lap.set': return 'Lap count set to ' + p.n + ' (official timing)';
       case 'carstate': return 'Car ' + p.cs;
       case 'flag.set': return 'Flag ' + p.flag;
       case 'stop.service': return (p.auto ? 'Fuel stop applied from the plan (car left the fuel bay): ' : 'Fuel stop completed: ') + (p.fuelAdded ? p.fuelAdded + ' L' + (p.brimmed ? ' brim' : '') : 'no fuel') + (p.driverIn ? ', driver ' + name(ctx, p.driverIn) : '') + (p.tyreOn ? ', tyres ' + p.tyreOn : '') + (p.penalty ? ', ' + p.penalty : '');
@@ -1239,6 +1272,7 @@
       case 'issue.add': return 'Issue: ' + p.text + ' (' + p.cat + ')';
       case 'issue.update': return 'Issue ' + p.id + ' ' + (p.status || (p.nextStop ? 'next stop' : 'updated'));
       case 'fuel.check': return 'Gauge reading ' + p.litres + ' L';
+      case 'fuel.full': return 'Stop ' + p.stopId + (p.full ? ' fill marked as filled to full' : ' fill marked as not to full') + (p.note ? ' (' + p.note + ')' : '');
       case 'fuel.refuel': return 'Fuel poured outside a stop: ' + p.litres + ' L' + (p.note ? ' (' + p.note + ')' : '');
       case 'stock.add': return 'Fuel bought for the stock: ' + p.litres + ' L' + (p.note ? ' (' + p.note + ')' : '');
       case 'stock.count': return 'Fuel stock recounted: ' + p.litres + ' L at the track' + (p.note ? ' (' + p.note + ')' : '');

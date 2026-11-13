@@ -100,12 +100,29 @@
   // pin stops 1..k at their times; stop k gets `litres` (null = back to the planner's litres); litres set earlier stay set
   function litresPins(stops, k, litres) {
     var now = App.now();
-    return stops.filter(function (x) { return x.k <= k && !x.event && x.ts > now - 60000; }).map(function (x) {
+    var pins = stops.filter(function (x) { return x.k <= k && !x.event && x.ts > now - 60000; }).map(function (x) {
       var a = x.k === k ? litres : x.litresSet;
       var p = { ts: x.ts, fuel: x.k === k ? (litres == null ? true : litres > 0) : x.add > 0, driverIn: x.change ? x.driverIn : null };
       if (a > 0) p.add = a;
       return p;
     });
+    return litres === 0 ? carryFuel(stops, k, pins, function (pp) { return E.derive(App.state, App.now(), { pins: pp }).plan; }) : pins;
+  }
+  // Fuel taken off stop k goes to the next stop of the plan (the next driver change), never to a new stop the planner
+  // squeezes in. That stop keeps its time and driver; if the fuel left cannot reach it, it comes forward to the time the
+  // car reaches the reserve. planWith(pins) returns the plan those pins give.
+  function carryFuel(stops, k, pins, planWith) {
+    var now = App.now(), nx = stops.filter(function (x) { return x.k > k && !x.event && x.ts > now; })[0];
+    if (!nx) return pins;
+    var pin = { ts: nx.ts, fuel: true, driverIn: nx.change ? nx.driverIn : null };
+    if (nx.litresSet) pin.add = nx.litresSet;
+    var pl = planWith(pins.concat([pin])), P = E.params(App.state);
+    var st = pl && pl.stints.filter(function (x) { return Math.abs(x.endTs - pin.ts) < 1000; })[0];
+    if (st && st.fuelEnd < P.reserve && pl.rate) {
+      var reach = Math.floor(pl.rate.timeToBurn(st.fromTs, Math.max(0, st.fuelStart - P.reserve)) / MIN) * MIN;
+      if (reach > st.fromTs + 10 * MIN) pin.ts = reach;
+    }
+    return pins.concat([pin]);
   }
   function fuelPreview(s, now, d) {
     var e = App.fuelEdit; if (!e || !d.plan) return null;
@@ -171,6 +188,10 @@
     document.getElementById('hdr-remaining').textContent = ss.started ? U.dur(Math.max(0, dur - ss.elapsedMs - ss.pausedMs)) : (ss.plannedStart ? U.dur(Math.max(0, ss.plannedStart - c.now)) : U.dur(dur));
     document.getElementById('hdr-local').textContent = U.clock(c.now, true);
     document.getElementById('hdr-lap').textContent = ss.running ? (d.lastLap ? d.lastLap.n + 1 : 1) : '-';
+    // engineer: click the lap to set it to the official timing (laps lost while a timing device restarted)
+    var lb = document.getElementById('hdr-lapbox'), canSet = App.role === 'engineer' && !App.replay && ss.running && !!d.lastLap;
+    if (canSet) { lb.setAttribute('data-act', 'lapset'); lb.title = 'Click to set the lap count to the official timing'; lb.style.cursor = 'pointer'; }
+    else { lb.removeAttribute('data-act'); lb.title = ''; lb.style.cursor = ''; }
     var ap = (s.scenarios && s.scenarios.active) || 'A', hp = document.getElementById('hdr-plan');
     hp.textContent = 'SCENARIO ' + ap; hp.className = 'plan-pill' + (ap !== 'A' ? ' alt' : '');
     var csEl = document.getElementById('hdr-cs'); csEl.textContent = s.carState.current; csEl.className = V.csClass(s.carState.current);
@@ -459,6 +480,11 @@
       if (!confirm('Save ' + fp[tid].greenLph + ' L/h green / ' + fp[tid].scLph + ' L/h SC as the ' + (s.config.track.name || tid) + ' baseline for ' + s.config.car.make + ' ' + s.config.car.model + '? The live model keeps learning either way.')) return;
       App.send('setup.update', { patch: { car: { fuelProfiles: fp } }, saveCar: true });
     },
+    fuelfull: function (b) {
+      var full = b.getAttribute('data-full') === '1';
+      App.send('fuel.full', { stopId: b.getAttribute('data-stop'), full: full, capacityL: E.params(App.state).capacity });
+      U.toast('Stop ' + b.getAttribute('data-stop') + (full ? ': tank filled to full - the fuel model re-learns the burn' : ': fill marked as not to full'), 'info', null, false);
+    },
     fuelcheck: function () { var l = numv('fc-l'); if (l == null) return U.toast('Enter litres', 'warn', null, false); App.send('fuel.check', { litres: l, weight: 0.5 }); U.closeModal(); },
     gauge: function () {
       U.modal('<h3 class="section-title">Gauge reading</h3><p class="small muted">Litres you read on the gauge or dipstick right now. It re-anchors the fuel estimate and calibrates the burn model (half the weight of a brim fill).</p>' +
@@ -513,8 +539,8 @@
       var ts = +b.getAttribute('data-ts'), x = fuelStopAt(ts); if (!x || !x.st) return U.toast('That stop is no longer in the plan', 'warn', null, false);
       var l = App.fuelEdit && App.fuelEdit.ts === ts ? App.fuelEdit.litres : numv('fp-l');
       if (l == null || isNaN(l)) return U.toast('Enter the litres first', 'warn', null, false);
-      var id = setRunningPins(litresPins(x.d.plan.stops, x.st.k, l));
-      U.toast('Scenario ' + id + ': fuel stop at ' + U.clock(ts) + ' set to ' + l + ' L - later stops re-planned', 'info', null, false);
+      var pins = litresPins(x.d.plan.stops, x.st.k, l), id = setRunningPins(pins), mv = l === 0 && pins.length && pins[pins.length - 1].ts > ts + 60000 ? pins[pins.length - 1] : null;
+      U.toast('Scenario ' + id + ': ' + (mv ? 'no fuel at ' + U.clock(ts) + ' - the fuel moves to the next stop, ' + U.clock(mv.ts) : 'fuel stop at ' + U.clock(ts) + ' set to ' + l + ' L') + ' - later stops re-planned', 'info', null, false);
       App.fuelEdit = null; App.dirty.fpstop = 0;
     },
     fpauto: function (b) {
@@ -565,6 +591,20 @@
         driverIn: val('ps-driver') || null, tyreOn: tyreOn, tyreOffDepths: tyreOn && depths.some(function (x) { return x != null; }) ? depths : null, issuesFixed: fixes, penalty: val('ps-pen') || null };
       if (p.fuelAdded > P.maxPerStop) U.toast(p.fuelAdded + ' L exceeds the ' + P.maxPerStop + ' L per-stop limit', 'crit');
       App.send('stop.service', p); App.dirty.pitstop = false; App.dirty.gateform = false; App.svcFix = null;
+    },
+    lapset: function () {
+      var s = App.state, laps = s.laps.filter(function (l) { return l.sessionId === s.activeSessionId; }), last = laps[laps.length - 1];
+      if (!last) return;
+      U.modal('<h3 class="section-title">Set the lap count</h3><p class="small muted">Laps completed on the official timing (for example the AASA timing screen) as of the last lap Orb has, ' + last.n + ' at ' + U.clock(last.ts) + '. ' +
+        'Use it when laps were lost, for example while Agile restarted. Every lap after it counts on from this number. The change is logged.</p>' +
+        '<div class="row" style="margin-top:10px"><label class="f" style="flex:1">Laps completed<input id="ls-n" type="number" step="1" min="0" value="' + last.n + '"></label></div>' +
+        '<div class="row" style="margin-top:12px"><button class="btn primary" data-act="lapsetsave">Set</button><button class="btn" data-act="modalclose">Cancel</button></div>');
+      setTimeout(function () { var i = document.getElementById('ls-n'); if (i) { i.focus(); i.select(); } }, 50);
+    },
+    lapsetsave: function () {
+      var n = numv('ls-n');
+      if (n == null || n < 0 || n !== Math.round(n)) return U.toast('Enter a whole number of laps', 'warn', null, false);
+      App.send('lap.set', { n: n }); U.closeModal();
     },
     manuallap: function () {
       var s = App.state, laps = s.laps.filter(function (l) { return l.sessionId === s.activeSessionId; });
@@ -726,7 +766,12 @@
       if (x.litresSet && !(x.k === k && fuelK === false)) p.add = x.litresSet;
       return p;
     });
-    var def = R.clone(App.state.scenarios.plans[id].cur); def.pins = pins; return def;
+    var def = R.clone(App.state.scenarios.plans[id].cur), sp = App.state.scenarios.plans[id];
+    if (fuelK === false && !newTs) pins = carryFuel(stops, k, pins, function (pp) {
+      var dd = R.clone(def); dd.pins = pp;
+      return E.derive(App.state, App.now(), Object.assign({ noScenario: true }, E.defToWhatIf(dd, App.state, App.now(), sp && sp.createdTs))).plan;
+    });
+    def.pins = pins; return def;
   }
   function moveFuel(id, fromK, toK, stops) {
     App.send('scenario.set', { id: id, def: fuelMoveDef(id, fromK, toK, stops) });
@@ -851,6 +896,7 @@
       App.send('crew.status', { memberId: t.getAttribute('data-id'), status: t.value, reason: reason });
       App.dirty.roster = false;
     }
+    if (act === 'crewpick') { App.send('crew.pick', { role: t.getAttribute('data-role'), memberId: t.value || null }); t.blur(); }
     if (act === 'replayspeed') { App.replay.speed = +t.value; App.dirty.replay = false; }
   });
   document.getElementById('btn-mute').addEventListener('click', function () {

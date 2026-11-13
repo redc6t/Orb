@@ -265,8 +265,18 @@
   }
 
   /* --------------------------------------------- fuel model + learning */
-  function calibrationPeriods(s, B) {
+  function calibrationPeriods(s, B, P) {
     var A = s.fuel.anchors.slice().sort(function (a, b) { return a.ts - b.ts; });
+    // a tank measured full to full is exact: gauge readings taken inside it would only split it into noisier pieces
+    var full = function (a) { return a.kind === 'brim' || (a.kind === 'start' && a.after >= P.capacity - 0.5); };
+    A = A.filter(function (a, i) {
+      if (a.kind !== 'check') return true;
+      var p = null, n = null, j;
+      for (j = i - 1; j >= 0 && !p; j--) if (A[j].kind !== 'check') p = A[j];
+      for (j = i + 1; j < A.length && !n; j++) if (A[j].kind !== 'check') n = A[j];
+      if (!p || !n || !full(p) || n.kind !== 'brim' || p.sessionId !== a.sessionId || n.sessionId !== a.sessionId) return true;
+      return s.fuel.refuels.some(function (r) { return r.ts > p.ts && r.ts <= n.ts; });
+    });
     var out = [];
     for (var i = 1; i < A.length; i++) {
       var a = A[i - 1], b = A[i];
@@ -276,7 +286,7 @@
       var M = a.after + added - b.before;
       var h = burnHours(B, a.ts, b.ts);
       if (h.g + h.s < 0.15 || M <= 0) continue;
-      out.push({ t0: a.ts, t1: b.ts, M: M, g: h.g, s: h.s, w: Math.min(a.w, b.w), kind: b.kind, stopId: b.stopId || null });
+      out.push({ t0: a.ts, t1: b.ts, M: M, g: h.g, s: h.s, w: Math.min(a.w, b.w), kind: b.kind, stopId: b.stopId || null, fullToFull: full(a) && b.kind === 'brim' && !added });
     }
     return out;
   }
@@ -296,12 +306,18 @@
   }
 
   function fuelModel(s, now, P, B) {
-    var periods = calibrationPeriods(s, B);
-    var m = fit(periods, P);
+    var periods = calibrationPeriods(s, B, P);
+    var m = fit(periods, P), Gfit = m.G;
+    // Tanks measured full to full are what the car really burns over a whole stint, slow laps and Safety Cars included.
+    // Once there is one, the plan runs on their average per hour on track instead of the race-pace green rate.
+    var ftf = periods.filter(function (p) { return p.fullToFull; }), avg = null, sumM = 0, sumH = 0;
+    ftf.forEach(function (p) { sumM += p.M; sumH += p.g + p.s; });
+    if (ftf.length && sumH > 0.5) { avg = sumM / sumH; m = { G: avg, S: Math.min(m.S, avg) }; }
+    var burnL = function (h) { return avg != null ? avg * (h.g + h.s) : m.G * h.g + m.S * h.s; };
     var dev = null;
     if (periods.length) {
       var prior = fit(periods.slice(0, -1), P), last = periods[periods.length - 1];
-      var pred = prior.G * last.g + prior.S * last.s;
+      var pred = avg != null ? m.G * (last.g + last.s) : prior.G * last.g + prior.S * last.s;
       dev = { pct: (last.M - pred) / pred * 100, measured: last.M, predicted: pred, ts: last.t1, stopId: last.stopId };
     }
     var A = s.fuel.anchors.filter(function (a) { return a.ts <= now; }).sort(function (a, b) { return a.ts - b.ts; });
@@ -311,13 +327,53 @@
       var added = 0;
       s.fuel.refuels.forEach(function (r) { if (r.ts > anchor.ts && r.ts <= now) added += r.litres; });
       var h = burnHours(B, anchor.ts, now);
-      sinceL = m.G * h.g + m.S * h.s;
+      sinceL = burnL(h);
       nowL = anchor.after + added - sinceL;
       var pctU = Math.max(0.03, 0.09 - 0.015 * Math.min(periods.length, 4));
       unc = sinceL * pctU + (anchor.kind === 'check' ? 3 : 0);
     }
-    return { G: m.G, S: m.S, G0: P.G0, S0: P.S0, nCal: periods.length, periods: periods, deviation: dev,
+    return { G: m.G, S: m.S, G0: P.G0, S0: P.S0, Gfit: Gfit, avg: avg, nAvg: ftf.length, avgL: sumM, avgH: sumH, burnL: burnL, nCal: periods.length, periods: periods, deviation: dev,
       anchor: anchor, nowL: nowL, burnedSinceAnchorL: sinceL, uncertaintyL: unc };
+  }
+
+  // Burn per tank: from one fill to the next, the laps, the driving time and the litres the next fill put back.
+  // Full to full (start full or filled to full, then filled to full) the litres poured are exactly what the car burned.
+  function tankLog(s, P, B, sessId, model, now) {
+    var fills = [];
+    s.fuel.anchors.forEach(function (a) {
+      if (a.sessionId !== sessId) return;
+      if (a.kind === 'start') fills.push({ ts: a.ts, litres: a.after, full: a.after >= P.capacity - 0.5, start: true, afterL: a.after });
+      else if (a.kind === 'brim') fills.push({ ts: a.ts, litres: a.after - a.before, full: true, stopId: a.stopId, afterL: a.after });
+      else if (a.kind === 'check+refuel') fills.push({ ts: a.ts, litres: a.after - a.before, full: false, stopId: a.stopId, afterL: a.after, beforeL: a.before });
+    });
+    s.fuel.refuels.forEach(function (r) { if (r.sessionId === sessId) fills.push({ ts: r.ts, litres: r.litres, full: false, stopId: r.stopId || null }); });
+    fills.sort(function (a, b) { return a.ts - b.ts; });
+    var laps = s.laps.filter(function (l) { return l.sessionId === sessId; });
+    function span(t0, t1) {
+      // by lap number, not by laps received: laps the timing device never reported (link down) still count
+      var n0 = 0, n1 = null; laps.forEach(function (l) { if (l.ts <= t0) n0 = l.n; if (l.ts <= t1) n1 = l.n; });
+      var n = n1 == null ? 0 : Math.max(0, n1 - n0);
+      var drv = [];
+      s.drivers.stints.forEach(function (x) {
+        var e = x.endTs == null ? now : x.endTs;
+        if (x.startTs < t1 && e > t0 && Math.min(e, t1) - Math.max(x.startTs, t0) > 5 * MIN && drv[drv.length - 1] !== x.driverId) drv.push(x.driverId);
+      });
+      var h = burnHours(B, t0, t1);
+      return { laps: n, drivers: drv.map(function (id) { return memberName(s, id); }), hours: h.g + h.s, wallMs: t1 - t0 };
+    }
+    var rows = [];
+    for (var i = 1; i < fills.length; i++) {
+      var a = fills[i - 1], b = fills[i], sp = span(a.ts, b.ts);
+      var used = b.beforeL != null && a.afterL != null ? a.afterL - b.beforeL : b.litres;   // with a gauge reading at the fill, what it says went
+      rows.push(Object.assign(sp, { fromTs: a.ts, toTs: b.ts, usedL: used, fullToFull: a.full && b.full, fromFull: a.full, stopId: b.stopId, full: b.full,
+        lph: sp.hours > 0.1 ? used / sp.hours : null, lpl: sp.laps ? used / sp.laps : null }));
+    }
+    var cur = null, lastFill = fills[fills.length - 1];
+    if (lastFill) {
+      var c = span(lastFill.ts, now);
+      cur = Object.assign(c, { fromTs: lastFill.ts, fromFull: lastFill.full, estUsedL: model.burnL(burnHours(B, lastFill.ts, now)) });
+    }
+    return { rows: rows, current: cur };
   }
 
   /* --------------------------------------------------------- crew */
@@ -487,12 +543,15 @@
     var openStop = null; if (inPit) s.stops.forEach(function (x) { if (x.id === s.openStopId) openStop = x; });
     if (openStop && openStop.red) inPit = false;          // parked for the red flag: not a service stop
     var inPitServiced = !!(openStop && openStop.service);   // fuel already recorded for this stop: it is history, not a plan
+    var pitHeld = inPit && driverHeld(s, openStop);
     if (hold) {
       if (stintStart < hold.to) stintStart += hold.to - Math.max(hold.from, stintStart);
       t = Math.max(t, hold.to);
     }
     var used = {};
-    s.drivers.stints.forEach(function (st) { if (st.endTs) used[st.driverId] = Math.max(used[st.driverId] || 0, st.endTs); });
+    // a stint that began at a voided stop (a pit state flicker logged as extra stops) never happened: it does not start the driver's rest
+    var voidOut = {}; s.stops.forEach(function (x) { if (x.voided) { if (x.statOutTs) voidOut[x.statOutTs] = 1; if (x.outTs) voidOut[x.outTs] = 1; } });
+    s.drivers.stints.forEach(function (st) { if (st.endTs && !voidOut[st.startTs]) used[st.driverId] = Math.max(used[st.driverId] || 0, st.endTs); });
     var excl = (whatIf && whatIf.excludeDrivers) || [];
 
     var stints = [], stops = [];
@@ -574,6 +633,7 @@
         if (P.changeMode === 'every-stop' || contAfter > P.maxStintMs - P.stintSafetyMs || (P.changeMode === 'fuel-stops' && add > 0)) nd = nextDriver(s, P, d, end, usedL, now, excl);
         if (nd === d && add === 0 && !(ml > 0)) nd = nextDriver(s, P, d, end, usedL, now, excl);
         if (i === 0 && inPit && s.drivers.pendingIn) nd = s.drivers.pendingIn;
+        else if (i === 0 && inPit && pitHeld) nd = d;      // driver held at the stop in progress (engineer's call, or no racing lap yet)
         var change = nd !== d, counts = ml > 0;
         var stat = stationaryFor(P, add, change, counts);
         var window = null;
@@ -667,6 +727,7 @@
       if (fp.ts <= t + 60000 && inPitServiced) add = 0;
       var nd = driver;
       if (fp.driverIn) nd = fp.driverIn;
+      else if (inPit && pitHeld) nd = s.drivers.pendingIn || driver;
       else if (fp.driverIn === undefined || fp.kind !== 'pin') {
         var contAfter = (fp.ts - stintStart) + Math.min(nextFixed - fp.ts, stintMax);
         if (P.changeMode === 'every-stop' || contAfter > stintMax || (P.changeMode === 'fuel-stops' && add > 0)) nd = nextDriver(s, P, driver, fp.ts, used, now, excl);
@@ -792,19 +853,31 @@
   // Golden rule at a fuel stop: the outgoing driver steps out and goes to rest - never on the refuel crew.
   // The incoming driver enters the fuel zone as Refueller Assistant, supervising only (hands off).
   // Pouring and the extinguisher go to the other available members tagged for them.
-  function refuelCrew(s, P, crew, outId, inId) {
+  // picks: roles the engineer filled by hand (Race tab). They win over every rule above - the engineer decided -
+  // and the rest of the crew is assigned around them.
+  function refuelCrew(s, P, crew, outId, inId, picks) {
     var roles = (P.method && P.method.roles) || [];
     var taken = {}, assign = [], issues = [], byKey = {};
     var eligible = function (c) { return !taken[c.id] && c.status === 'available' && c.id !== outId && c.id !== inId; };
     var rank = function (c) { return c.driver ? 1 : 0; };
-    var sup = inId && inId !== outId ? roles.filter(function (r) { return r.key === 'assistant'; })[0] : null;
+    roles.forEach(function (r) {
+      var pk = picks && picks[r.key];
+      if (!pk || !pk.memberId || taken[pk.memberId] || !memberById(s, pk.memberId)) return;
+      taken[pk.memberId] = 1;
+      var who = memberName(s, pk.memberId);
+      var bar = r.notOutgoing && pk.memberId === outId ? 'outgoing driver' : r.notIncoming && pk.memberId === inId && inId !== outId ? 'incoming driver' : null;
+      byKey[r.key] = { key: r.key, label: r.label, memberId: pk.memberId, name: who, manual: true, supervise: r.key === 'assistant' && pk.memberId === inId, suggest: [],
+        ruleWarn: bar ? who + ' is the ' + bar + ' - the rules do not allow them as ' + r.label.replace(' (9 kg foam)', '') : null };
+      if (bar) issues.push(byKey[r.key].ruleWarn);
+    });
+    var sup = inId && inId !== outId && !taken[inId] ? roles.filter(function (r) { return r.key === 'assistant' && !byKey[r.key]; })[0] : null;
     if (sup) {
       var ic = crew.filter(function (c) { return c.id === inId; })[0];
       taken[inId] = 1;
       byKey[sup.key] = { key: sup.key, label: sup.label, memberId: inId, name: ic ? ic.name : memberName(s, inId), supervise: true, suggest: [] };
     }
     // assign the most constrained roles first so a flexible person is not used up early
-    var order = roles.filter(function (r) { return r !== sup; }).map(function (r, i) { return { r: r, i: i, n: crew.filter(function (c) { return c.roles.indexOf(r.key) >= 0 && eligible(c); }).length }; })
+    var order = roles.filter(function (r) { return !byKey[r.key]; }).map(function (r, i) { return { r: r, i: i, n: crew.filter(function (c) { return c.roles.indexOf(r.key) >= 0 && eligible(c); }).length }; })
       .sort(function (a, b) { return a.n - b.n || a.i - b.i; });
     order.forEach(function (o) {
       var r = o.r;
@@ -828,6 +901,17 @@
     return { assign: assign, issues: issues };
   }
 
+  // hand-picked refuel crew applies to the next fuel stop only: a pick is spent once a fuel stop made after it has closed
+  function livePicks(s) {
+    var out = {}, pk = (s.crew && s.crew.picks) || {};
+    Object.keys(pk).forEach(function (k) {
+      var p = pk[k];
+      var spent = s.stops.some(function (st) { return !st.voided && st.outTs && st.outTs > p.ts && (st.fuelInTs || (st.service && st.service.fuelAdded > 0)); });
+      if (!spent) out[k] = p;
+    });
+    return out;
+  }
+
   /* --------------------------------------------------------- derive */
   function fuelTrace(s, now, P, B, model, sess, pl) {
     var past = [], future = [];
@@ -840,7 +924,7 @@
         if (!a) return null;
         var add = 0; s.fuel.refuels.forEach(function (r) { if (r.ts > a.ts && r.ts <= t) add += r.litres; });
         var h = burnHours(B, a.ts, t);
-        return a.after + add - model.G * h.g - model.S * h.s;
+        return a.after + add - model.burnL(h);
       };
       var pts = [];
       for (var t = t0; t < t1; t += step) pts.push(t);
@@ -913,6 +997,23 @@
   }
 
   /* ------------------------------------------------- pit stop gates (geofence + human acknowledge) */
+  // The driver in the car is HELD at stop st (the plan may not hand the car to someone else there) when:
+  //  - the engineer set the driver after this stop opened (DRIVER CHANGE DONE or Driver in car): their call stands, or
+  //  - the driver has not done one racing lap (a lap not through the pits) since getting in or since the engineer's
+  //    last driver call: a pit state flicker logged as several stops must not rotate the driver at each of them.
+  // With no lap data at all for 20 min (laps not reported) the plan applies as before.
+  var HOLD_NOLAP_MS = 20 * MIN;
+  var PIT_MERGE_MS = 60000;      // same window as the reducer's PIT_MERGE_MS (server reopens a stop within it)
+  function driverHeld(s, st) {
+    var d = s.drivers;
+    if (!st || !d.activeId) return false;
+    var since = Math.max(d.stintStartTs || 0, d.pickTs || 0), at = st.inTs;
+    if (since >= at) return true;
+    var any = false, clean = false;
+    s.laps.forEach(function (l) { if (l.ts > since && l.ts <= at && l.sessionId === st.sessionId) { any = true; if (!l.pitted) clean = true; } });
+    if (clean) return false;
+    return any || at - since < HOLD_NOLAP_MS;
+  }
   var GATE_S = {};
   function gates(s, d, now) {
     var sess = d.session;
@@ -950,9 +1051,15 @@
     var pin = s.gates[key('pitin')];
     var snap = pin && pin.plan ? pin.plan : null;
     var planned = snap || (d.nextStop ? { add: d.nextStop.add, brim: d.nextStop.brim, driverIn: d.nextStop.driverIn, change: d.nextStop.change, type: d.nextStop.type, cans: d.nextStop.cans } : null);
+    var held = driverHeld(s, st);
+    // driver held at this stop: no change from the plan, whatever was planned when the car came in
+    if (held && planned && planned.change) planned = Object.assign({}, planned, { change: false, driverIn: s.drivers.activeId, held: true, type: planned.type === 'driver' ? 'service' : planned.type });
     var geo = st.geo || {};
-    var gone = st.outTs || (later && later.inTs) || null;            // the car is out of this stop
-    var leftFuel = st.fuelOutTs || gone;                             // the car has left the fuel bay
+    // the car is out of this stop - once it has stayed out for the merge window: a pit state flicker reopens the stop
+    // within it (server), and nothing is applied from the plan for an exit that was not one
+    var settled = st.outTs && now - st.outTs >= PIT_MERGE_MS ? st.outTs : null;
+    var gone = settled || (later && later.inTs) || null;
+    var leftFuel = (st.fuelOutTs && st.fuelOutTs !== st.outTs ? st.fuelOutTs : null) || gone;   // the car has left the fuel bay
     var svc = st.service, recNoFuel = !!(svc && !(svc.fuelAdded > 0));
     var fuelOnSkip = !st.fuelInTs && (recNoFuel || !(planned && planned.add > 0));
     var steps = [
@@ -981,8 +1088,8 @@
     var current = steps.filter(function (g) { return g.state !== 'done' && g.state !== 'skip'; })[0] || null;
     var drvAck = s.gates[key('driver')];
     var auto = { stopId: st.id, auto: true, fuelAdded: st.fuelInTs && planned ? (planned.add || 0) : 0, brimmed: false, capacityL: d.P.capacity };
-    var autoDriver = planned && planned.change ? planned.driverIn : null;
-    return { stop: st, list: steps, current: current, planned: planned, autoService: auto, autoDriverIn: autoDriver, driverAck: drvAck || null, done: complete, allSteps: allDone, noFuel: noFuel, stuckInFuel: stuckInFuel };
+    var autoDriver = !held && planned && planned.change ? planned.driverIn : null;
+    return { stop: st, held: held, list: steps, current: current, planned: planned, autoService: auto, autoDriverIn: autoDriver, driverAck: drvAck || null, done: complete, allSteps: allDone, noFuel: noFuel, stuckInFuel: stuckInFuel };
   }
 
   /* ------------------------------------------- fuel plan: the running plan's fuel stops, with crew, cans and stop timings */
@@ -1130,7 +1237,7 @@
     var lapL = model.G * ref.ms / HOUR;
     var usable = (liveFuel == null ? P.capacity : liveFuel) - P.reserve;
     var fuel = { nowL: liveFuel == null ? P.capacity : liveFuel, planStartL: curFuel, model: model, lapL: lapL, lapsToReserve: usable / lapL, msToReserve: usable / model.G * HOUR,
-      reserve: P.reserve, capacity: P.capacity, uncertaintyL: model.uncertaintyL };
+      reserve: P.reserve, capacity: P.capacity, uncertaintyL: model.uncertaintyL, tanks: sess.started ? tankLog(s, P, B, sess.id, model, now) : null };
 
     var openSt = null; if (s.openStopId) s.stops.forEach(function (x) { if (x.id === s.openStopId) openSt = x; });
     var stintEnd = openSt && !openSt.red ? (openSt.statInTs || openSt.inTs) : now;          // car stopped: the outgoing driver's time stops
@@ -1149,7 +1256,7 @@
     var nextFuel = pl ? pl.stops.filter(function (x) { return x.add > 0; })[0] || null : null;
     var onDeck = nextStop ? nextStop.driverIn : null;
     if (!onDeck || onDeck === s.drivers.activeId) onDeck = nextDriver(s, P, s.drivers.activeId, now + HOUR, {}, now, whatIf && whatIf.excludeDrivers);
-    var rc = nextFuel ? refuelCrew(s, P, crew, nextFuel.driverOut, nextFuel.driverIn) : null;
+    var rc = nextFuel ? refuelCrew(s, P, crew, nextFuel.driverOut, nextFuel.driverIn, livePicks(s)) : null;
 
     var call = makeCall(s, now, P, cur, pl, nextStop, nextFuel, fuel, stint, ref.ms, inPits, SI);
     var save = saveToDrop(P, pl, curFuel, now, sess, ref.ms, SI);
@@ -1208,7 +1315,7 @@
     var refuelOpen = !!P.refuelAllowed[flag];
     if (SLOW_FLAGS[flag] && nextStop) {
       var soon = nextStop.ts - now < 0.4 * (nextStop.ts - (s.drivers.stintStartTs || now)) || (nextStop.window && now >= nextStop.window.openTs);
-      if (soon && (nextStop.add === 0 || refuelOpen)) return { code: 'opp', level: 'warn', title: 'BOX NOW (' + flag + ')', detail: 'Stop under caution loses less time - planned stop is near' };
+      // no BOX NOW under caution: the engineer calls a stop under SC / yellow themself (the normal call carries on)
       if (soon && nextStop.add > 0 && !refuelOpen) return { code: 'hold', level: 'warn', title: 'STAY OUT', detail: 'Refuelling closed under ' + flag };
     }
     if (nextStop) {

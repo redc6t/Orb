@@ -149,6 +149,8 @@ button.pchip { cursor: pointer; } button.pchip:hover { border-color: var(--cyan)
 .fact .s { color: var(--sub); font-size: .76em; }
 .crew-line { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: .88em; margin-top: 10px; }
 .crew-line .r { color: var(--sub); }
+.crew-line select.crew-pick { font-size: 1em; font-weight: 700; padding: 1px 4px; min-width: 8em; }
+.crew-line select.crew-pick.manual { border-color: var(--cyan); }
 
 /* ---------------- telemetry strip / map / corners */
 .strip { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 8px; }

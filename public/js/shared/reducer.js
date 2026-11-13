@@ -10,6 +10,8 @@
   'use strict';
 
   var PIT_STATES = ['PIT ENTRY', 'PITS', 'FUELLING'];
+  // back in a pit state within this long of a stop closing = the same pit visit (no car laps a circuit in a minute)
+  var PIT_MERGE_MS = 60000;
 
   function clone(o) { return o === undefined ? undefined : JSON.parse(JSON.stringify(o)); }
 
@@ -70,7 +72,7 @@
       fuel: { anchors: [], refuels: [], checks: [] },
       stock: { adds: [], counts: [] },  // fuel stock at the track: litres bought or recounted (pours come from stops and refuels)
       drivers: { activeId: null, stintStartTs: null, stints: [], queue: clone(cfg.driverOrder || []), pendingIn: null },
-      crew: { status: {}, shifts: {}, overrides: {} },
+      crew: { status: {}, shifts: {}, overrides: {}, picks: {} },
       issues: [],
       tyres: { mounted: null, sets: tyreSets },
       pitmsgs: [],
@@ -101,6 +103,25 @@
     return null;
   }
 
+  // the fuel model's view of a stop's service: a fill to full (anchor), a fill with a gauge reading, a plain pour, or a reading
+  function serviceFuel(s, stp) {
+    var p = stp.service, refTs = stp.fuelInTs || p.ts;
+    s.fuel.anchors = s.fuel.anchors.filter(function (a) { return a.stopId !== stp.id; });
+    s.fuel.refuels = s.fuel.refuels.filter(function (r) { return r.stopId !== stp.id; });
+    if (p.fuelAdded > 0) {
+      if (p.brimmed) {
+        var cap = p.capacityL;
+        s.fuel.anchors.push({ ts: refTs, before: Math.max(0, cap - p.fuelAdded), after: cap, kind: 'brim', w: 1, sessionId: stp.sessionId, stopId: stp.id });
+      } else if (p.fuelBeforeL != null) {
+        s.fuel.anchors.push({ ts: refTs, before: p.fuelBeforeL, after: p.fuelBeforeL + p.fuelAdded, kind: 'check+refuel', w: 0.5, sessionId: stp.sessionId, stopId: stp.id });
+      } else {
+        s.fuel.refuels.push({ ts: refTs, litres: p.fuelAdded, stopId: stp.id, sessionId: stp.sessionId });
+      }
+    } else if (p.fuelBeforeL != null) {
+      s.fuel.anchors.push({ ts: refTs, before: p.fuelBeforeL, after: p.fuelBeforeL, kind: 'check', w: 0.5, sessionId: stp.sessionId, stopId: stp.id });
+    }
+  }
+
   function startStint(s, driverId, ts) {
     var d = s.drivers;
     if (d.activeId && d.stints.length && d.stints[d.stints.length - 1].endTs == null) {
@@ -129,6 +150,48 @@
       if (s.drivers.pendingIn !== s.drivers.activeId) driverSwap(s, st, s.drivers.pendingIn);
       s.drivers.pendingIn = null;
     }
+  }
+
+  // One pit visit is one stop and one driver change at most. A stop closed by a pit state flicker is opened again:
+  // the exit is undone, a driver handed the car at that exit goes back to "waiting" (pendingIn, applied at the real
+  // exit), and whatever was applied from the plan when the car looked gone (auto gates, auto "no fuel") is cleared so
+  // the engineer's steps are live again. The engineer's own confirmations stay.
+  function reopenStop(s, st, cs) {
+    if (!st || st.voided || !st.outTs || st.red || st.sessionId !== s.activeSessionId) return null;
+    var exitTs = st.statOutTs || st.outTs, d = s.drivers, n = d.stints.length;
+    var last = d.stints[n - 1], prev = d.stints[n - 2];
+    if (last && last.endTs == null && last.startTs === exitTs && prev && prev.endTs === (st.statInTs || st.inTs)) {
+      d.stints.pop();
+      prev.endTs = null;
+      d.activeId = prev.driverId; d.stintStartTs = prev.startTs;
+      d.pendingIn = last.driverId;
+    }
+    st.outTs = null; st.statOutTs = null;    // set again at the real exit
+    if (cs === 'FUELLING') st.fuelOutTs = null;
+    if (st.geo) st.geo.exit = null;
+    ['pitout', 'fuelon', 'driver'].forEach(function (g) { var a = s.gates[st.id + ':' + g]; if (a && a.by === 'auto') delete s.gates[st.id + ':' + g]; });
+    delete s.gates[st.id + ':pitout'];
+    if (st.service && st.service.auto) {
+      s.fuel.anchors = s.fuel.anchors.filter(function (a) { return a.stopId !== st.id; });
+      s.fuel.refuels = s.fuel.refuels.filter(function (r) { return r.stopId !== st.id; });
+      st.service = null;
+    }
+    st.reopened = (st.reopened || 0) + 1;
+    s.openStopId = st.id;
+    return st;
+  }
+
+  // Laps lost in a gap no lap covers (from..to), counted from the recent racing pace. Only when the count is clear:
+  // no pit stop in the gap (pit lane time cannot be told apart from a lap) and the gap close to whole laps.
+  // Otherwise 0: the engineer sets the count to the official timing (lap.set).
+  function lapsLost(s, laps, from, to) {
+    var gap = to - from;
+    if (!(gap > 30000)) return 0;
+    if (s.stops.some(function (x) { return !x.voided && x.sessionId === s.activeSessionId && x.inTs < to && (x.outTs || to) > from; })) return 0;
+    var clean = laps.filter(function (l) { return !l.pitted && l.ms > 0; }).slice(-8).map(function (l) { return l.ms; }).sort(function (a, b) { return a - b; });
+    if (clean.length < 3) return 0;
+    var ref = clean[Math.floor(clean.length / 2)], k = gap / ref, n = Math.round(k);
+    return n >= 1 && Math.abs(k - n) <= 0.3 ? n : 0;
   }
 
   function tyreUnmount(s, ts) {
@@ -202,6 +265,9 @@
         s.carState.history.push({ cs: cs, ts: ts, src: e.src || null });
         if (!s.activeSessionId) break;
         var st = s.openStopId ? findStop(s, s.openStopId) : null;
+        // back in a pit state moments after the stop closed (pit state flicker): the same pit visit, so the same stop.
+        // The server decides (payload.reopen); logs written before 2.2.30 never carry it and replay as they did.
+        if (PIT_STATES.indexOf(cs) >= 0 && !st && p.reopen) st = reopenStop(s, findStop(s, p.reopen), cs);
         if (PIT_STATES.indexOf(cs) >= 0 && !st) st = openStop(s, ts, e.src);
         if (st) {
           // geofence side of the stop handshake: only states reported by the car (Agile / UDP), not engineer overrides
@@ -223,8 +289,34 @@
         break;
       }
       case 'lap': {
-        s.laps.push({ n: p.n, ms: p.ms, ts: ts, pitted: !!p.pitted, delta: p.delta, src: e.src || null,
+        // Orb's lap number is the session's lap count. The timing device's own counter can go back (Agile restarted,
+        // often in the pits at a driver change): carry on from the last lap of the session with an offset, never restart.
+        // The offset applies to timing-device laps only: a manual lap already carries Orb's own next number.
+        s.lapOfs = s.lapOfs || {};
+        var dev = e.src === 'agile' || e.src === 'udp';
+        var ofs = dev ? s.lapOfs[s.activeSessionId] || 0 : 0, ln = p.n + ofs, prevLap = null, filled = 0;
+        var sessLaps = s.laps.filter(function (l) { return l.sessionId === s.activeSessionId; });
+        prevLap = sessLaps[sessLaps.length - 1] || null;
+        if (prevLap && typeof p.n === 'number' && ln <= prevLap.n) {
+          // the counter went back: laps the car did while the device was restarting were never reported (the crossing
+          // in progress at the restart, and the first crossing after it, which only starts the device's timing)
+          filled = dev ? lapsLost(s, sessLaps, prevLap.ts, ts - (p.ms || 0)) : 0;
+          ln = prevLap.n + 1 + filled;
+          if (dev) { ofs = ln - p.n; s.lapOfs[s.activeSessionId] = ofs; }
+        }
+        s.laps.push({ n: ln, devN: ofs ? p.n : undefined, filled: filled || undefined, ms: p.ms, ts: ts, pitted: !!p.pitted, delta: p.delta, src: e.src || null,
           sessionId: s.activeSessionId, driverId: s.drivers.activeId, flag: s.flag.current, tyreSetId: s.tyres.mounted, peaks: p.peaks || null });
+        break;
+      }
+      // the engineer sets the lap count to the official timing (laps completed): the last lap takes that number and the
+      // device laps that follow count on from it
+      case 'lap.set': {
+        var sl = s.laps.filter(function (l) { return l.sessionId === s.activeSessionId; }), lastL = sl[sl.length - 1];
+        if (!lastL || typeof p.n !== 'number') break;
+        s.lapOfs = s.lapOfs || {};
+        s.lapOfs[s.activeSessionId] = (s.lapOfs[s.activeSessionId] || 0) + (p.n - lastL.n);
+        if (lastL.devN === undefined) lastL.devN = lastL.n;
+        lastL.n = p.n; lastL.setTs = ts;
         break;
       }
       case 'stop.service': {
@@ -236,19 +328,7 @@
         }
         stp.service = clone(p);
         stp.service.ts = ts;
-        var refTs = stp.fuelInTs || ts;
-        if (p.fuelAdded > 0) {
-          if (p.brimmed) {
-            var cap = p.capacityL;
-            s.fuel.anchors.push({ ts: refTs, before: Math.max(0, cap - p.fuelAdded), after: cap, kind: 'brim', w: 1, sessionId: stp.sessionId, stopId: stp.id });
-          } else if (p.fuelBeforeL != null) {
-            s.fuel.anchors.push({ ts: refTs, before: p.fuelBeforeL, after: p.fuelBeforeL + p.fuelAdded, kind: 'check+refuel', w: 0.5, sessionId: stp.sessionId, stopId: stp.id });
-          } else {
-            s.fuel.refuels.push({ ts: refTs, litres: p.fuelAdded, stopId: stp.id, sessionId: stp.sessionId });
-          }
-        } else if (p.fuelBeforeL != null) {
-          s.fuel.anchors.push({ ts: refTs, before: p.fuelBeforeL, after: p.fuelBeforeL, kind: 'check', w: 0.5, sessionId: stp.sessionId, stopId: stp.id });
-        }
+        serviceFuel(s, stp);
         if (p.penalty) stp.penalty = p.penalty;
         if (p.driverIn && p.driverIn !== s.drivers.activeId) {
           if (stp.outTs) driverSwap(s, stp, p.driverIn);
@@ -261,6 +341,15 @@
         (p.issuesFixed || []).forEach(function (id) {
           s.issues.forEach(function (it) { if (it.id === id) { it.status = 'fixed'; it.closedTs = ts; it.log.push({ ts: ts, note: 'Fixed at stop ' + stp.id }); } });
         });
+        break;
+      }
+      case 'fuel.full': {
+        // the engineer says the tank was (or was not) filled to full at this stop: the litres poured then measure the burn
+        var fst = findStop(s, p.stopId);
+        if (!fst || !fst.service || !(fst.service.fuelAdded > 0)) break;
+        fst.service.brimmed = !!p.full;
+        if (p.capacityL) fst.service.capacityL = p.capacityL;
+        serviceFuel(s, fst);
         break;
       }
       case 'fuel.check': {
@@ -281,6 +370,7 @@
       }
       case 'driver.set': {
         startStint(s, p.driverId, ts);
+        s.drivers.pickTs = ts;          // the engineer's driver call: the plan holds it until a racing lap (engine driverHeld)
         break;
       }
       case 'driver.queue': {
@@ -298,6 +388,13 @@
       }
       case 'crew.shiftsAll': {
         s.crew.shifts = clone(p.shifts || {});
+        break;
+      }
+      // refuel crew role filled by hand from the Race tab: holds until the next fuel stop is done (the engine drops it then)
+      case 'crew.pick': {
+        s.crew.picks = s.crew.picks || {};
+        if (p.memberId) s.crew.picks[p.role] = { memberId: p.memberId, ts: ts, by: e.by };
+        else delete s.crew.picks[p.role];
         break;
       }
       case 'crew.override': {
@@ -362,6 +459,7 @@
           var fs = findStop(s, p.stopId);
           if (fs && !fs.outTs && !fs.fuelInTs) { fs.fuelInTs = ts; if (!fs.statInTs) fs.statInTs = ts; }
         }
+        if (p.gate === 'driver' && !p.auto) s.drivers.pickTs = ts;   // engineer's driver call (change or stays): held until a racing lap
         if (p.gate === 'driver' && p.driverIn && p.driverIn !== s.drivers.activeId) {
           var gs = findStop(s, p.stopId);
           if (gs && !gs.voided) { if (gs.outTs) driverSwap(s, gs, p.driverIn); else s.drivers.pendingIn = p.driverIn; }
@@ -432,5 +530,5 @@
     return s;
   }
 
-  return { initialState: initialState, apply: apply, reduce: reduce, merge: merge, clone: clone, migrateConfig: migrateConfig, migrateEvent: migrateEvent, PIT_STATES: PIT_STATES, activeSession: activeSession };
+  return { PIT_MERGE_MS: PIT_MERGE_MS, initialState: initialState, apply: apply, reduce: reduce, merge: merge, clone: clone, migrateConfig: migrateConfig, migrateEvent: migrateEvent, PIT_STATES: PIT_STATES, activeSession: activeSession };
 });
